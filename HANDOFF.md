@@ -56,6 +56,11 @@ Append a row every time you hand the work over. Newest at the bottom.
    phone.
 5. **Write the handoff row before you stop.** Future-you on the other device
    has none of the context current-you has.
+6. **Push before you ask, not after.** Any change — however small — is committed
+   and pushed *before* the question that follows it. A question can wait in a
+   chat window for hours; an uncommitted change cannot survive the container
+   being reclaimed. Never end a turn holding unpushed work while waiting on an
+   answer.
 
 ---
 
