@@ -1,0 +1,25 @@
+rules_version = '2';
+
+// v2.1a — DENY ALL, deliberately.
+//
+// Nothing in the app talks to Firestore from the browser yet. Every read and
+// write goes through API routes and server components using the Admin SDK,
+// which bypasses these rules entirely — the same server-only shape the Prisma
+// build had (DECISIONS.md D1). So the safe default here is "no client access
+// at all", not a permissive placeholder that someone forgets to tighten.
+//
+// The real rules land in v2.1b, together with:
+//   - the privacy toggle enforced in rules (BUILD_PROMPT_V2.md §3, v1 §5.4)
+//   - the mandatory test proving an upline CANNOT read a downline's prospects
+//     while shareProspects is false (BUILD_PROMPT_V2.md §5.7)
+//   - client listeners for realtime QR capture, which is the first thing that
+//     actually needs client reads to be allowed
+//
+// Until then, if a client read starts failing, that is this file working.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -484,3 +484,94 @@ downline is actually waiting on.
 ## D4 — Next.js 16 notes (scaffolded 2026-08-08)
 
 create-next-app installed Next 16.3.0: `middleware.ts` is now `proxy.ts` (named `proxy` export, Node runtime), and `cookies()` / `headers()` / `params` / `searchParams` are strictly async everywhere. Docs live in `node_modules/next/dist/docs/` per AGENTS.md.
+
+## D34 — Firebase Auth uids are the pre-existing cuids (2026-08-09, v2.1a)
+
+The migration calls `auth.importUsers()` with `uid` set to each user's existing
+`cuid`, keyed by phone, instead of letting Firebase mint new uids at first sign-in.
+
+**Why:** every foreign key in the database — `coachId`, `userId`, `setById`,
+`requestedById` — points at the cuid, and migrated users do not sign in until
+*after* cutover, so a Firebase-minted uid does not exist at migration time. The
+alternatives were rewriting every foreign key later, or an `authUid → userId`
+mapping collection that costs a `get()` inside **every rule evaluation on every
+collection, forever**. Setting the uid ourselves costs one script and keeps
+Security Rules as plain `request.auth.uid == …` comparisons with no lookups.
+
+Users still re-verify by SMS exactly as BUILD_PROMPT_V2 §3 requires — they simply
+land back on the same id. Verified: `auth.getUser(cuid)` returns the user with the
+original E.164 phone intact.
+
+## D35 — Every `@@unique` became a deterministic document id (2026-08-09, v2.1a)
+
+Firestore has no unique constraints, and all four in the Prisma schema were
+load-bearing. Each is now expressed as the document id, because a `set()` on a
+deterministic id is an upsert and two racing writers converge on one document:
+
+| Was | Now |
+|---|---|
+| `unique(coachId, clientId)` (D6) | `prospects/{coachId}__{clientId}` |
+| `unique(prospectId, inputsHash)` (D20) | `reports/{prospectId}__{inputsHash}` |
+| `unique(userId, logDate)` (D26) | `dailyLogs/{userId}__{dayKey}` |
+| `unique(coachId, month)` | `targets/{coachId}__{month}` |
+
+**Do not replace these with auto-ids plus a query.** A query is not atomic, and the
+constraint silently stops existing — which for D20 means two live 90-day bearer
+tokens to one person's health data.
+
+`clientId` arrives from the browser, so `assertValidDocId` rejects ids containing
+`/`, the ids `.`/`..`, anything matching Firestore's reserved `__.*__` pattern, and
+anything over 1500 bytes. QR self-fills have no `clientId` and keep an auto-id.
+
+A count mismatch after migration is therefore usually two source rows colliding on
+one id — the constraint working, not a bug to paper over.
+
+## D36 — `uplinePath` is denormalised onto logs and targets (2026-08-09, v2.1a)
+
+`dailyLogs` and `targets` each carry a copy of their owner's `uplinePath`.
+
+**Why:** `buildTeamTree()` used **four `groupBy` aggregations**, which Firestore
+cannot express. BUILD_PROMPT_V2 §11 schedules the Cloud Function counters that
+replace them for v2.1b — but the team tree is v1 Phase 1, so v2.1a's parity gate
+has to prove it works. As written, v2.1a was asked to pass a gate using machinery
+it was not allowed to build yet.
+
+With the path denormalised, an upline's whole-line roll-up is one
+`array-contains` + `count()` and needs no Cloud Functions. Verified against the
+emulator: 6 August logs across a two-level line, with the 31 July logs correctly
+excluded. This also retires `isInDownline()`, which walked the tree with one query
+per hop for up to 100 hops.
+
+**Known limitation:** a log's `uplinePath` is frozen at write time, so moving a
+coach in the tree leaves historical logs on the old path. There is no UI for tree
+moves today and it is rare at pilot scale. If one is ever built, it must re-stamp
+that coach's descendants' logs and targets.
+
+## D37 — `importUsers()` is not an upsert, so the migration skips existing uids (2026-08-09, v2.1a)
+
+Discovered by re-running the migration against the emulator: `importUsers()` fails
+with *"localId belongs to an existing account — can not overwrite"* rather than
+updating. A migration interrupted after the Auth step could therefore never be
+re-run — it would fail at the same place every time and nothing downstream would
+execute.
+
+The script now looks up existing uids first (`getUsers`, max 100 identifiers per
+call) and imports only the missing ones. Combined with `batch.set()` on
+deterministic ids, which is already an upsert, the whole migration is safe to
+re-run. Verified: a second run reports `0 created, 4 already present` and every
+collection count is unchanged.
+
+This is why §3 says run it against a copy first. A one-shot migration that cannot
+resume after a partial failure is a trap.
+
+## D38 — Security Rules deny everything during v2.1a (2026-08-09, v2.1a)
+
+`firestore.rules` is `allow read, write: if false`.
+
+**Why:** nothing in the app talks to Firestore from the browser yet. Every read and
+write goes through API routes and server components using the Admin SDK, which
+bypasses rules entirely — the same server-only shape D1 established. A permissive
+placeholder is the kind of thing that survives to production; a deny-all cannot.
+
+The real rules land in v2.1b with the privacy toggle, its mandatory test, and the
+client listeners that are the first thing to actually need client reads.

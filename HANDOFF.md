@@ -37,7 +37,8 @@ Append a row every time you hand the work over. Newest at the bottom.
 | 1 | Phone → Claude Code web | Pulled the repo, created this file on the test branch, pushed. | Waiting on the PC leg. |
 | 2 | Phone → Claude Code web | Landed `BUILD_PROMPT_V2.md`; pointed `CLAUDE.md` and `DECISIONS.md` at it so v2 wins on conflict. No code touched. | v2.1a not started. |
 | 3 | Phone → Claude Code web | Wrote `PLAN_V2.1a.md` (read the real code first) and `RULES.md`. Found a sequencing conflict in v2 §11 — see plan §5. Still no code touched. | **Waiting on 3 approvals in `PLAN_V2.1a.md` §9.** Emulator work can start the moment they land. |
-| 4 | PC | _(fill this in from the PC — even one line is enough)_ | |
+| 4 | Phone → Claude Code web | Built the v2.1a foundation: Firebase config, emulator setup, `collections.ts`, migration + seed + verify scripts. 16/16 verification checks pass; `next build` and `tsc --noEmit` clean. | Auth swap and the 18 `lib/db` call sites are next. App still runs on Prisma. |
+| 5 | PC | _(fill this in from the PC — even one line is enough)_ | |
 
 ---
 
@@ -64,7 +65,19 @@ Append a row every time you hand the work over. Newest at the bottom.
 
 ---
 
-## Blocking v2.1a
+## Running the migration locally
+
+```bash
+npm run emulators        # auth :9099, firestore :8080, UI :4000
+npm run db:seed          # representative dev.db (3-level tree, month boundary)
+npm run migrate:firestore
+npm run migrate:verify   # 16 assertions — the real parity evidence
+```
+
+Both migration scripts are safe to re-run. The migration refuses to touch a real
+project unless `MIGRATE_ALLOW_PRODUCTION=1` is set deliberately.
+
+## Blocking cutover (not the build)
 
 The Firebase migration cannot start from a cloud session alone. Someone with
 console access has to do these first — none of them are code:

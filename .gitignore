@@ -38,6 +38,12 @@ yarn-error.log*
 *.db
 *.db-journal
 
+# firebase emulator artifacts
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase/
+
 # generated prisma client
 /src/generated/
 

@@ -6,12 +6,19 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "emulators": "firebase emulators:start --only auth,firestore --project growline-dev",
+    "db:seed": "tsx scripts/seed-sqlite.ts",
+    "migrate:firestore": "tsx scripts/migrate-to-firestore.ts",
+    "migrate:verify": "tsx scripts/verify-migration.ts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "dotenv": "^17.4.2",
+    "firebase": "^12.17.1",
+    "firebase-admin": "^14.2.0",
     "jose": "^6.2.8",
     "next": "16.3.0",
     "pdf-lib": "^1.17.1",
@@ -32,7 +39,9 @@
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
+    "firebase-tools": "^15.26.0",
     "tailwindcss": "^4",
+    "tsx": "^4.23.11",
     "typescript": "^5"
   }
 }

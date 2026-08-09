@@ -1,6 +1,12 @@
 # v2.1a — Firebase migration, part 1
 
-**Status: awaiting approval. No code written yet.**
+**Status: foundation built and verified against the emulators. Approved on "continue".**
+
+Done: §7 steps 1–4, plus the count check from step 7. Decisions 1–3 are implemented
+and recorded as D34–D38 in [DECISIONS.md](./DECISIONS.md).
+Not yet done: §7 steps 5–6 — the Auth swap in `session.ts` and porting the 18
+`lib/db` call sites. Until those land, the app still runs entirely on Prisma; the
+migration writes to Firestore but nothing reads from it.
 
 Scope per [BUILD_PROMPT_V2.md](./BUILD_PROMPT_V2.md) §11.1: Firebase project setup,
 Auth migration, Firestore schema, migration script, parity gate on Phases 1–2.
