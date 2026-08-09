@@ -1,5 +1,7 @@
 import { cache } from "react";
-import { prisma } from "./db";
+import { getReportByToken } from "./reports";
+import { getProspectById } from "./prospects";
+import { getUserById } from "./users";
 import { isValidReportToken } from "./report-token";
 import { isReportExpired, parseSnapshot, type ReportSnapshot } from "./report";
 
@@ -25,23 +27,20 @@ export type LoadedReport = {
 export const loadReportForRender = cache(
   async (token: string): Promise<LoadedReport | null> => {
     if (!isValidReportToken(token)) return null;
-    const row = await prisma.report.findUnique({
-      where: { token },
-      select: {
-        id: true,
-        token: true,
-        metricsJson: true,
-        createdAt: true,
-        prospect: {
-          select: {
-            name: true,
-            coachId: true,
-            coach: { select: { name: true, photoUrl: true, city: true, phone: true } },
-          },
-        },
-      },
-    });
-    if (!row || isReportExpired(row.createdAt)) return null;
+    const row = await getReportByToken(token);
+    if (!row) return null;
+
+    // Firestore has no joins. `coachId` is denormalised onto the report, so the
+    // prospect and the coach load in parallel rather than in a chain — this path
+    // serves every public surface (page, PNG, preview, PDF) and is the one a
+    // prospect waits on over a weak connection.
+    const [prospect, coach] = await Promise.all([
+      getProspectById(row.prospectId),
+      row.coachId ? getUserById(row.coachId) : Promise.resolve(null),
+    ]);
+    if (!prospect || !coach) return null;
+
+    if (isReportExpired(row.createdAt)) return null;
     const snapshot = parseSnapshot(row.metricsJson);
     if (!snapshot) return null;
 
@@ -50,9 +49,14 @@ export const loadReportForRender = cache(
       token: row.token,
       snapshot,
       // First name only: these images end up in group chats.
-      firstName: row.prospect.name.trim().split(/\s+/)[0],
-      coachId: row.prospect.coachId,
-      coach: row.prospect.coach,
+      firstName: prospect.name.trim().split(/\s+/)[0],
+      coachId: prospect.coachId,
+      coach: {
+        name: coach.name,
+        photoUrl: coach.photoUrl,
+        city: coach.city,
+        phone: coach.phone,
+      },
     };
   }
 );

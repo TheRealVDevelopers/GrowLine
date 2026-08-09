@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { prisma } from "./db";
+import { getReportByInputs, upsertReport } from "./reports";
 import { newReportToken } from "./report-token";
 import {
   computeWellness,
@@ -56,6 +56,8 @@ export type ReportSnapshot = {
 
 type ProspectForReport = {
   id: string;
+  /** Denormalised onto the report so public surfaces resolve the coach in one read. */
+  coachId?: string | null;
   age: number | null;
   gender: string | null;
   heightCm: number | null;
@@ -154,9 +156,7 @@ export async function ensureCurrentReport(prospect: ProspectForReport) {
   const metrics = computeWellness(inputs);
   const hash = inputsHash(inputs);
 
-  const existing = await prisma.report.findUnique({
-    where: { prospectId_inputsHash: { prospectId: prospect.id, inputsHash: hash } },
-  });
+  const existing = await getReportByInputs(prospect.id, hash);
   if (existing && !isReportExpired(existing.createdAt)) return existing;
 
   const snapshot: ReportSnapshot = {
@@ -171,19 +171,17 @@ export async function ensureCurrentReport(prospect: ProspectForReport) {
    * tokens to the same person's health data, only one of which the coach ever
    * sees or can mark as sent.
    *
-   * An expired row is refreshed in place: same identity, new token and timestamp.
+   * The identity is now the document id (D35), so concurrent renders converge on
+   * one document rather than relying on a database-level unique constraint that
+   * Firestore does not have. An expired row is refreshed in place: same identity,
+   * new token and timestamp.
    */
-  return prisma.report.upsert({
-    where: { prospectId_inputsHash: { prospectId: prospect.id, inputsHash: hash } },
-    create: {
-      prospectId: prospect.id,
-      inputsHash: hash,
-      token: newReportToken(),
-      metricsJson: JSON.stringify(snapshot),
-    },
-    update: existing
-      ? { token: newReportToken(), metricsJson: JSON.stringify(snapshot), createdAt: new Date(), sentAt: null }
-      : {},
+  return upsertReport({
+    prospectId: prospect.id,
+    coachId: prospect.coachId ?? null,
+    inputsHash: hash,
+    token: newReportToken(),
+    metricsJson: JSON.stringify(snapshot),
   });
 }
 
