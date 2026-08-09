@@ -1,7 +1,12 @@
 @AGENTS.md
 @BUILD_PROMPT_V2.md
+@RULES.md
 
 # GROWLINE — Master Build Prompt
+
+> **[RULES.md](./RULES.md) is the one-page version of every non-negotiable** in this
+> file, in v2, and in `DECISIONS.md`. Read it before every build session. The rules
+> themselves live here and in v2 — `RULES.md` is the index, not a replacement.
 
 > **v2 IS IN EFFECT. Read [BUILD_PROMPT_V2.md](./BUILD_PROMPT_V2.md) alongside this file —
 > where the two conflict, v2 WINS.** This document (v1) is still the product

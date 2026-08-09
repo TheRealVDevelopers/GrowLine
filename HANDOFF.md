@@ -35,8 +35,9 @@ Append a row every time you hand the work over. Newest at the bottom.
 | # | From | What was done | Where it stopped / what's next |
 |---|------|---------------|-------------------------------|
 | 1 | Phone → Claude Code web | Pulled the repo, created this file on the test branch, pushed. | Waiting on the PC leg. |
-| 2 | Phone → Claude Code web | Landed `BUILD_PROMPT_V2.md`; pointed `CLAUDE.md` and `DECISIONS.md` at it so v2 wins on conflict. No code touched. | v2.1a not started — blocked on a live Firebase project (see below). |
-| 3 | PC | _(fill this in from the PC — even one line is enough)_ | |
+| 2 | Phone → Claude Code web | Landed `BUILD_PROMPT_V2.md`; pointed `CLAUDE.md` and `DECISIONS.md` at it so v2 wins on conflict. No code touched. | v2.1a not started. |
+| 3 | Phone → Claude Code web | Wrote `PLAN_V2.1a.md` (read the real code first) and `RULES.md`. Found a sequencing conflict in v2 §11 — see plan §5. Still no code touched. | **Waiting on 3 approvals in `PLAN_V2.1a.md` §9.** Emulator work can start the moment they land. |
+| 4 | PC | _(fill this in from the PC — even one line is enough)_ | |
 
 ---
 
