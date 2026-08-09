@@ -57,11 +57,18 @@ Append a row every time you hand the work over. Newest at the bottom.
    phone.
 5. **Write the handoff row before you stop.** Future-you on the other device
    has none of the context current-you has.
-6. **Push before you ask, not after.** Any change — however small — is committed
-   and pushed *before* the question that follows it. A question can wait in a
-   chat window for hours; an uncommitted change cannot survive the container
-   being reclaimed. Never end a turn holding unpushed work while waiting on an
-   answer.
+6. **Push after every change, however small.** Not once at the end of a session —
+   after *each* discrete change, as it is finished. A file written, a bug fixed,
+   a script proven to run: commit it and push it, then carry on. Never batch a
+   session's work into one commit at the end.
+
+   Two reasons, and the second is the one that bites. An hour of unpushed work
+   is an hour a reclaimed container can delete. And a single fat commit is
+   unreviewable from a phone — small commits are the only way the other device
+   can actually see what changed.
+
+   This also means pushing *before* asking a question: a question can wait in a
+   chat window for hours, but unpushed work cannot. Never end a turn holding it.
 
 ---
 

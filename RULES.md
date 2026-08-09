@@ -65,7 +65,7 @@ commitment, or a rule that a previous session already broke and fixed.
 | E4 | **Read `node_modules/next/dist/docs/` before writing Next code.** This is Next 16 — `middleware.ts` is `proxy.ts`, and `cookies()`/`headers()`/`params`/`searchParams` are all async. | AGENTS.md · D4 |
 | E5 | **One session per §11 item.** Name the files. Never refactor completed work without asking. | v2 §11 |
 | E6 | **Write the decision down.** Anything that deviates from spec goes in `DECISIONS.md` with its reasoning — that record is why this file could be written at all. | v1 §10 |
-| E7 | **Push before you ask, not after.** Every change, however small, is committed and pushed *before* the question that follows it. Never end a turn holding unpushed work while waiting on an answer. | `HANDOFF.md` §6 |
+| E7 | **Push after every change, however small** — after each discrete change, not once at the end of a session. Never batch a session's work into one commit. This includes pushing before asking a question. | `HANDOFF.md` §6 |
 
 ---
 
