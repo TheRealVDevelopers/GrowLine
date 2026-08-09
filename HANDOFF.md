@@ -39,7 +39,8 @@ Append a row every time you hand the work over. Newest at the bottom.
 | 3 | Phone → Claude Code web | Wrote `PLAN_V2.1a.md` (read the real code first) and `RULES.md`. Found a sequencing conflict in v2 §11 — see plan §5. Still no code touched. | **Waiting on 3 approvals in `PLAN_V2.1a.md` §9.** Emulator work can start the moment they land. |
 | 4 | Phone → Claude Code web | Built the v2.1a foundation: Firebase config, emulator setup, `collections.ts`, migration + seed + verify scripts. 16/16 verification checks pass; `next build` and `tsc --noEmit` clean. | Auth swap and the 18 `lib/db` call sites are next. App still runs on Prisma. |
 | 5 | Phone → Claude Code web | Auth swapped onto Firebase: session cookies, phone auth in the browser, signup tokens retired. Deleted `otp.ts`, `referral.ts`, both OTP routes. Build + typecheck clean, 16/16 migration checks. | ~15 data call sites still on Prisma (prospects, logs, targets, team, push, reports). |
-| 6 | PC | _(fill this in from the PC — even one line is enough)_ | |
+| 6 | Phone → Claude Code web | Ported to Firestore: team tree (no `groupBy`), prospects, reports, public routes. Found and fixed an erasure bug — Firestore does not cascade deletes. Build clean, 27/27 checks. | **13 files still on Prisma** — see below. |
+| 7 | PC | _(fill this in from the PC — even one line is enough)_ | |
 
 ---
 
@@ -84,6 +85,23 @@ npm run migrate:verify   # 16 assertions — the real parity evidence
 
 Both migration scripts are safe to re-run. The migration refuses to touch a real
 project unless `MIGRATE_ALLOW_PRODUCTION=1` is set deliberately.
+
+## Still on Prisma (13 files)
+
+Port these, then `db.ts`, `prisma/` and the Prisma dependencies can go:
+
+- `src/lib/daily-log-queries.ts`, `followup-queries.ts`, `targets-queries.ts`,
+  `push.ts` — the remaining query modules. Port these first; most routes below
+  only call into them.
+- `api/prospects/[id]/pipeline`, `api/prospects/[id]/report`,
+  `api/public/capture/[code]`, `api/push/subscribe`, `api/push/unsubscribe`,
+  `api/notifications/daily`
+- `(app)/page.tsx`, `(app)/prospects/page.tsx`, `(app)/prospects/[id]/page.tsx`
+
+**Watch for the same class of bug found in erasure:** anything relying on a
+Prisma relation — `onDelete: Cascade`, a nested `select`, an implicit join — has
+no Firestore equivalent and must become an explicit second operation. Grep for
+`include:` and `select: {` with a nested object before porting each file.
 
 ## Blocking cutover (not the build)
 
