@@ -1,5 +1,6 @@
-import { prisma } from "./db";
-import { APP_TIMEZONE, dayKey, startOfDayInZone, todayRange } from "./day";
+import { dailyLogs, targets, users } from "./collections";
+import { APP_TIMEZONE, dayKey } from "./day";
+import { getUserById, toAppUser, type AppUser } from "./users";
 
 export type TeamNode = {
   id: string;
@@ -16,19 +17,6 @@ export type TeamNode = {
   hasMore: boolean;
 };
 
-/**
- * Month and day boundaries in the app's timezone, not the server's.
- *
- * These previously used server-local time. On a UTC host that counted the wrong
- * month for Indian coaches for the first 5.5 hours of every 1st, and read the wrong
- * "today" every night — which would have quietly corrupted the roll-ups this phase
- * is built on.
- */
-function monthStart(timeZone: string = APP_TIMEZONE, now = new Date()): Date {
-  const [year, month] = dayKey(now, timeZone).split("-");
-  return startOfDayInZone(`${year}-${month}-01`, timeZone);
-}
-
 export function currentMonthKey(
   timeZone: string = APP_TIMEZONE,
   now = new Date()
@@ -36,78 +24,98 @@ export function currentMonthKey(
   return dayKey(now, timeZone).slice(0, 7);
 }
 
-/** Walks up from userId; true if uplineId is an ancestor (or the user itself). */
+/**
+ * Day keys are "YYYY-MM-DD" strings, so lexicographic comparison IS chronological
+ * comparison — `>= "2026-08-01"` is a correct month filter with no date maths and
+ * no timezone drift. The keys were written in the coach's own zone (D26), which is
+ * what makes this right rather than merely convenient.
+ */
+function monthStartKey(timeZone: string = APP_TIMEZONE, now = new Date()): string {
+  return `${currentMonthKey(timeZone, now)}-01`;
+}
+
+/**
+ * True if uplineId is an ancestor of userId (or is the user).
+ *
+ * Was: a loop walking up `uplineId` with one query per hop, up to 100 hops. Now a
+ * single document read and an array membership test — the payoff D36 was written
+ * for.
+ */
 export async function isInDownline(uplineId: string, userId: string): Promise<boolean> {
-  let current: string | null = userId;
-  for (let hops = 0; hops < 100 && current; hops++) {
-    if (current === uplineId) return true;
-    const row: { uplineId: string | null } | null = await prisma.user.findUnique({
-      where: { id: current },
-      select: { uplineId: true },
-    });
-    current = row?.uplineId ?? null;
-  }
-  return false;
+  if (uplineId === userId) return true;
+  const user = await getUserById(userId);
+  return user ? user.uplinePath.includes(uplineId) : false;
 }
 
 /**
  * Tree of rootId + downlines, capped at `depth` levels per Section 11.
  * Nodes carry this month's activity summary (logs done, target %).
+ *
+ * ## Why this is not a per-node fan-out
+ *
+ * Firestore has no `groupBy`, so the four grouped aggregations this used to run
+ * cannot be expressed. The replacement is NOT "one count query per node" — that
+ * grows with team size and is exactly the shape a team screen should never have.
+ *
+ * Instead `uplinePath` (D36) makes the entire line reachable in one query:
+ * everything below the root has rootId in its path, at any depth. So the whole
+ * subtree's logs and targets arrive in a fixed number of queries regardless of
+ * how many coaches are in it, and the grouping happens in memory.
+ *
+ * The root's own rows need a separate query, because a user is not in their own
+ * uplinePath.
  */
 export async function buildTeamTree(rootId: string, depth = 3): Promise<TeamNode | null> {
-  const select = { id: true, name: true, photoUrl: true, city: true, uplineId: true };
-  const root = await prisma.user.findUnique({ where: { id: rootId }, select });
+  const root = await getUserById(rootId);
   if (!root) return null;
 
-  const all = [root];
+  // Breadth-first by uplineId, one query per level (depth is capped at 3).
+  const all: AppUser[] = [root];
   let frontier = [rootId];
   for (let level = 0; level < depth && frontier.length > 0; level++) {
-    const rows = await prisma.user.findMany({
-      where: { uplineId: { in: frontier } },
-      select,
-      orderBy: { createdAt: "asc" },
-    });
-    all.push(...rows);
-    frontier = rows.map((r) => r.id);
+    const next: AppUser[] = [];
+    // `in` accepts at most 30 values per query, so wide levels are chunked.
+    for (let i = 0; i < frontier.length; i += 30) {
+      const snap = await users()
+        .where("uplineId", "in", frontier.slice(i, i + 30))
+        .orderBy("createdAt", "asc")
+        .get();
+      next.push(...snap.docs.map(toAppUser).filter((u): u is AppUser => u !== null));
+    }
+    all.push(...next);
+    frontier = next.map((u) => u.id);
   }
 
-  const ids = all.map((u) => u.id);
-  const today = todayRange();
-  // Still a fixed number of queries regardless of team size — one more grouped
-  // count, not one per node.
-  const [logGroups, todayLogs, targets, childGroups] = await Promise.all([
-    prisma.dailyLog.groupBy({
-      by: ["userId"],
-      where: { userId: { in: ids }, logDate: { gte: monthStart() } },
-      _count: { _all: true },
-    }),
-    prisma.dailyLog.findMany({
-      where: {
-        userId: { in: ids },
-        logDate: { gte: today.start, lt: today.end },
-      },
-      select: { userId: true },
-    }),
-    prisma.target.findMany({
-      where: { coachId: { in: ids }, month: currentMonthKey() },
-      select: { coachId: true, targetPoints: true, progressPoints: true },
-    }),
-    prisma.user.groupBy({
-      by: ["uplineId"],
-      where: { uplineId: { in: ids } },
-      _count: { _all: true },
-    }),
+  const fromKey = monthStartKey();
+  const todayK = dayKey(new Date(), APP_TIMEZONE);
+  const month = currentMonthKey();
+
+  const [lineLogs, ownLogs, lineTargets, ownTargets] = await Promise.all([
+    dailyLogs()
+      .where("uplinePath", "array-contains", rootId)
+      .where("dayKey", ">=", fromKey)
+      .get(),
+    dailyLogs().where("userId", "==", rootId).where("dayKey", ">=", fromKey).get(),
+    targets().where("uplinePath", "array-contains", rootId).where("month", "==", month).get(),
+    targets().where("coachId", "==", rootId).where("month", "==", month).get(),
   ]);
 
-  const logsBy = new Map(logGroups.map((g) => [g.userId, g._count._all]));
-  const loggedTodayIds = new Set(todayLogs.map((l) => l.userId));
-  const targetBy = new Map(
-    targets.map((t) => [
-      t.coachId,
-      t.targetPoints > 0 ? Math.round((t.progressPoints / t.targetPoints) * 100) : null,
-    ])
-  );
-  const childCountBy = new Map(childGroups.map((g) => [g.uplineId, g._count._all]));
+  const logsBy = new Map<string, number>();
+  const loggedTodayIds = new Set<string>();
+  for (const doc of [...lineLogs.docs, ...ownLogs.docs]) {
+    const d = doc.data();
+    logsBy.set(d.userId, (logsBy.get(d.userId) ?? 0) + 1);
+    if (d.dayKey === todayK) loggedTodayIds.add(d.userId);
+  }
+
+  const targetBy = new Map<string, number | null>();
+  for (const doc of [...lineTargets.docs, ...ownTargets.docs]) {
+    const d = doc.data();
+    targetBy.set(
+      d.coachId,
+      d.targetPoints > 0 ? Math.round((d.progressPoints / d.targetPoints) * 100) : null
+    );
+  }
 
   const nodeBy = new Map<string, TeamNode>();
   for (const u of all) {
@@ -119,7 +127,9 @@ export async function buildTeamTree(rootId: string, depth = 3): Promise<TeamNode
       logsThisMonth: logsBy.get(u.id) ?? 0,
       loggedToday: loggedTodayIds.has(u.id),
       targetPct: targetBy.get(u.id) ?? null,
-      directCount: childCountBy.get(u.id) ?? 0,
+      // Materialised on the user document — Firestore cannot count children, and
+      // this is maintained in the same transaction as the signup that creates one.
+      directCount: u.directDownlineCount,
       children: [],
       hasMore: false,
     });

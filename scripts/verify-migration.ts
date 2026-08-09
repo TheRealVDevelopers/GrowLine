@@ -10,6 +10,7 @@
 import "dotenv/config";
 import { auth, db } from "../src/lib/firebase-admin";
 import { COLLECTIONS, dailyLogDocId, reportDocId } from "../src/lib/collections";
+import { buildTeamTree, isInDownline } from "../src/lib/team";
 
 const ROOT = "usr_root0000000000000000";
 const ASHA = "usr_asha0000000000000000";
@@ -99,6 +100,33 @@ async function main() {
   // --- OTP table is gone, not carried over ------------------------------------
   const otp = await db.collection("otpCodes").count().get();
   check("otp_codes NOT migrated (Firebase Auth owns this now)", otp.data().count === 0);
+
+  // --- team.ts on Firestore: the groupBy replacement, end to end --------------
+  const tree = await buildTeamTree(ROOT);
+  check("team tree builds from the root", tree !== null);
+  check("level 1 has both directs", tree?.children.length === 2,
+    tree?.children.map((c) => c.name).join(", "));
+
+  const ashaNode = tree?.children.find((c) => c.id === ASHA);
+  check("level 2 renders under the right parent",
+    ashaNode?.children.length === 1 && ashaNode.children[0].id === CHAN);
+
+  // Asha logged 4 days, one of them 31 July. Only 3 fall in the current month.
+  check("logsThisMonth excludes last month", ashaNode?.logsThisMonth === 3,
+    `${ashaNode?.logsThisMonth} logs`);
+  check("a coach with no logs shows zero",
+    tree?.children.find((c) => c.id === BHAV)?.logsThisMonth === 0);
+
+  // D31: 420/400 shown honestly as overshoot, not clamped or hidden.
+  check("targetPct derived from the numbers", ashaNode?.targetPct === 105,
+    `${ashaNode?.targetPct}%`);
+
+  check("directCount comes from the materialised counter", tree?.directCount === 2);
+  check("hasMore false when children are rendered", ashaNode?.hasMore === false);
+
+  check("isInDownline finds a grandchild", await isInDownline(ROOT, CHAN));
+  check("isInDownline rejects a sibling", (await isInDownline(BHAV, CHAN)) === false);
+  check("isInDownline treats a user as their own line", await isInDownline(ASHA, ASHA));
 
   console.log(failures === 0 ? "\nAll checks passed.\n" : `\n${failures} check(s) FAILED.\n`);
   if (failures > 0) process.exitCode = 1;
