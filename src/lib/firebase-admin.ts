@@ -47,20 +47,27 @@ const globalForFirebase = globalThis as unknown as {
 };
 
 export const app = globalForFirebase.firebaseApp ?? createApp();
+globalForFirebase.firebaseApp = app;
 
 function createFirestore(): Firestore {
-  const db = getFirestore(app);
-  // `undefined` is how an optional column arrives from a form. Without this the
-  // SDK throws on every optional prospect field (age, gender, height, weight)
-  // rather than simply omitting them.
-  db.settings({ ignoreUndefinedProperties: true });
-  return db;
+  const store = getFirestore(app);
+  // `settings()` may be called ONCE per Firestore instance, ever — a second call
+  // throws "Firestore has already been initialized".
+  //
+  // Next evaluates this module more than once while collecting page data, and
+  // both the firebase-admin app and its Firestore are process-wide singletons, so
+  // the second evaluation gets the same object back. Hence the cache is
+  // unconditional: gating it on NODE_ENV !== "production" (the shape D1 used for
+  // Prisma, where the concern was HMR duplicating clients) breaks `next build`.
+  if (!globalForFirebase.firestore) {
+    // `undefined` is how an optional column arrives from a form. Without this the
+    // SDK throws on every optional prospect field (age, gender, height, weight)
+    // rather than simply omitting them.
+    store.settings({ ignoreUndefinedProperties: true });
+    globalForFirebase.firestore = store;
+  }
+  return store;
 }
 
 export const db = globalForFirebase.firestore ?? createFirestore();
 export const auth = getAuth(app);
-
-if (process.env.NODE_ENV !== "production") {
-  globalForFirebase.firebaseApp = app;
-  globalForFirebase.firestore = db;
-}

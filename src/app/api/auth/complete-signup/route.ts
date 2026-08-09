@@ -1,21 +1,21 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { generateReferralCode } from "@/lib/referral";
-import { setSessionCookie, verifySignupToken } from "@/lib/session";
-
-const TRIAL_DAYS = 60;
+import { setSessionCookie, verifyPhoneToken } from "@/lib/session";
+import { createUser, getUserByPhone, getUserById, getUserByReferralCode } from "@/lib/users";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
-  const phone = body?.signupToken
-    ? await verifySignupToken(String(body.signupToken))
-    : null;
-  if (!phone) {
+
+  // The ID token replaces D2's short-lived signup JWT: same job — carrying a
+  // verified phone through profile setup — but minted and signed by Firebase.
+  const idToken = typeof body?.idToken === "string" ? body.idToken : "";
+  const verified = idToken ? await verifyPhoneToken(idToken) : null;
+  if (!verified) {
     return NextResponse.json(
       { error: "Your session expired. Please verify your number again." },
       { status: 401 }
     );
   }
+  const { uid, phone } = verified;
 
   const name = String(body?.name ?? "").trim();
   const city = String(body?.city ?? "").trim();
@@ -31,37 +31,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Please enter your city." }, { status: 400 });
   }
 
-  let uplineId: string | null = null;
-  if (refInput) {
-    const upline = await prisma.user.findUnique({ where: { referralCode: refInput } });
-    if (!upline) {
-      return NextResponse.json(
-        { error: "That referral code doesn't match any coach. Check it or leave it empty." },
-        { status: 400 }
-      );
-    }
-    uplineId = upline.id;
+  const upline = refInput ? await getUserByReferralCode(refInput) : null;
+  if (refInput && !upline) {
+    return NextResponse.json(
+      { error: "That referral code doesn't match any coach. Check it or leave it empty." },
+      { status: 400 }
+    );
   }
 
-  const existing = await prisma.user.findUnique({ where: { phone } });
-  if (existing) {
+  // Two guards, not one. The uid check catches a double submit of this form; the
+  // phone check catches a number that already has an account under a different
+  // uid — which is what a migrated user hitting signup instead of login looks like.
+  if (await getUserById(uid)) {
+    return NextResponse.json({ error: "This account already exists. Log in instead." }, { status: 409 });
+  }
+  if (await getUserByPhone(phone)) {
     return NextResponse.json(
       { error: "This number already has an account. Log in instead." },
       { status: 409 }
     );
   }
 
-  const user = await prisma.user.create({
-    data: {
-      phone,
-      name,
-      city,
-      photoUrl,
-      uplineId,
-      referralCode: await generateReferralCode(),
-      trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
-    },
-  });
-  await setSessionCookie(user.id);
+  await createUser({ uid, phone, name, city, photoUrl, upline });
+  await setSessionCookie(idToken);
   return NextResponse.json({ ok: true });
 }

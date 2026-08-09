@@ -7,7 +7,7 @@ import { Avatar } from "./Avatar";
 
 type SignupProps = {
   mode: "signup";
-  signupToken: string;
+  idToken: string;
   initialReferral?: string;
 };
 type EditProps = {
@@ -56,7 +56,7 @@ export default function ProfileForm(props: Props) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              signupToken: props.signupToken,
+              idToken: props.idToken,
               name,
               city,
               photoUrl: photoUrl ?? undefined,

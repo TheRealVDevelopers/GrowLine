@@ -24,7 +24,8 @@ export type AppUser = {
   referralCode: string;
   levelName: string | null;
   plan: string;
-  trialEndsAt: Date | null;
+  /** Required in the Prisma model it replaces, so kept non-null here too. */
+  trialEndsAt: Date;
   shareProspects: boolean;
   followupPushOn: string | null;
   createdAt: Date;
@@ -48,7 +49,9 @@ export function toAppUser(snap: DocumentSnapshot): AppUser | null {
     referralCode: d.referralCode,
     levelName: d.levelName ?? null,
     plan: d.plan ?? "trial",
-    trialEndsAt: toDate(d.trialEndsAt),
+    // Epoch rather than "now" when absent: a missing date should read as an
+    // expired trial the coach can see, not a fresh one silently granted.
+    trialEndsAt: toDate(d.trialEndsAt) ?? new Date(0),
     shareProspects: d.shareProspects === true,
     followupPushOn: d.followupPushOn ?? null,
     createdAt: toDate(d.createdAt) ?? new Date(0),

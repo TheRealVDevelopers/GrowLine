@@ -1,27 +1,26 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
 import { getSessionUserId } from "@/lib/session";
+import { getUserById, updateUser } from "@/lib/users";
 import { MAX_LEVEL_NAME } from "@/lib/targets";
 
 export async function GET() {
   const uid = await getSessionUserId();
   if (!uid) return NextResponse.json({ error: "Not logged in" }, { status: 401 });
-  const user = await prisma.user.findUnique({
-    where: { id: uid },
-    select: {
-      id: true,
-      phone: true,
-      name: true,
-      photoUrl: true,
-      city: true,
-      referralCode: true,
-      plan: true,
-      trialEndsAt: true,
-      createdAt: true,
+  const user = await getUserById(uid);
+  if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json({
+    user: {
+      id: user.id,
+      phone: user.phone,
+      name: user.name,
+      photoUrl: user.photoUrl,
+      city: user.city,
+      referralCode: user.referralCode,
+      plan: user.plan,
+      trialEndsAt: user.trialEndsAt,
+      createdAt: user.createdAt,
     },
   });
-  if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ user });
 }
 
 export async function PATCH(req: Request) {
@@ -71,7 +70,8 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Nothing to save." }, { status: 400 });
   }
 
-  const user = await prisma.user.update({ where: { id: uid }, data });
+  const user = await updateUser(uid, data);
+  if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({
     ok: true,
     user: { name: user.name, city: user.city, levelName: user.levelName },

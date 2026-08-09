@@ -1,8 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import {
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  type ConfirmationResult,
+} from "firebase/auth";
 import ProfileForm from "@/components/ProfileForm";
+import { firebaseAuth, usingAuthEmulator } from "@/lib/firebase";
 
 type Step = "phone" | "otp" | "profile";
 
@@ -16,30 +22,52 @@ export default function LoginFlow() {
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
-  const [devCode, setDevCode] = useState<string | null>(null);
-  const [signupToken, setSignupToken] = useState("");
+  const [idToken, setIdToken] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Firebase holds the SMS session between "send code" and "check code".
+  const confirmation = useRef<ConfirmationResult | null>(null);
+  const verifier = useRef<RecaptchaVerifier | null>(null);
+
+  /**
+   * Invisible reCAPTCHA, created once and reused. Firebase requires a verifier
+   * for web phone auth — there is no way to opt out — but "invisible" means the
+   * coach sees nothing unless Google decides the request looks automated.
+   * The emulator needs no verifier at all.
+   */
+  const getVerifier = () => {
+    if (!verifier.current) {
+      verifier.current = new RecaptchaVerifier(firebaseAuth(), "recaptcha-container", {
+        size: "invisible",
+      });
+    }
+    return verifier.current;
+  };
 
   const requestOtp = async () => {
     setError("");
     setBusy(true);
     try {
-      const res = await fetch("/api/auth/request-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Something went wrong. Try again.");
-        return;
-      }
-      setDevCode(data.devCode ?? null);
+      confirmation.current = await signInWithPhoneNumber(
+        firebaseAuth(),
+        `+91${phone}`,
+        getVerifier()
+      );
       setCode("");
       setStep("otp");
-    } catch {
-      setError("No connection. Check your network and try again.");
+    } catch (e) {
+      const code = (e as { code?: string })?.code ?? "";
+      setError(
+        code === "auth/too-many-requests"
+          ? "Too many attempts from this number. Try again in a little while."
+          : code === "auth/invalid-phone-number"
+            ? "That number doesn't look right. Check and try again."
+            : "Could not send the code. Check your network and try again."
+      );
+      // A used verifier cannot be reused after a failure.
+      verifier.current?.clear();
+      verifier.current = null;
     } finally {
       setBusy(false);
     }
@@ -49,10 +77,18 @@ export default function LoginFlow() {
     setError("");
     setBusy(true);
     try {
-      const res = await fetch("/api/auth/verify-otp", {
+      if (!confirmation.current) {
+        setError("That code expired. Please request a new one.");
+        setStep("phone");
+        return;
+      }
+      const cred = await confirmation.current.confirm(otp);
+      const token = await cred.user.getIdToken();
+
+      const res = await fetch("/api/auth/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, code: otp }),
+        body: JSON.stringify({ idToken: token }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -60,14 +96,23 @@ export default function LoginFlow() {
         return;
       }
       if (data.isNewUser) {
-        setSignupToken(data.signupToken);
+        // No session cookie yet — the token carries the verified number through
+        // profile setup, and the cookie is issued once the user document exists.
+        setIdToken(token);
         setStep("profile");
       } else {
         router.replace("/");
         router.refresh();
       }
-    } catch {
-      setError("No connection. Check your network and try again.");
+    } catch (e) {
+      const code = (e as { code?: string })?.code ?? "";
+      setError(
+        code === "auth/invalid-verification-code"
+          ? "That code isn't right. Check and try again."
+          : code === "auth/code-expired"
+            ? "That code expired. Please request a new one."
+            : "Something went wrong. Try again."
+      );
     } finally {
       setBusy(false);
     }
@@ -141,9 +186,9 @@ export default function LoginFlow() {
               Enter the 6-digit code sent to{" "}
               <span className="font-semibold">+91 {phone.slice(0, 5)} {phone.slice(5)}</span>
             </p>
-            {devCode && (
+            {usingAuthEmulator && (
               <p className="rounded-xl border border-gold bg-gold-100 px-4 py-3 text-sm">
-                Dev mode — your code is <b className="tracking-widest">{devCode}</b>
+                Emulator — use the code configured for this test number.
               </p>
             )}
             <input
@@ -173,10 +218,14 @@ export default function LoginFlow() {
         {step === "profile" && (
           <div className="flex flex-col gap-4">
             <h2 className="text-xl font-semibold">Welcome! Tell us about you</h2>
-            <ProfileForm mode="signup" signupToken={signupToken} initialReferral={refCode} />
+            <ProfileForm mode="signup" idToken={idToken} initialReferral={refCode} />
           </div>
         )}
       </div>
+
+      {/* Firebase mounts the invisible reCAPTCHA here. Must exist before
+          signInWithPhoneNumber runs, and must not be conditionally rendered. */}
+      <div id="recaptcha-container" />
     </main>
   );
 }
