@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
 import { getSessionUserId } from "@/lib/session";
 import { parseProspectInput } from "@/lib/prospect";
 import { ensureCurrentReport } from "@/lib/report";
+import { createProspect, listProspectsByCoach } from "@/lib/prospects";
 
 const MAX_CLIENT_ID = 64;
 
@@ -12,22 +12,19 @@ export async function GET() {
 
   // Scoped to the signed-in coach only. An upline has no route to these rows
   // (Section 5.4) — only activity counts ever travel upward.
-  const prospects = await prisma.prospect.findMany({
-    where: { coachId: uid },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      name: true,
-      phone: true,
-      age: true,
-      gender: true,
-      heightCm: true,
-      weightKg: true,
-      stage: true,
-      source: true,
-      createdAt: true,
-    },
-  });
+  const rows = await listProspectsByCoach(uid);
+  const prospects = rows.map((p) => ({
+    id: p.id,
+    name: p.name,
+    phone: p.phone,
+    age: p.age,
+    gender: p.gender,
+    heightCm: p.heightCm,
+    weightKg: p.weightKg,
+    stage: p.stage,
+    source: p.source,
+    createdAt: p.createdAt,
+  }));
   return NextResponse.json({ prospects });
 }
 
@@ -45,28 +42,18 @@ export async function POST(req: Request) {
       ? rawClientId.slice(0, MAX_CLIENT_ID)
       : null;
 
-  // Replaying a queued capture must not create a second person.
-  if (clientId) {
-    const existing = await prisma.prospect.findUnique({
-      where: { coachId_clientId: { coachId: uid, clientId } },
-      select: { id: true },
-    });
-    if (existing) {
-      return NextResponse.json({ ok: true, id: existing.id, duplicate: true });
-    }
+  // Replaying a queued capture must not create a second person. The check is no
+  // longer a lookup-then-insert: the composite document id makes it atomic (D35).
+  const { prospect, duplicate } = await createProspect({
+    coachId: uid,
+    clientId,
+    source: "manual",
+    ...parsed.value,
+  });
+  if (duplicate) {
+    return NextResponse.json({ ok: true, id: prospect.id, duplicate: true });
   }
 
-  const prospect = await prisma.prospect.create({
-    data: { coachId: uid, clientId, source: "manual", ...parsed.value },
-    select: {
-      id: true,
-      name: true,
-      age: true,
-      gender: true,
-      heightCm: true,
-      weightKg: true,
-    },
-  });
   // F3: the report is generated on save, not on demand, so it's ready to send.
   const report = await ensureCurrentReport(prospect);
   return NextResponse.json({
