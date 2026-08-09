@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+/* Section 9 design tokens. Light theme only — deliberate for v1. */
+@theme {
+  --color-navy: #14213d;
+  --color-navy-600: #1d2f57;
+  --color-navy-100: #e8ebf3;
+  --color-gold: #fca311;
+  --color-gold-600: #c47c00;
+  --color-gold-100: #fef3dd;
+  --color-surface: #f5f6fa;
+  --color-success: #2e7d32;
+  --color-success-100: #e6f2e7;
+  --color-error: #d32f2f;
+  --color-error-100: #fdecec;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  background: #ffffff;
+  color: var(--color-navy);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The QR poster prints on its own — app chrome is not part of the page. */
+@media print {
+  header,
+  nav,
+  aside {
+    display: none !important;
+  }
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+}
