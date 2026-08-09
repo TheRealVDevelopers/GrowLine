@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { prisma } from "@/lib/db";
+import { getUserByReferralCode } from "@/lib/users";
 import { Avatar } from "@/components/Avatar";
 import SelfCaptureForm from "./SelfCaptureForm";
 
@@ -15,10 +15,7 @@ export default async function PublicCapturePage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const coach = await prisma.user.findUnique({
-    where: { referralCode: code.toUpperCase() },
-    select: { name: true, city: true, photoUrl: true, referralCode: true },
-  });
+  const coach = await getUserByReferralCode(code.toUpperCase());
 
   if (!coach) {
     return (

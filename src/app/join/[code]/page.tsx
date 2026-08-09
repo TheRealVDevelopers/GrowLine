@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { prisma } from "@/lib/db";
+import { getUserByReferralCode } from "@/lib/users";
 import { Avatar } from "@/components/Avatar";
 
 export default async function JoinPage({
@@ -8,10 +8,7 @@ export default async function JoinPage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const upline = await prisma.user.findUnique({
-    where: { referralCode: code.toUpperCase() },
-    select: { name: true, city: true, photoUrl: true, referralCode: true },
-  });
+  const upline = await getUserByReferralCode(code.toUpperCase());
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-6 py-10">

@@ -83,3 +83,23 @@ export async function upsertReport(params: {
 export async function markReportSent(id: string): Promise<void> {
   await reports().doc(id).update({ sentAt: Timestamp.now() });
 }
+
+/**
+ * Deletes every report for a prospect.
+ *
+ * Under Prisma this happened for free: `onDelete: Cascade` on the relation meant
+ * deleting the prospect took their reports with it. **Firestore has no cascading
+ * deletes.** Without this, erasure would remove the prospect row and leave live
+ * report documents behind — each one still a working 90-day bearer token to that
+ * person's health data (D17), reachable by anyone holding the link.
+ *
+ * That is the exact opposite of what the erasure control promises, so any future
+ * code path that deletes a prospect must call this too.
+ */
+export async function deleteReportsForProspect(prospectId: string): Promise<void> {
+  const snap = await reports().where("prospectId", "==", prospectId).get();
+  if (snap.empty) return;
+  const batch = reports().firestore.batch();
+  for (const doc of snap.docs) batch.delete(doc.ref);
+  await batch.commit();
+}

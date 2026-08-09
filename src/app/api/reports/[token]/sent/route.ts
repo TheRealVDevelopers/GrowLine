@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { getReportByToken, markReportSent } from "@/lib/reports";
+import { getProspectById } from "@/lib/prospects";
 import { getSessionUserId } from "@/lib/session";
 import { isValidReportToken } from "@/lib/report-token";
 
@@ -19,19 +20,15 @@ export async function POST(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const report = await prisma.report.findUnique({
-    where: { token },
-    select: { id: true, sentAt: true, prospect: { select: { coachId: true } } },
-  });
-  if (!report || report.prospect.coachId !== uid) {
+  const report = await getReportByToken(token);
+  // coachId is denormalised onto the report, but fall back to the prospect for
+  // rows written before that field existed.
+  const coachId =
+    report?.coachId ?? (report ? (await getProspectById(report.prospectId))?.coachId : null);
+  if (!report || coachId !== uid) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (!report.sentAt) {
-    await prisma.report.update({
-      where: { id: report.id },
-      data: { sentAt: new Date() },
-    });
-  }
+  if (!report.sentAt) await markReportSent(report.id);
   return NextResponse.json({ ok: true });
 }
