@@ -1,6 +1,21 @@
 @AGENTS.md
+@BUILD_PROMPT_V2.md
 
 # GROWLINE — Master Build Prompt
+
+> **v2 IS IN EFFECT. Read [BUILD_PROMPT_V2.md](./BUILD_PROMPT_V2.md) alongside this file —
+> where the two conflict, v2 WINS.** This document (v1) is still the product
+> definition: who the users are, the hard rules, the feature specs. But three things
+> below are superseded and must NOT be built as written:
+>
+> | v1 says | v2 says | Where |
+> |---|---|---|
+> | Supabase + Postgres + RLS | **Firebase**: Auth, Firestore, Storage, FCM, App Hosting | v2 §3 |
+> | 60-day trial + autopay mandate at signup | **CANCELLED.** Freemium tiers, mandate only at paid conversion | v2 §8 |
+> | Light theme, navy/gold | **Dark theme by default** ("Dark Achiever"); light is an option | v2 §4 |
+>
+> Phases 1–6 below are COMPLETE. Remaining work is sequenced by v2 §11, not v1 §14.
+> The v1 hard rules (§5) are untouched and still absolute.
 
 WHY: New app from scratch — plan deep once, then build feature-by-feature cheaply.
 

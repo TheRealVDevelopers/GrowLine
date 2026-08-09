@@ -34,8 +34,9 @@ Append a row every time you hand the work over. Newest at the bottom.
 
 | # | From | What was done | Where it stopped / what's next |
 |---|------|---------------|-------------------------------|
-| 1 | Phone → Claude Code web | Pulled the repo, created this file on the test branch, pushed. | Waiting on Leg 2 — PC needs to pull and add row 2. |
-| 2 | PC | _(fill this in from the PC — even one line is enough)_ | |
+| 1 | Phone → Claude Code web | Pulled the repo, created this file on the test branch, pushed. | Waiting on the PC leg. |
+| 2 | Phone → Claude Code web | Landed `BUILD_PROMPT_V2.md`; pointed `CLAUDE.md` and `DECISIONS.md` at it so v2 wins on conflict. No code touched. | v2.1a not started — blocked on a live Firebase project (see below). |
+| 3 | PC | _(fill this in from the PC — even one line is enough)_ | |
 
 ---
 
@@ -57,10 +58,26 @@ Append a row every time you hand the work over. Newest at the bottom.
 
 ---
 
+## Blocking v2.1a
+
+The Firebase migration cannot start from a cloud session alone. Someone with
+console access has to do these first — none of them are code:
+
+1. Create the Firebase project and **enable the Blaze plan** (Cloud Functions,
+   Cloud Scheduler and App Hosting all require it; Spark cannot run any of them).
+2. Enable **Phone** as an Auth provider, and confirm SMS pricing and delivery for
+   Indian numbers.
+3. Put the web app config + a service-account key into `.env` (and confirm
+   whether App Hosting actually supports Next.js 16.3 — if not, v2 §3 pre-approves
+   the Vercel-front fallback, with the reason written into `DECISIONS.md`).
+
+Until those exist, a session can write migration code but cannot run or verify it,
+and v2 §3's parity gate says nothing new gets built on an unverified migration.
+
 ## Where this repo sits, and what needs a PC
 
-Current state: one commit, phases 1–6. `CLAUDE.md` §14 says phases go **one at
-a time** — so the natural unit of a handoff here is one phase.
+Current state: phases 1–6 complete. Build order is now **v2 §11**, one session at
+a time — so the natural unit of a handoff here is one build session.
 
 Keep these on the PC leg — they cannot be confirmed from a phone session:
 

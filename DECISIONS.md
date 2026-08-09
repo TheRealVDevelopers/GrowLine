@@ -2,6 +2,23 @@
 
 Deviations from the Section 10 stack recommendation, with reasons (as Section 10 requires).
 
+> **⚠️ The migration target changed in v2. Several decisions below name Supabase as
+> the destination — that is now WRONG.** [BUILD_PROMPT_V2.md](./BUILD_PROMPT_V2.md) §3
+> replaces it with Firebase. Read the swap points in these entries as pointing at
+> Firebase, not Supabase:
+>
+> | Decision | Says "swap to…" | Actually swap to |
+> |---|---|---|
+> | D1 (SQLite database) | Supabase Postgres + RLS | **Cloud Firestore + Security Rules** |
+> | D2 (custom OTP + JWT) | Supabase Auth | **Firebase Auth, Phone provider** |
+> | D3 (data-URL photos) | Supabase Storage | **Firebase Storage** (+ resize Function) |
+> | D22 (Web Push/VAPID) | FCM later, for Android only | **FCM now, replacing VAPID entirely** |
+> | D33 (no video proofs) | blocked on object storage | **Unblocked** — Firebase Storage |
+>
+> The *reasoning* in each entry still holds; only the destination moved. D11 is
+> unaffected — v2 §3 does not ask for report blobs in Storage, so reports keep
+> rendering on demand from the frozen snapshot.
+
 ## D1 — Local dev database: Prisma + SQLite instead of Supabase (2026-08-08, Phase 1)
 
 **Why:** No Supabase project/credentials exist yet, and the user asked to start with a dev-mode OTP stub (no external services). Prisma + SQLite gives a zero-setup local database.
