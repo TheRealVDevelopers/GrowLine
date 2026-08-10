@@ -1588,3 +1588,42 @@ Leader trial or a locked founding price, and both are meaningless until tiers an
 exist (v2.6). A screen that creates codes today creates codes that do nothing — and
 somebody would hand them out at a club launch and find out in front of a room. A dead nav
 item is worse than an absent one.
+
+## D64 — dailyLogs and targets are closed to clients; the snapshot grant is gone (2026-08-10)
+
+The last open finding from the v2.1 audit: `dailyLogs` and `targets` authorised reads with
+`inLineOf(resource.data.uplinePath)`, where that `uplinePath` is a **snapshot** taken when
+the row was written. `prospects` resolves the coach live and follows the tree; these did
+not.
+
+**Why it had to be fixed before re-parenting, not after.** Left alone it is a stale
+roll-up. The moment a coach can be moved — the point of "Link my line" — it becomes a stale
+**grant**: every log and target written before the move still names the OLD upline, so that
+upline keeps read access to a coach who no longer reports to them, indefinitely, while the
+new upline has none. A permission that outlives the relationship it was derived from.
+
+**Resolved by closing both collections to every client, including the owning coach.**
+
+The live-lookup alternative — `uid() in coach(resource.data.userId).uplinePath`, the shape
+`prospects` uses — is correct but forces every client query to pin `userId`, and the only
+query these collections are read with filters on `uplinePath` instead. So the correct rule
+would break the only query shape that exists.
+
+The real answer is that **no browser code reads either collection.** Verified rather than
+assumed: the only client-side Firestore reads in the repo are `prospects`
+(`RealtimeProspects`) and `threads` (`RealtimeThreads`). This was a grant no feature had
+asked for — the same thing D48 closed on `users`, for the same reason.
+
+**Activity still flows up** (v1 §5.4). It always did so through the Admin SDK:
+`buildTeamTree()` is server-side and untouched. Confirmed by the full suite passing
+unchanged, which is the point — if a screen had depended on the client grant, e2e would have
+caught it.
+
+The rules test that used to assert an upline **can** read a downline's log now asserts it
+**cannot**, so reopening this has to be somebody's deliberate decision. A `targets` fixture
+was added at the same time, because the new assertion would otherwise have passed vacuously
+against a document that did not exist.
+
+**A note for whoever adds a client-side team roll-up.** It gets a rule written against the
+query it actually makes — and that rule must resolve the coach live, because a
+snapshot-based grant is wrong again the day re-parenting ships.

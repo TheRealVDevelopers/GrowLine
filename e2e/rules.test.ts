@@ -137,8 +137,14 @@ async function main() {
     await setDoc(doc(db, "dailyLogs", "l_bhav"), {
       userId: BHAV, uplinePath: [ROOT], dayKey: "2026-08-09", servings: 3,
     });
+    // A real targets document, so the "targets are closed" check below is testing a
+    // denied read rather than passing vacuously on a document that does not exist.
+    await setDoc(doc(db, "targets", "t_asha"), {
+      coachId: ASHA, setById: ROOT, uplinePath: [ROOT], month: "2026-08",
+      targetPoints: 500, progressPoints: 120, status: "active",
+    });
     await setDoc(doc(db, "proofs", "pr_1"), {
-      targetId: "t1", coachId: ASHA, requestedById: ROOT, status: "submitted",
+      targetId: "t_asha", coachId: ASHA, requestedById: ROOT, status: "submitted",
     });
     await setDoc(doc(db, "reports", "r_1"), {
       prospectId: "p_asha", coachId: ASHA, token: "tok", metricsJson: "{}",
@@ -224,13 +230,28 @@ async function main() {
     assertFails(getDocs(collection(as(ROOT), "prospects")))
   );
 
-  // ---- Activity counts DO flow up, regardless of the toggle ------------------
-  await check(
-    "activity flows up even with the toggle OFF — the accountability loop survives",
-    () => assertSucceeds(getDoc(doc(as(ROOT), "dailyLogs", "l_bhav")))
+  /**
+   * dailyLogs and targets are closed to every CLIENT, including the owning coach.
+   *
+   * Activity still flows up (v1 §5.4) — it always did so through the Admin SDK, and
+   * `buildTeamTree()` is unaffected. What is gone is a browser-readable grant based on a
+   * `uplinePath` SNAPSHOT, which would have turned into a stale GRANT the day a coach can
+   * be re-parented: the old upline keeping read access forever, the new one having none.
+   *
+   * The upline read used to be asserted as a success here. It is now asserted as a
+   * failure, deliberately, so reopening it has to be a decision somebody makes on purpose.
+   */
+  await check("an upline cannot read a downline's daily log FROM A CLIENT", () =>
+    assertFails(getDoc(doc(as(ROOT), "dailyLogs", "l_bhav")))
   );
-  await check("a sibling still cannot read another's daily log", () =>
+  await check("nor can the coach who owns it — nothing in the browser reads it", () =>
+    assertFails(getDoc(doc(as(BHAV), "dailyLogs", "l_bhav")))
+  );
+  await check("a sibling certainly cannot", () =>
     assertFails(getDoc(doc(as(ASHA), "dailyLogs", "l_bhav")))
+  );
+  await check("targets are closed to clients the same way", () =>
+    assertFails(getDoc(doc(as(ASHA), "targets", "t_asha")))
   );
 
   // ---- Users are server-only -------------------------------------------------

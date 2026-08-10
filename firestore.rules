@@ -136,20 +136,46 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    /**
+     * dailyLogs and targets are closed to every client, INCLUDING the coach who owns
+     * them. Both used to grant reads up the line via `inLineOf(resource.data.uplinePath)`.
+     *
+     * ## Why that grant had to go
+     *
+     * The `uplinePath` on these documents is a SNAPSHOT taken when the row was written.
+     * `prospects` resolves the coach live, so it follows the tree; these did not. The
+     * moment a coach can be re-parented — which is the whole point of the "Link my line"
+     * work — every log and target written before the move keeps pointing at the OLD
+     * upline. The result is not a stale roll-up, it is a stale GRANT: the previous upline
+     * keeps read access to a coach who no longer reports to them, indefinitely, and the
+     * new upline has none.
+     *
+     * Counts still flow up (v1 §5.4). They always did so through the Admin SDK — the team
+     * roll-up is `buildTeamTree()` on the server, and it is unaffected by this rule.
+     *
+     * ## Why deny rather than resolve live
+     *
+     * A live lookup — `uid() in coach(resource.data.userId).uplinePath`, the shape
+     * `prospects` uses — would be correct, but it forces every client query to pin
+     * `userId`, and the whole-line roll-up query filters on `uplinePath` instead. So the
+     * live rule would break the only query shape this collection is read with.
+     *
+     * The real answer is that no browser code reads either collection: verified, the only
+     * client-side Firestore reads in the repo are `prospects` (RealtimeProspects) and
+     * `threads` (RealtimeThreads). This was a grant no feature asked for — exactly what
+     * D48 closed on `users`, for the same reason.
+     *
+     * If a future screen needs a live team roll-up in the browser, it gets a rule then,
+     * written against the query it actually makes — as a decision, not an inheritance.
+     * Note that a snapshot-based grant will be wrong again the day re-parenting ships, so
+     * that rule must resolve the coach live.
+     */
     match /dailyLogs/{logId} {
-      // Counts always flow up, regardless of the prospect toggle — this is the
-      // accountability loop F6 is built on, and it carries no prospect identity.
-      allow read: if signedIn() && (
-        uid() == resource.data.userId || inLineOf(resource.data.uplinePath)
-      );
-      allow write: if false;
+      allow read, write: if false;
     }
 
     match /targets/{targetId} {
-      allow read: if signedIn() && (
-        uid() == resource.data.coachId || inLineOf(resource.data.uplinePath)
-      );
-      allow write: if false;
+      allow read, write: if false;
     }
 
     match /proofs/{proofId} {
