@@ -1463,3 +1463,61 @@ flow. It needs a grievance officer, a contact address and the legal entity — f
 the owner can supply — and human translation for the four languages, so it is not
 buildable here. The consent tick does not depend on it, and the erasure control on the
 report page (D17) already gives the prospect a self-serve exit.
+
+## D62 — the admin panel shows counts, and admin access is an env allowlist (2026-08-10, F12)
+
+### Access is `ADMIN_UIDS`, not a database flag
+
+A Firestore `admins/{uid}` document would let an admin be added without a deploy. That
+convenience is exactly why it was rejected: it makes "who can see every coach's numbers"
+writable by anything that can write to the database, and it makes a privilege grant
+invisible in version control. An env allowlist means becoming an admin requires a
+deployment, reviewed by whoever deploys. There will be one to three admins, so the
+friction costs nothing.
+
+An empty allowlist grants **nothing** and the whole panel 404s. Stated explicitly in code
+because the alternative default — unset meaning "everybody" — is the kind of thing that
+ships.
+
+**404, not 403,** for a signed-in coach who is not an admin. A 403 tells a curious coach
+the panel exists and is worth probing. A signed-out visitor gets the proxy's redirect to
+`/login` instead, because the edge runtime cannot verify a JWT — the layout decides once
+there is a session to check.
+
+### The rule that governs the whole panel: counts, never identities
+
+**No prospect name and no prospect phone number appears in the admin panel, ever.**
+
+The entire F11 model — the toggle, the Security Rules, D48 closing the users collection —
+exists so a coach's prospects stay theirs. An admin screen listing prospect identities
+would be a second, unlogged path around all of it, available to whoever holds the deploy
+key. Every query in `admin-metrics.ts` is a `count()` or an id-only `select()`, so the
+constraint is structural rather than a habit.
+
+The predictable pressure on this is support ("a coach asked us to find their prospect").
+The answer is that the coach already has it on their own screen; we do not need a copy, and
+holding one makes us worth attacking. The footer says so on every admin screen, because
+that is where the argument will happen.
+
+### A metric that cannot be computed says so, and does not show zero
+
+Month-2 paid retention and trial→paid conversion both need paying users, and payments are
+unbuilt (v2.6). A north-star retention figure rendering "0%" would be read as a
+catastrophe rather than as an unbuilt feature, and somebody would act on it. So
+"unmeasurable" is a first-class state with its own card and a reason.
+
+The four that DO compute are the ones that answer "is the app working": coaches logging
+(the habit the retention model rests on), captures per coach, reports actually sent, and
+thread acknowledgements. Verified against seeded data — 40% logging, 0% sent (seeded
+reports were never sent, which is correct), 100% ack.
+
+Each percentage prints its raw pair underneath. "60%" of 5 coaches and of 5,000 are
+different facts and a percentage alone hides which one you are reading.
+
+### One known cost
+
+Firestore has no `COUNT(DISTINCT)`, so the distinct-logger metric reads seven days of log
+ids — bounded by (coaches × 7), and it fetches no document bodies because the id encodes
+the user (D26). Fine at pilot scale. Before it is not, replace it with a counter
+maintained by a Cloud Function on log write; do **not** switch it to sampling, because a
+heartbeat you cannot trust is worse than none.
