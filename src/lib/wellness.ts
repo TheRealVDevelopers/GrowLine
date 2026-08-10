@@ -169,13 +169,7 @@ export function computeWellness(input: WellnessInput): WellnessMetrics {
     // formula does not have — the same argument that makes body fat a range.
     bmrKcal:
       bmrValue !== null && bmrPlausible ? Math.round(bmrValue / 10) * 10 : null,
-    healthyWeightKg:
-      heightM !== null
-        ? {
-            min: round(HEALTHY_BMI_MIN * heightM * heightM, 1),
-            max: round(HEALTHY_BMI_MAX * heightM * heightM, 1),
-          }
-        : null,
+    healthyWeightKg: heightM !== null ? healthyWeightRange(heightM) : null,
     waterLitres:
       gender === "female"
         ? { low: WATER_LITRES.female, high: WATER_LITRES.female }
@@ -184,6 +178,61 @@ export function computeWellness(input: WellnessInput): WellnessMetrics {
           : WATER_LITRES.unknown,
     missing,
   };
+}
+
+/**
+ * The healthy weight range, built from PRINTABLE weights rather than from the band
+ * bounds directly.
+ *
+ * ## The bug this replaces
+ *
+ * It used to be `HEALTHY_BMI_MAX * h²`, i.e. exactly BMI 23. But 23 is the EXCLUSIVE
+ * top of the band — `bmiBand` asks `bmi < HEALTHY_BMI_MAX` — and the band is decided
+ * on the ROUNDED figure. So the heaviest weight the card presented as healthy computed
+ * to a displayed BMI of 23.0, and the same module then labelled it "Just above the
+ * general range". At every height from 140 to 200 cm.
+ *
+ * That is not a cosmetic inconsistency. Under D13 the whole point of the neutral
+ * phrasing is that the card never passes judgement on a person, and telling somebody
+ * standing at the top of their own stated healthy range that they are above it is
+ * exactly the judgement it exists to avoid.
+ *
+ * ## Why it steps in tenths instead of using 22.9
+ *
+ * `22.9 * h²` would fix the top and leave the bottom wrong in the other direction: at
+ * 150 cm the old `min` of 41.6 kg is a true BMI of 18.4889 — genuinely below healthy —
+ * and only reads as healthy because the display rounds it up to 18.5. Both ends have
+ * to be the extreme weight whose DISPLAYED BMI lands inside the band, which is a
+ * question about rounding, not about algebra. So each end is found and then verified
+ * against the same `bmiBand` the card uses: the invariant is stated as code rather
+ * than trusted to arithmetic.
+ *
+ * Weights are tenths of a kilogram because that is what the card prints.
+ */
+function healthyWeightRange(heightM: number): { min: number; max: number } {
+  const h2 = heightM * heightM;
+  const displayed = (kg: number) => round(kg / h2, 1);
+  const inBand = (kg: number) =>
+    displayed(kg) >= HEALTHY_BMI_MIN && displayed(kg) < HEALTHY_BMI_MAX;
+  const step = (kg: number, by: number) => round(kg + by, 1);
+
+  // Bounded so an implausible height — this runs before the plausibility guard — can
+  // never spin. 60 tenths is 6 kg of search either way, far more than rounding needs.
+  const LIMIT = 60;
+
+  let min = round(Math.ceil(HEALTHY_BMI_MIN * h2 * 10) / 10, 1);
+  for (let i = 0; i < LIMIT && !inBand(min); i++) min = step(min, 0.1);
+  // Then walk back down to the SMALLEST healthy tenth, in case the estimate overshot.
+  for (let i = 0; i < LIMIT && min > 0.1 && inBand(step(min, -0.1)); i++) {
+    min = step(min, -0.1);
+  }
+
+  let max = round(Math.floor(HEALTHY_BMI_MAX * h2 * 10) / 10, 1);
+  for (let i = 0; i < LIMIT && max > 0.1 && !inBand(max); i++) max = step(max, -0.1);
+  // ...and up to the LARGEST healthy tenth.
+  for (let i = 0; i < LIMIT && inBand(step(max, 0.1)); i++) max = step(max, 0.1);
+
+  return { min, max };
 }
 
 function bmiBand(bmi: number): BmiBand {

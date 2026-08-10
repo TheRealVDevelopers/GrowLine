@@ -21,7 +21,20 @@ export default async function LogPage() {
           <p className="mt-1 text-text-dim">{todayHeading()}</p>
         </div>
         {state.streak > 0 && (
-          <StreakFlame days={state.streak} live={state.hasLoggedToday} />
+          /*
+           * `live` is deliberately NOT `hasLoggedToday`.
+           *
+           * It used to be, and that greyed the flame out with "Log today to start
+           * again" from IST midnight until the coach logged — showing an intact
+           * ten-day streak as already lost, which is the exact outcome D27 was
+           * written to prevent.
+           *
+           * Whenever this renders, the streak IS live: `streakFromKeys` anchors on
+           * today OR yesterday, so it already returns 0 once a whole day has lapsed,
+           * and the `streak > 0` guard above means a broken streak shows no flame at
+           * all. There is nothing left for this prop to express here.
+           */
+          <StreakFlame days={state.streak} />
         )}
       </div>
       <LogForm

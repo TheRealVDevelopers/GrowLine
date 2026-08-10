@@ -1,6 +1,6 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { dailyLogs, prospects } from "./collections";
-import { APP_TIMEZONE } from "./day";
+import { APP_TIMEZONE, startOfDayInZone } from "./day";
 import { shiftKey, todayKey } from "./daily-log";
 
 /**
@@ -44,7 +44,7 @@ export async function getWeeklyRecap(
     // on createdAt — built from the local day boundary, not `new Date()` (E1).
     prospects()
       .where("coachId", "==", userId)
-      .where("createdAt", ">=", Timestamp.fromDate(startOfLocalDay(from, timeZone)))
+      .where("createdAt", ">=", Timestamp.fromDate(startOfDayInZone(from, timeZone)))
       .count()
       .get(),
   ]);
@@ -72,16 +72,27 @@ export async function getWeeklyRecap(
   };
 }
 
-/** Local midnight for a day key, as a UTC instant — the D26 rule, reused. */
-function startOfLocalDay(key: string, timeZone: string): Date {
-  const [y, m, d] = key.split("-").map(Number);
-  const naive = Date.UTC(y, m - 1, d);
-  const guess = new Date(naive);
-  const asLocal = new Date(guess.toLocaleString("en-US", { timeZone }));
-  const offset = guess.getTime() - asLocal.getTime();
-  return new Date(naive + offset);
-}
-
+/*
+ * There WAS a private `startOfLocalDay` here, whose comment claimed it was "the D26
+ * rule, reused". It was not reused — it was a second implementation, and it was wrong
+ * in a way that only shows up on some machines:
+ *
+ *   const asLocal = new Date(guess.toLocaleString("en-US", { timeZone }));
+ *
+ * `toLocaleString` renders the wall clock in `timeZone`; `new Date(string)` then parses
+ * that back in the HOST PROCESS's timezone. The two only agree when the host is UTC. On
+ * an IST host it returned 2026-08-10T00:00:00Z for "2026-08-10" instead of the correct
+ * 2026-08-09T18:30:00Z — five and a half hours late.
+ *
+ * That instant is the lower bound of the `prospects.createdAt` range below, so the
+ * Weekly Recap silently dropped every prospect captured between midnight and 05:30 IST
+ * on the first day of the week — under-reporting the number on the card a coach shares
+ * to WhatsApp Status.
+ *
+ * This is exactly what RULES E1 exists to prevent, reintroduced in a private copy. The
+ * lesson is the rule as written: go through `day.ts`. A duplicate that is "obviously
+ * equivalent" is how the first one got in.
+ */
 /**
  * The share text.
  *

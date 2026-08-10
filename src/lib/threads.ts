@@ -31,7 +31,24 @@ export type ThreadScope = (typeof THREAD_SCOPES)[number];
  * essay nobody on a ₹10K phone will scroll.
  */
 export const MAX_BODY = 1000;
+
+/**
+ * Two caps, because a URL changes length between being typed and being stored.
+ *
+ * `MAX_LINK_URL` bounds what a coach types, so an obviously-pasted-wrong monster is
+ * refused immediately. `MAX_LINK_URL_STORED` bounds `new URL(...).toString()`, which
+ * percent-encodes: 200 accented characters in a query arrive as 223 and leave as
+ * ~1223, and four-byte characters push that multiplier to roughly six.
+ *
+ * Checking only the input made the cap describe a string nobody stores. But capping
+ * the stored form at 500 too would refuse a perfectly ordinary link with Kannada or
+ * Devanagari text in it — which this audience will paste — and tell them a
+ * 223-character URL was "too long". So the stored ceiling is a realistic URL length
+ * rather than the typing limit: generous enough for any legitimate encoded link,
+ * still bounded.
+ */
 export const MAX_LINK_URL = 500;
+export const MAX_LINK_URL_STORED = 2000;
 
 export function isThreadScope(value: unknown): value is ThreadScope {
   return typeof value === "string" && (THREAD_SCOPES as readonly string[]).includes(value);
@@ -54,10 +71,47 @@ export type BodyCheck = { ok: true; body: string } | { ok: false; error: string 
  * Trims, then rejects empty and over-long. The trim matters: a body of only spaces
  * would otherwise send a blank card to a whole line, with a push notification.
  */
+/**
+ * Zero-width characters, which `trim()` does NOT remove.
+ *
+ * `String.prototype.trim` follows the ECMAScript WhiteSpace definition, and that
+ * excludes U+200B..U+200D, U+2060 and U+FEFF. So a body of one zero-width space
+ * survived the trim above and delivered exactly the blank card — plus a push
+ * notification — to an entire line that the trim exists to prevent.
+ *
+ * Used ONLY to decide whether anything visible is present. The stored body keeps its
+ * original characters, because U+200D (zero-width joiner) is meaningful in Devanagari
+ * and Kannada conjuncts and in emoji sequences: stripping it from the text a coach
+ * actually wrote would corrupt legitimate Indic spelling to fix a blank-message bug.
+ */
+const INVISIBLE_CODEPOINTS = new Set([
+  0x200b, // ZERO WIDTH SPACE
+  0x200c, // ZERO WIDTH NON-JOINER
+  0x200d, // ZERO WIDTH JOINER
+  0x2060, // WORD JOINER
+  0xfeff, // ZERO WIDTH NO-BREAK SPACE / BOM
+]);
+
+/**
+ * Codepoints rather than a regex literal, deliberately: a character class written with
+ * the actual characters is invisible in the source, so nobody can review it and a
+ * careless paste changes what it matches without showing a diff anyone can read.
+ */
+function hasVisibleContent(text: string): boolean {
+  for (const ch of text) {
+    if (INVISIBLE_CODEPOINTS.has(ch.codePointAt(0)!)) continue;
+    if (/\s/.test(ch)) continue;
+    return true;
+  }
+  return false;
+}
+
 export function checkBody(raw: unknown): BodyCheck {
   if (typeof raw !== "string") return { ok: false, error: "Write a message first." };
   const body = raw.trim();
-  if (body.length === 0) return { ok: false, error: "Write a message first." };
+  if (!hasVisibleContent(body)) {
+    return { ok: false, error: "Write a message first." };
+  }
   if (body.length > MAX_BODY) {
     return { ok: false, error: `Keep it under ${MAX_BODY} characters.` };
   }
@@ -94,7 +148,21 @@ export function checkLinkUrl(raw: unknown): LinkCheck {
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     return { ok: false, error: "Only https:// links can be shared." };
   }
-  return { ok: true, linkUrl: parsed.toString() };
+
+  /**
+   * Re-check the length on the NORMALISED string, because that is the one that gets
+   * stored and rendered — `toString()` percent-encodes, so it can be several times
+   * longer than what was typed. Measured: a 221-character input comes back at 1222,
+   * and 4-byte characters push the multiplier to roughly 6×, so an input comfortably
+   * inside the cap could store nearly 3000 characters.
+   *
+   * Checking the input alone made the cap describe something nobody stores.
+   */
+  const normalised = parsed.toString();
+  if (normalised.length > MAX_LINK_URL_STORED) {
+    return { ok: false, error: "That link is too long." };
+  }
+  return { ok: true, linkUrl: normalised };
 }
 
 /**

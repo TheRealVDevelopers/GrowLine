@@ -1165,3 +1165,132 @@ those, and it is expected to need a fix or two.
 **CI still cannot catch a missing composite index** (D42). The emulator creates them on
 demand. Nothing in this workflow changes that, and it must not be mistaken for
 coverage.
+
+## D54 — the healthy weight range is printable tenths, not bounds × height² (2026-08-10, v2.3)
+
+`healthyWeightKg` published `{ min: 18.5 × h², max: 23 × h² }`. Both ends were wrong,
+in opposite directions, at every height from 140 to 200 cm.
+
+**The top.** 23 is the EXCLUSIVE top of the band — `bmiBand` asks `bmi < 23` — and the
+band is decided on the ROUNDED figure (D12). So the heaviest weight the card presented
+as healthy computed to a displayed BMI of 23.0, which the same card then labelled "Just
+above the general range".
+
+That is not cosmetic. Under D13 the entire purpose of the neutral phrasing is that the
+card never passes judgement on a person, and telling somebody standing at the top of
+their own stated healthy range that they are above it is exactly the judgement the
+phrasing exists to avoid. RULES L3 territory.
+
+**The bottom**, found while fixing the top: `18.5 × h²` rounds UP to a weight whose true
+BMI is below 18.5 — at 150 cm the old `min` of 41.6 kg is a true BMI of 18.4889 — so it
+only read as healthy because the display rounded it up, and it excluded a lighter tenth
+that genuinely does read as healthy.
+
+**Resolved as** a search for the extreme printable tenths, each verified against the
+same `bmiBand` the card uses. The range is not an algebraic identity; it is a question
+about rounding, so the invariant is stated as code rather than trusted to arithmetic.
+At 165 cm the range moved from 50.4–62.6 to 50.3–62.4.
+
+The test that used to assert `bounds × h²` is what let this through, so it now asserts
+the property instead: every weight offered as healthy bands as healthy, and one tenth
+outside either end does not. The unit-slip guard it also provided is kept at a looser
+tolerance, because a centimetre/metre confusion is off by 10,000 and nothing else here
+would catch it.
+
+## D55 — the Weekly Recap reintroduced the E1 day-boundary bug in a private copy (2026-08-10, v2.3)
+
+`weekly-recap.ts` had its own `startOfLocalDay`, whose comment claimed it was "the D26
+rule, reused". It was not reused. It was a second implementation, and it was wrong in a
+way that only appears on some machines:
+
+```js
+const asLocal = new Date(guess.toLocaleString("en-US", { timeZone }));
+```
+
+`toLocaleString` renders the wall clock in `timeZone`; `new Date(string)` parses it back
+in the **host process's** timezone. They agree only when the host is UTC. On an IST host
+it returned `2026-08-10T00:00:00Z` for "2026-08-10" instead of `2026-08-09T18:30:00Z` —
+five and a half hours late.
+
+That instant is the lower bound of the `prospects.createdAt` range query, so the recap
+silently dropped every prospect captured between midnight and 05:30 IST on the first day
+of the week, under-reporting the number on the card a coach shares to WhatsApp Status.
+
+Fixed by importing `startOfDayInZone`. RULES E1 already said "go through `day.ts`" and
+this is the second time that rule has been earned — the first cost a roll-up. Recorded
+because the lesson is not "be careful with timezones" but the narrower and more useful
+one: **a duplicate that looks obviously equivalent is how the first one got in.** The
+deleted function is replaced by a comment saying so, at the site where the next person
+would be tempted to write it again.
+
+## D56 — the streak flame showed an intact streak as lost, from midnight (2026-08-10, v2.3)
+
+`log/page.tsx` passed `live={state.hasLoggedToday}`. `hasLoggedToday` is false from IST
+midnight until the coach logs, so an intact ten-day streak rendered greyed out with
+"Log today to start again" every morning — precisely the "zero implying they already
+lost it" outcome D27 was written to prevent.
+
+The prop had nothing left to express. `streakFromKeys` anchors on today OR yesterday, so
+it already returns 0 once a whole day has lapsed, and the render is gated on
+`streak > 0` — meaning whenever the flame appears at all, the streak IS live. Now
+omitted, with the reasoning at the call site.
+
+Worth noting what this says about the shape of the bug: two correct components wired
+together wrongly. Neither `StreakFlame` nor `streakFromKeys` was at fault, so no test of
+either could have caught it.
+
+## D57 — thread body and link validation: invisible characters, and where a cap applies (2026-08-10, v2.4)
+
+Two gaps in D51's validation, both found by unit tests written against the stated intent
+rather than against the code.
+
+**`checkBody` missed zero-width characters.** `String.prototype.trim` follows the
+ECMAScript WhiteSpace definition, which excludes U+200B–U+200D, U+2060 and U+FEFF. So a
+body of one zero-width space survived the trim and delivered exactly the blank card plus
+push notification to an entire line that the source comment said the trim prevented.
+
+Now tested by codepoint. Deliberately **not** by stripping those characters from the
+stored body: U+200D (zero-width joiner) is meaningful in Devanagari and Kannada
+conjuncts and in emoji sequences, so stripping it from a coach's actual text would
+corrupt legitimate Indic spelling in order to fix a blank-message bug. The check decides
+whether anything visible is present; it does not edit what was written. The codepoints
+are listed as escapes rather than a regex containing the literal characters — a
+character class whose source is invisible cannot be reviewed.
+
+**The link cap bounded the input, not the stored value.** `MAX_LINK_URL` was checked
+against what was typed, but the value written to the document and rendered into every
+recipient's anchor is `new URL(...).toString()`, which percent-encodes. 200 accented
+characters arrive as 223 and leave as ~1223; astral characters take the multiplier to
+about six.
+
+The obvious fix — check the normalised form against 500 — is wrong, and rejecting it is
+the actual decision here: it would refuse a perfectly ordinary link containing Kannada
+or Devanagari text, which this audience will paste, and tell them a 223-character URL was
+too long. So there are two ceilings: 500 on what is typed, 2000 on what is stored. The
+first is a friendly early error, the second is the real bound.
+
+The scheme allow-list was attacked and **held** — case variants, tab/newline splitting,
+leading control characters, `data:text/html` plain and base64, `vbscript:`, `file:`,
+`blob:`, and the ambiguous forms a regex mis-reads. Parsing with `new URL` rather than a
+regex is what makes that true, since the WHATWG parser strips tab/LF/CR and lower-cases
+the protocol before the check sees it.
+
+## D58 — the Streak Shield is NOT built, and three failing tests say so (2026-08-10, v2.3)
+
+BUILD_PROMPT_V2 §4 dopamine map #1 requires "one auto grace-day per month so a single
+miss doesn't kill motivation". It does not exist. `streakFromKeys` breaks at the first
+gap; there is no allowance and no month bookkeeping anywhere.
+
+Worse, `StreakFlame` accepts a `shieldUsed` prop and renders copy for it — but nothing
+ever passes it. The shield exists solely as UI text for a state that cannot occur.
+
+**Recorded as three `todo` tests rather than as passing tests of the current
+behaviour.** A green test asserting "one miss ends the streak" would read as a decision
+and quietly become the spec. Under `node:test` a `todo` runs, prints its assertion
+failure with the reason, and still exits 0 — so the gap stays visible on every CI run
+without blocking unrelated work. The assertions are written implementation-agnostically
+("more than the no-shield answer", not "exactly N") so they should start passing when the
+mechanic lands, without being rewritten to match whatever it does.
+
+This is the pattern for any spec requirement found unbuilt: encode it as a `todo`, never
+as a passing test of the gap.
