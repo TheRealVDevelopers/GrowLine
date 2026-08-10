@@ -1,7 +1,12 @@
 import { randomInt } from "crypto";
 import { FieldValue, Timestamp, type DocumentSnapshot } from "firebase-admin/firestore";
 import { db } from "./firebase-admin";
-import { COLLECTIONS, users } from "./collections";
+import {
+  COLLECTIONS,
+  referralCodeDocId,
+  referralCodes,
+  users,
+} from "./collections";
 
 /**
  * User reads and writes against Firestore.
@@ -67,9 +72,20 @@ export async function getUserByPhone(phone: string): Promise<AppUser | null> {
   return snap.empty ? null : toAppUser(snap.docs[0]);
 }
 
+/**
+ * Resolves a referral code through its reservation document (D41).
+ *
+ * Two document reads and no query, which also means no single-field index and no
+ * chance of returning the wrong coach if two ever shared a code — the reservation
+ * makes that state unreachable rather than merely unlikely.
+ */
 export async function getUserByReferralCode(code: string): Promise<AppUser | null> {
-  const snap = await users().where("referralCode", "==", code).limit(1).get();
-  return snap.empty ? null : toAppUser(snap.docs[0]);
+  const trimmed = code.trim();
+  if (!trimmed) return null;
+  const claim = await referralCodes().doc(referralCodeDocId(trimmed)).get();
+  if (!claim.exists) return null;
+  const uid = claim.data()?.uid as string | undefined;
+  return uid ? getUserById(uid) : null;
 }
 
 export async function getUsersByIds(ids: string[]): Promise<AppUser[]> {
@@ -81,14 +97,25 @@ export async function getUsersByIds(ids: string[]): Promise<AppUser[]> {
 
 // No 0/O/1/I — codes get read aloud and typed on cheap keyboards.
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const CODE_LENGTH = 6;
+const CLAIM_ATTEMPTS = 20;
 
-export async function generateReferralCode(): Promise<string> {
-  for (let attempt = 0; attempt < 20; attempt++) {
-    let code = "";
-    for (let i = 0; i < 6; i++) code += ALPHABET[randomInt(ALPHABET.length)];
-    if (!(await getUserByReferralCode(code))) return code;
-  }
-  throw new Error("Could not generate a unique referral code");
+function candidateCode(): string {
+  let code = "";
+  for (let i = 0; i < CODE_LENGTH; i++) code += ALPHABET[randomInt(ALPHABET.length)];
+  return code;
+}
+
+/**
+ * A code that is free *at the moment you ask*, which is not the same as a code you
+ * own. Only exported for the migration backfill, which claims codes that already
+ * exist rather than inventing them.
+ *
+ * Do not use this to pick a code and then write it in a separate step — that is
+ * precisely the race D41 fixes. Claiming happens inside createUser's transaction.
+ */
+export async function isReferralCodeFree(code: string): Promise<boolean> {
+  return !(await referralCodes().doc(referralCodeDocId(code)).get()).exists;
 }
 
 const TRIAL_DAYS = 60;
@@ -114,13 +141,12 @@ export async function createUser(params: {
   upline: AppUser | null;
 }): Promise<AppUser> {
   const { uid, phone, name, city, photoUrl, upline } = params;
-  const referralCode = await generateReferralCode();
 
   // Nearest ancestor first, so the new user's path is their upline prepended to
   // the upline's own path (collections.ts buildUplinePath, same ordering).
   const uplinePath = upline ? [upline.id, ...upline.uplinePath] : [];
 
-  const doc = {
+  const base = {
     phone,
     name,
     city,
@@ -128,7 +154,6 @@ export async function createUser(params: {
     uplineId: upline?.id ?? null,
     uplinePath,
     directDownlineCount: 0,
-    referralCode,
     levelName: null,
     // v2 §8 cancels the trial model; `plan` stays until v2.6 replaces it with
     // tiers, so a migrated row and a new row keep the same shape until then.
@@ -139,16 +164,40 @@ export async function createUser(params: {
     createdAt: Timestamp.now(),
   };
 
-  await db.runTransaction(async (tx) => {
-    tx.set(users().doc(uid), doc);
-    if (upline) {
-      tx.update(users().doc(upline.id), {
-        directDownlineCount: FieldValue.increment(1),
-      });
-    }
-  });
+  /**
+   * The code is claimed INSIDE the transaction that writes the user (D41).
+   *
+   * Reading "is this code free?" beforehand and writing it afterwards is what the
+   * Prisma unique constraint used to make safe: two signups could both read free
+   * and both write, and the database refused the second. Firestore will not. So the
+   * reservation document is read and created in the same transaction, which
+   * Firestore aborts if anyone else claimed it in between.
+   */
+  for (let attempt = 0; attempt < CLAIM_ATTEMPTS; attempt++) {
+    const code = candidateCode();
+    const claimRef = referralCodes().doc(referralCodeDocId(code));
+    let taken = false;
 
-  return (await getUserById(uid))!;
+    await db.runTransaction(async (tx) => {
+      if ((await tx.get(claimRef)).exists) {
+        taken = true;
+        return;
+      }
+      tx.create(claimRef, { uid, createdAt: Timestamp.now() });
+      tx.set(users().doc(uid), { ...base, referralCode: code });
+      if (upline) {
+        tx.update(users().doc(upline.id), {
+          directDownlineCount: FieldValue.increment(1),
+        });
+      }
+    });
+
+    if (!taken) return (await getUserById(uid))!;
+  }
+
+  // 32^6 codes against 20 tries: reaching here means the space is genuinely
+  // crowded, not that we were unlucky. Failing loudly beats issuing a duplicate.
+  throw new Error("Could not claim a unique referral code");
 }
 
 export async function updateUser(

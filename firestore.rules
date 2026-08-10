@@ -120,6 +120,18 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /referralCodes/{code} {
+      /**
+       * Reservation documents (D41). Denied to every client.
+       *
+       * A client write would let anyone squat another coach's code, which is the
+       * exact collision the reservation exists to prevent. Reads are denied too:
+       * `/join/<code>` resolves server-side, and an open read would turn this
+       * collection into a directory mapping every code to a coach's uid.
+       */
+      allow read, write: if false;
+    }
+
     // Anything not named above — including collections a future session adds and
     // forgets to think about — is denied.
     match /{document=**} {

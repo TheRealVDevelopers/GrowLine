@@ -100,10 +100,24 @@ export default function ProspectList({
   useEffect(() => {
     if (!isQueueSupported()) return;
     let cancelled = false;
+    /**
+     * Three things trigger a re-read — mount, QUEUE_CHANGED and "online" — and they
+     * fire within milliseconds of each other when the signal returns. IndexedDB
+     * reads can then resolve out of order, and the LAST one to land wins.
+     *
+     * That is a real duplicate on screen, not a cosmetic flicker: a read that
+     * started before OfflineSync dequeued a synced capture can resolve after the
+     * one that started after it, pinning the prospect to this list as "On this
+     * phone" while router.refresh() has already brought in their real row. The
+     * coach sees the same person twice, one of them apparently unsaved, and it
+     * never settles. Apply only the newest read.
+     */
+    let latest = 0;
 
     const refreshPending = async () => {
+      const seq = ++latest;
       const queued = await listQueued();
-      if (!cancelled) setPending(queued);
+      if (!cancelled && seq === latest) setPending(queued);
     };
 
     void refreshPending();

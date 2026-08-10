@@ -7,8 +7,8 @@ import { db } from "./firebase-admin";
  *
  * ## Why the ids look like this
  *
- * Firestore has no unique constraints. The Prisma schema had four, and every one
- * of them protects a correctness property somebody already reasoned through:
+ * Firestore has no unique constraints. The Prisma schema had SIX, and every one of
+ * them protects a correctness property somebody already reasoned through:
  *
  *   unique(coachId, clientId)      D6  — a retried offline sync must not create
  *                                        the same person twice
@@ -18,12 +18,30 @@ import { db } from "./firebase-admin";
  *   unique(userId, logDate)        D26 — one log per coach per day *in their own
  *                                        timezone*
  *   unique(coachId, month)             — one target per coach per month
+ *   unique(pushSubscriptions.endpoint) — one row per device, or it is notified twice
+ *   unique(users.referralCode)     D41 — two coaches sharing a code means one of
+ *                                        them silently receives the other's QR
+ *                                        captures and downlines
  *
  * The only mechanism Firestore offers that is equally strong is the document id
  * itself: a `set()` on a deterministic id is an upsert, and two racing writers
  * converge on one document instead of creating two. So each constraint becomes an
  * id. Do not replace these with auto-ids and a query — the query is not atomic and
  * the constraint quietly stops existing.
+ *
+ * `referralCode` is the one that cannot be the owning document's id, because the
+ * user document is already keyed by the Auth uid (D34). It gets a RESERVATION
+ * document instead — `referralCodes/{CODE}` — created in the same transaction as the
+ * user, so the create fails if the code is taken. See D41.
+ *
+ * Two more from the Prisma schema resolve without work here:
+ *   users.phone      — Firebase Auth's Phone provider allows one account per number,
+ *                      and the user doc id IS that account's uid, so a duplicate
+ *                      would need two Auth accounts on one number. Auth prevents it.
+ *   reports.token    — 26 chars over a 33-char alphabet (~131 bits) from a CSPRNG.
+ *                      A reservation collection here would cost a write on every
+ *                      report to defend against a collision far rarer than silent
+ *                      disk corruption. Deliberately not defended; see D41.
  */
 
 export const COLLECTIONS = {
@@ -33,6 +51,12 @@ export const COLLECTIONS = {
   dailyLogs: "dailyLogs",
   targets: "targets",
   proofs: "proofs",
+  /**
+   * Reservation documents for referral codes (D41). The document ID *is* the code,
+   * which is what makes claiming one atomic. Holds only the owning uid — resolving
+   * `/join/<code>` is then two document reads and no query.
+   */
+  referralCodes: "referralCodes",
   /**
    * Web Push subscriptions (D22). Carried over as-is so Prisma can go; v2.1b
    * replaces the whole mechanism with FCM and retires this collection.
@@ -98,6 +122,11 @@ export function targetDocId(coachId: string, month: string): string {
  */
 export function pushSubscriptionDocId(endpoint: string): string {
   return createHash("sha256").update(endpoint).digest("hex");
+}
+
+/** D41. The code itself is the reservation document's id, so claiming it is atomic. */
+export function referralCodeDocId(code: string): string {
+  return assertValidDocId(code.trim().toUpperCase(), "referralCode");
 }
 
 /**
@@ -221,3 +250,4 @@ export const reports = () => db.collection(COLLECTIONS.reports);
 export const dailyLogs = () => db.collection(COLLECTIONS.dailyLogs);
 export const targets = () => db.collection(COLLECTIONS.targets);
 export const proofs = () => db.collection(COLLECTIONS.proofs);
+export const referralCodes = () => db.collection(COLLECTIONS.referralCodes);

@@ -624,3 +624,119 @@ the coach's own data, one tap to the action.
 
 The `e2e/design.spec.ts` money-copy check now covers the home screen as well as
 targets, so this cannot be reintroduced quietly.
+
+## D41 — `unique(referralCode)` becomes a reservation document (2026-08-10, v2.2b)
+
+D35 re-expressed four Prisma unique constraints as Firestore document ids. The
+schema had **six**. `referralCode` and `reports.token` were left with their
+read-then-write helpers intact and the constraint underneath them gone.
+
+`referralCode` is the one that matters, and it cannot be a document id: the user
+document is already keyed by the Auth uid (D34), and a document has one id. So the
+code gets its own **reservation document**, `referralCodes/{CODE}`, holding only the
+owning uid — created inside the same transaction that writes the user, which
+Firestore aborts if anybody claimed it in between. `createUser` retries with a new
+candidate up to 20 times and then throws rather than issue a duplicate.
+
+**Why it is worth a collection:** a shared code silently reroutes one coach's QR
+captures and downline placements to a stranger. Nothing errors and nobody notices
+until a coach asks where their people went. `getUserByReferralCode` now resolves
+through the reservation, so two coaches holding one code is unreachable rather
+than merely unlikely — and it costs two document reads instead of a query.
+
+Client reads and writes are both denied in `firestore.rules`. A write would let
+anyone squat a code; a read would turn the collection into a directory mapping
+every code to a coach's uid. `/join/<code>` resolves server-side.
+
+**`reports.token` is deliberately left undefended.** 26 characters over a 33-char
+alphabet from a CSPRNG is ~131 bits. A reservation there would cost a write on
+every report to defend against a collision rarer than silent disk corruption.
+
+The migration backfills a reservation per existing user and **throws** on a
+collision rather than merging two coaches onto one code.
+
+## D42 — the eight composite indexes, and why the emulator cannot find them (2026-08-10, v2.2b)
+
+`firestore.indexes.json` declared 4 composite indexes. The shipped code needs 8.
+The missing four fail with `FAILED_PRECONDITION` against a real project.
+
+**The Firestore emulator creates composite indexes on demand.** No suite run
+locally can catch this — not e2e, not the rules tests, not `migrate:verify`. Every
+one of them passes against an emulator that silently invents whatever index the
+query asked for. This is the one class of defect on this branch where a green
+local run carries no information at all, which is why it is written down here
+rather than left to the file.
+
+| Index (all `COLLECTION` scope) | Serves | If missing |
+| --- | --- | --- |
+| `dailyLogs` (userId ASC, dayKey ASC) | `daily-log-queries.ts:38` (the `/log` read **and** every `saveLog`, via the re-read at :129), `team.ts:98`, `weekly-recap.ts:39`, `functions/src/index.ts:50` | F6 breaks on read *and* write — and `saveLog` writes before it re-reads, so the coach sees an error for a log that actually saved |
+| `users` (uplineId ASC, createdAt ASC) | `users.ts:220` `getDirectDownlines`, `team.ts:80` once per tree level | My Team and Targets both dead — `getDirectLineTargets` calls `getDirectDownlines` first |
+| `prospects` (coachId ASC, source ASC, createdAt ASC) | `api/public/capture/[code]/route.ts:28`, the per-coach hourly rate limit | Every QR self-fill 500s — and the person seeing it is a prospect, not a user (F2 Mode B) |
+| `prospects` (createdAt ASC, heightCm ASC) | `functions/src/index.ts:123` `purgeStaleHealthData` | Throws once a night, silently. The 180-day health-data purge never runs — a compliance control, not a nicety |
+
+Two direction calls worth recording, because both look wrong:
+
+1. **`(createdAt, heightCm)`, not `(heightCm, createdAt)`.** The purge combines two
+   inequalities on different fields and has no explicit `orderBy`. Firestore sorts
+   implicit inequality orderings **lexicographically by field path** —
+   `@google-cloud/firestore/build/src/reference/query.js:592` ends
+   `getInequalityFilterFields()` with a sort — so the ordering is `createdAt ASC,
+   heightCm ASC, __name__ ASC`. Field order in the index is not free choice.
+2. **`dailyLogs` ASC even though `daily-log-queries.ts:40` orders `dayKey desc`.**
+   `userId` is pinned by an equality filter, so a reverse scan of the ASC index over
+   the contiguous `userId == U` segment *is* `dayKey DESC`. The file already bets on
+   this same reversal rule elsewhere: the declared `prospects(coachId ASC, createdAt
+   DESCENDING)` is the only index that can serve `weekly-recap.ts:46`, whose implicit
+   ordering is `createdAt ASC`.
+
+**Not added, on purpose.** `targets(uplinePath CONTAINS, month ASC)` was reported
+missing but is already declared. `prospects(coachId ASC, createdAt ASC)` is
+redundant with the DESC index by the same reversal rule.
+
+**Two things that look like index problems and must not be fixed with indexes:**
+`api/notifications/daily/route.ts:45` reads the entire `pushSubscriptions`
+collection every hour with an unfiltered `orderBy` — a cost defect, not a missing
+index. And `targets-queries.ts:91` sorts proofs in memory on purpose so the `in`
+lookup at :74 needs no composite index; that comment is correct as written.
+
+**Still unverified against a real project.** These are derived from the SDK's own
+query planner and the documented rules, not from a `FAILED_PRECONDITION` that
+stopped appearing. First deploy must run each of the four paths once and check the
+Firebase console for index-build errors.
+
+## D43 — the offline queue's pending list needs a sequence guard (2026-08-10, v2.2b)
+
+`ProspectList` reads the IndexedDB queue on mount, on `QUEUE_CHANGED`, and on
+`online`. When the signal returns all three fire within milliseconds, and IndexedDB
+reads can resolve **out of order** — the last one to land wins.
+
+That is a duplicate on screen, not a flicker. A read that started before
+`OfflineSync` dequeued a synced capture can resolve after the one that started
+after it, pinning the prospect to the pending list as "On this phone" while
+`router.refresh()` has already brought in their real row. The coach sees the same
+person twice, one apparently unsaved, and it never settles.
+
+`refreshPending` now stamps each read with an incrementing sequence and applies
+only the newest. The `cancelled` flag it already had guards unmount, which is a
+different problem and does not help here.
+
+Found by `offline-capture.spec.ts` failing on a **clean** emulator — the sync
+completed fast enough to lose the race. On a polluted emulator it passed. Worth
+noting for what it says about the next bug of this shape: the test was correct and
+the timing was doing the hiding.
+
+## D44 — `npm run e2e:reset` before every e2e run (2026-08-10, v2.2b)
+
+The e2e suite is not idempotent and cannot be: `signup.spec` creates a coach, and
+the offline and QR specs each create a prospect. Run it twice against one emulator
+and the second run sees a database that no longer matches the seed.
+
+This is not hypothetical tidiness. A green 18/18 suite went to **6 failed with no
+code change**, purely because the emulator had accumulated two signup users and
+four extra prospects. It looked exactly like a regression in the commit under test,
+and it cost a full debugging cycle chasing a bug that did not exist.
+
+`scripts/reset-emulators.ts` clears Firestore **and Auth** — Auth matters as much,
+because signup creates an account and the Phone provider allows one per number
+(the invariant behind D34). `npm run e2e:reset` chains it into
+`migrate:firestore`, so one command gives a known state.

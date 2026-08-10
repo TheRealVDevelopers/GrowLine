@@ -33,6 +33,7 @@ import {
   buildUplinePath,
   dailyLogDocId,
   prospectDocId,
+  referralCodeDocId,
   reportDocId,
   targetDocId,
 } from "../src/lib/collections";
@@ -165,6 +166,34 @@ async function main() {
         followupPushOn: u.followupPushOn,
         createdAt: ts(u.createdAt),
       },
+    }))
+  );
+
+  // ---- Referral-code reservations (D41) ---------------------------------------
+  //
+  // Every existing code needs its claim document, or `/join/<code>` stops
+  // resolving for migrated coaches: getUserByReferralCode reads the reservation
+  // now, not a query over users. Duplicate codes in the source would collapse to
+  // one claim here, so they are surfaced rather than silently merged.
+  const codeOwners = new Map<string, string[]>();
+  for (const u of allUsers) {
+    const key = referralCodeDocId(u.referralCode);
+    codeOwners.set(key, [...(codeOwners.get(key) ?? []), u.id]);
+  }
+  const collisions = [...codeOwners].filter(([, owners]) => owners.length > 1);
+  if (collisions.length > 0) {
+    throw new Error(
+      `Referral codes are not unique in the source database, so they cannot all be ` +
+        `claimed: ${collisions
+          .map(([code, owners]) => `${code} -> ${owners.join(", ")}`)
+          .join("; ")}. Fix the source rows first.`
+    );
+  }
+  await writeAll(
+    COLLECTIONS.referralCodes,
+    [...codeOwners].map(([code, owners]) => ({
+      id: code,
+      data: { uid: owners[0], createdAt: Timestamp.now() },
     }))
   );
 
