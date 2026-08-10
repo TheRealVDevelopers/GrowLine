@@ -43,7 +43,8 @@ Append a row every time you hand the work over. Newest at the bottom.
 | 7 | Phone → Claude Code web | Ported everything left: daily log, follow-ups, targets/proofs, push, remaining routes and pages. **Prisma removed from the app.** 40 assertions pass. | v2.1a code complete. Cutover needs a real Firebase project; login flow unproven in a browser. |
 | 8 | Phone → Claude Code web | Playwright e2e in real Chromium: signup with referral, existing-coach login, public capture noindex, **and the offline queue with the signal cut mid-capture**. 4/4 pass. | 6 of 9 parity-gate items closed. Next: v2.1b. |
 | 9 | Phone → Claude Code web | v2.1b: real Security Rules + **21 rules checks incl. both mandatory ones**, Cloud Functions (counter, morning reminder, 180-day purge), Storage rules, realtime QR listener. | FCM delivery + deploy need a real project. |
-| 10 | PC | _(fill this in from the PC — even one line is enough)_ | |
+| 10 | Phone → Claude Code web | v2.2a started: Dark Achiever token layer, theme switching (5 tests), NeoPOP/gem/metal components. Recorded D39 — "dark by default" vs "respect the system" genuinely conflict on the web. | Screens not yet reskinned; v1 palette aliases still in place. |
+| 11 | PC | _(fill this in from the PC — even one line is enough)_ | |
 
 ---
 
@@ -98,6 +99,7 @@ npm run db:seed && npm run migrate:firestore
 npm run build && npx next start    # terminal 2
 npm run e2e                # 5 tests, real Chromium
 npm run test:rules         # 21 Security Rules checks
+# e2e is now 10 tests: signup, offline, realtime, theme
 ```
 
 The Auth emulator exposes the codes it "sends" over REST, so phone auth is
