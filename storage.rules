@@ -1,0 +1,76 @@
+rules_version = '2';
+
+/**
+ * Storage rules (BUILD_PROMPT_V2 §3).
+ *
+ * Uploads are client-side — an image has to leave the device somehow, and routing
+ * megabytes through an API route to satisfy a pattern would be slower on exactly
+ * the weak connections this app targets. So unlike Firestore, writes ARE allowed
+ * here, and every one is bounded by owner, size and content type.
+ *
+ * Reads are wider than Firestore's on purpose: a proof photo's URL is a bearer
+ * credential handed to the upline reviewing it, and a profile photo appears on the
+ * public report card (F3) and portfolio (F9). What is NOT public is the ability to
+ * enumerate — Storage has no listing for unauthenticated clients, and paths carry
+ * an unguessable id.
+ */
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // v1 §4.4: cheap phones, slow data. Client-side compression to 1280px/~80%
+    // JPEG lands well under this; anything above it is a bug or an attack.
+    function withinSize(mb) {
+      return request.resource.size < mb * 1024 * 1024;
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    /**
+     * Profile photos. Readable by anyone — they ride on every wellness report and
+     * public portfolio page, which are opened by prospects with no account.
+     */
+    match /users/{userId}/profile/{fileName} {
+      allow read: if true;
+      allow write: if signedIn() && request.auth.uid == userId && isImage() && withinSize(5);
+      allow delete: if signedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Proof media (F7). Video is unblocked here — D33 refused it only because a
+     * data URL could not hold one, and that constraint is gone.
+     *
+     * Uploads are scoped to the coach's own folder, so a coach cannot plant
+     * evidence in someone else's proof. Reads are open to holders of the URL,
+     * which is the upline the app hands it to; enumeration is not possible.
+     *
+     * D33's re-encode still matters and still happens client-side — a proof must
+     * not carry the coach's GPS coordinates to their upline. Rules cannot check
+     * EXIF, so that guarantee lives in `image-client.ts`, not here.
+     */
+    match /users/{userId}/proofs/{fileName} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == userId
+                   && (isImage() || request.resource.contentType.matches('video/.*'))
+                   && withinSize(50);
+      allow delete: if signedIn() && request.auth.uid == userId;
+    }
+
+    /** Transformation images for the Pro portfolio (v2 §7). Public by design. */
+    match /users/{userId}/transformations/{fileName} {
+      allow read: if true;
+      allow write: if signedIn() && request.auth.uid == userId && isImage() && withinSize(8);
+      allow delete: if signedIn() && request.auth.uid == userId;
+    }
+
+    // Nothing else. A path nobody wrote a rule for is not a path anyone may use.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

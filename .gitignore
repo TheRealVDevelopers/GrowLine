@@ -57,3 +57,7 @@ next-env.d.ts
 # playwright
 /test-results/
 /playwright-report/
+
+# cloud functions build output
+/functions/lib/
+/functions/node_modules/
