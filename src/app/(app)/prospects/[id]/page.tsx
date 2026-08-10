@@ -45,7 +45,7 @@ export default async function ProspectDetailPage({
     <div className="flex flex-col gap-5">
       <Link
         href="/prospects"
-        className="flex h-12 items-center gap-2 self-start font-medium text-gold-600"
+        className="flex h-12 items-center gap-2 self-start font-medium text-gold-ink"
       >
         <BackIcon className="h-5 w-5" />
         Back
@@ -53,7 +53,7 @@ export default async function ProspectDetailPage({
 
       <header>
         <h1 className="text-2xl font-bold">{prospect.name}</h1>
-        <p className="mt-1 text-navy/70">
+        <p className="mt-1 text-text-dim">
           {prospect.phone.replace(/^\+91/, "")}
           {prospect.source === "qr" && " · filled their own details"}
         </p>
@@ -83,7 +83,7 @@ export default async function ProspectDetailPage({
       ) : blocked ? (
         <section className="rounded-2xl bg-surface p-5">
           <h2 className="font-semibold">{blocked.title}</h2>
-          <p className="mt-2 text-sm leading-snug text-navy/70">{blocked.body}</p>
+          <p className="mt-2 text-sm leading-snug text-text-dim">{blocked.body}</p>
         </section>
       ) : null}
 
@@ -97,7 +97,7 @@ export default async function ProspectDetailPage({
         weightKg={prospect.weightKg}
       />
 
-      <p className="text-xs leading-snug text-navy/70">
+      <p className="text-xs leading-snug text-text-dim">
         {DISCLAIMER} {NOT_A_DOCTOR}
       </p>
     </div>

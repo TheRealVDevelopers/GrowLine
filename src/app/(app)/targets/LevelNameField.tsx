@@ -51,12 +51,12 @@ export default function LevelNameField({ levelName }: { levelName: string | null
         className="flex min-h-12 items-center justify-between gap-3 rounded-2xl bg-surface px-5 py-3 text-left"
       >
         <span>
-          <span className="block text-sm text-navy/70">My level</span>
+          <span className="block text-sm text-text-dim">My level</span>
           <span className="font-medium">
             {levelName ?? "Not named yet"}
           </span>
         </span>
-        <span className="shrink-0 text-sm font-medium text-gold-600">
+        <span className="shrink-0 text-sm font-medium text-gold-ink">
           {levelName ? "Change" : "Add a name"}
         </span>
       </button>
@@ -68,7 +68,7 @@ export default function LevelNameField({ levelName }: { levelName: string | null
       <label className="text-sm font-medium" htmlFor="level-name">
         What do you call this level?
       </label>
-      <p className="text-xs text-navy/70">
+      <p className="text-xs text-text-dim">
         Your own words — whatever you and your team use. Leave it empty if you would
         rather not name it.
       </p>
@@ -77,15 +77,15 @@ export default function LevelNameField({ levelName }: { levelName: string | null
         value={value}
         onChange={(e) => setValue(e.target.value)}
         maxLength={MAX_LEVEL_NAME}
-        className="h-12 w-full rounded-xl border border-navy/20 bg-white px-4 outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
+        className="h-12 w-full rounded-xl border border-hairline bg-elevated px-4 outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
         autoFocus
       />
-      {error && <p className="text-sm text-error">{error}</p>}
+      {error && <p className="text-sm text-heat">{error}</p>}
       <div className="flex flex-wrap gap-2">
         <button
           onClick={save}
           disabled={busy}
-          className="h-12 rounded-xl bg-gold px-5 font-semibold text-navy disabled:opacity-50"
+          className="h-12 rounded-xl bg-gold px-5 font-semibold text-on-gold disabled:opacity-50"
         >
           {busy ? "Saving…" : "Save"}
         </button>
@@ -94,7 +94,7 @@ export default function LevelNameField({ levelName }: { levelName: string | null
             setValue(levelName ?? "");
             setOpen(false);
           }}
-          className="h-12 rounded-xl border border-navy/20 px-4 font-medium"
+          className="h-12 rounded-xl border border-hairline px-4 font-medium"
         >
           Cancel
         </button>

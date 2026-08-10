@@ -109,12 +109,12 @@ export default function LogForm({
       <StreakBanner streak={streak} milestone={milestone} />
 
       {saved === "queued" && (
-        <p className="rounded-xl bg-gold-100 px-4 py-3 text-sm text-gold-600">
+        <p className="rounded-xl bg-elevated px-4 py-3 text-sm text-gold-ink">
           Saved on this phone. It will upload by itself when you have network.
         </p>
       )}
       {saved === "online" && !milestone && (
-        <p className="rounded-xl bg-success-100 px-4 py-3 text-sm text-success">
+        <p className="rounded-xl bg-elevated px-4 py-3 text-sm text-gem-green">
           Today is logged. Your line can see it.
         </p>
       )}
@@ -127,7 +127,7 @@ export default function LogForm({
           >
             <div className="min-w-0 flex-1">
               <p className="font-medium">{field.label}</p>
-              <p className="text-xs text-navy/60">{field.hint}</p>
+              <p className="text-xs text-text-dim">{field.hint}</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <button
@@ -135,7 +135,7 @@ export default function LogForm({
                 aria-label={`One less ${field.label}`}
                 onClick={() => bump(field.key, -1)}
                 disabled={values[field.key] === 0}
-                className="h-12 w-12 rounded-xl border border-navy/20 text-2xl leading-none text-navy disabled:opacity-30"
+                className="h-12 w-12 rounded-xl border border-hairline text-2xl leading-none text-text disabled:opacity-30"
               >
                 −
               </button>
@@ -147,13 +147,13 @@ export default function LogForm({
                 value={values[field.key]}
                 onChange={(e) => setExact(field.key, e.target.value)}
                 inputMode="numeric"
-                className="h-12 w-14 rounded-xl border border-navy/20 bg-white text-center text-xl font-bold tabular-nums outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
+                className="h-12 w-14 rounded-xl border border-hairline bg-elevated text-center text-xl font-bold tabular-nums outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
               />
               <button
                 type="button"
                 aria-label={`One more ${field.label}`}
                 onClick={() => bump(field.key, 1)}
-                className="h-12 w-12 rounded-xl bg-navy text-2xl leading-none text-white"
+                className="h-12 w-12 rounded-xl bg-elevated text-2xl leading-none text-text"
               >
                 +
               </button>
@@ -163,26 +163,26 @@ export default function LogForm({
 
         <label className="flex flex-col gap-1.5">
           <span className="font-medium">
-            Note <span className="font-normal text-navy/60">(optional)</span>
+            Note <span className="font-normal text-text-dim">(optional)</span>
           </span>
           <input
             value={values.note ?? ""}
             onChange={(e) => setValues((v) => ({ ...v, note: e.target.value }))}
             maxLength={MAX_NOTE}
             placeholder="One line about today"
-            className="h-12 w-full rounded-xl border border-navy/20 bg-white px-4 text-base outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
+            className="h-12 w-full rounded-xl border border-hairline bg-elevated px-4 text-base outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
           />
         </label>
       </div>
 
       {error && (
-        <p className="rounded-xl bg-error-100 px-4 py-3 text-sm text-error">{error}</p>
+        <p className="rounded-xl bg-elevated px-4 py-3 text-sm text-heat">{error}</p>
       )}
 
       <button
         onClick={save}
         disabled={busy}
-        className="h-14 rounded-xl bg-gold text-lg font-semibold text-navy disabled:opacity-50"
+        className="h-14 rounded-xl bg-gold text-lg font-semibold text-on-gold disabled:opacity-50"
       >
         {busy
           ? "Saving…"
@@ -194,12 +194,12 @@ export default function LogForm({
       <button
         type="button"
         onClick={() => setValues({ ...EMPTY_LOG, note: values.note })}
-        className="h-12 rounded-xl text-navy/70 underline"
+        className="h-12 rounded-xl text-text-dim underline"
       >
         Clear the numbers
       </button>
 
-      <p className="text-center text-sm text-navy/60">
+      <p className="text-center text-sm text-text-dim">
         {total === 0
           ? "A zero day is still worth logging — it keeps your streak honest."
           : `${total} things done today.`}
@@ -221,12 +221,12 @@ function StreakBanner({
 }) {
   if (milestone) {
     return (
-      <section className="rounded-2xl bg-navy p-5 text-white">
-        <p className="text-sm font-medium text-gold">
+      <section className="rounded-2xl bg-elevated p-5 text-text">
+        <p className="text-sm font-medium text-gold-ink">
           {milestone}-day streak
         </p>
         <p className="mt-1 text-4xl font-bold">🔥 {streak}</p>
-        <p className="mt-2 text-white/85">{milestoneMessage(milestone)}</p>
+        <p className="mt-2 text-text-dim">{milestoneMessage(milestone)}</p>
       </section>
     );
   }
@@ -234,7 +234,7 @@ function StreakBanner({
     <section className="flex items-center justify-between gap-3 rounded-2xl bg-surface px-5 py-4">
       <span>
         <span className="block text-3xl font-bold">{streak}</span>
-        <span className="text-sm text-navy/70">
+        <span className="text-sm text-text-dim">
           {streak === 0
             ? "no streak yet — today can start one"
             : streak === 1

@@ -13,14 +13,14 @@ function StatsBadges({ node }: { node: TeamNode }) {
     <span className="flex shrink-0 flex-col items-end gap-1">
       <span className="text-sm">
         <b>{node.logsThisMonth}</b>
-        <span className="text-navy/60"> logs</span>
+        <span className="text-text-dim"> logs</span>
       </span>
       {/* The live half of F6's loop: whether they have logged today, right now.
           Absence is stated plainly rather than shown in red — this is a nudge for
           the upline to respond to, not a mark against the person. */}
       <span
         className={`text-xs ${
-          node.loggedToday ? "font-semibold text-success" : "text-navy/60"
+          node.loggedToday ? "font-semibold text-gem-green" : "text-text-dim"
         }`}
       >
         {node.loggedToday ? "Logged today" : "Not logged today"}
@@ -29,8 +29,8 @@ function StatsBadges({ node }: { node: TeamNode }) {
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
             node.targetPct >= 100
-              ? "bg-success-100 text-success"
-              : "bg-gold-100 text-gold-600"
+              ? "bg-elevated text-gem-green"
+              : "bg-elevated text-gold-ink"
           }`}
         >
           Target {node.targetPct}%
@@ -58,7 +58,7 @@ function TreeNode({
         <Avatar name={node.name} photoUrl={node.photoUrl} size={44} />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{node.name}</p>
-          <p className="truncate text-xs text-navy/50">
+          <p className="truncate text-xs text-text-dim">
             {node.city ?? ""}
             {node.directCount > 0 &&
               `${node.city ? " · " : ""}${node.directCount} in line`}
@@ -69,7 +69,7 @@ function TreeNode({
           <button
             aria-label={open ? "Collapse" : "Expand"}
             onClick={() => setOpen(!open)}
-            className="flex h-12 w-10 items-center justify-center text-navy/40"
+            className="flex h-12 w-10 items-center justify-center text-text-dim"
           >
             <ChevronIcon className={`h-5 w-5 transition-transform ${open ? "rotate-90" : ""}`} />
           </button>
@@ -77,7 +77,7 @@ function TreeNode({
         {node.hasMore && (
           <button
             onClick={() => onDrill(node)}
-            className="h-12 shrink-0 rounded-xl bg-gold-100 px-3 text-sm font-semibold text-gold-600"
+            className="h-12 shrink-0 rounded-xl bg-elevated px-3 text-sm font-semibold text-gold-ink"
           >
             View team
           </button>
@@ -139,7 +139,7 @@ export default function TeamTreeView({
         <h1 className="text-2xl font-bold">My Team</h1>
         <Link
           href="/targets"
-          className="flex h-12 items-center rounded-xl border border-navy/20 px-4 font-medium"
+          className="flex h-12 items-center rounded-xl border border-hairline px-4 font-medium"
         >
           Targets
         </Link>
@@ -148,7 +148,7 @@ export default function TeamTreeView({
       {crumbs.length > 0 && (
         <button
           onClick={back}
-          className="flex h-12 items-center gap-2 self-start font-medium text-gold-600"
+          className="flex h-12 items-center gap-2 self-start font-medium text-gold-ink"
         >
           <BackIcon className="h-5 w-5" />
           Back to {crumbs[crumbs.length - 1].name.split(" ")[0]}
@@ -156,7 +156,7 @@ export default function TeamTreeView({
       )}
 
       {error && (
-        <p className="rounded-xl bg-error-100 px-4 py-3 text-sm text-error">{error}</p>
+        <p className="rounded-xl bg-elevated px-4 py-3 text-sm text-heat">{error}</p>
       )}
 
       {loading ? (
@@ -168,11 +168,11 @@ export default function TeamTreeView({
       ) : (
         <>
           {/* Root card — me (or the downline being viewed) at top */}
-          <div className="flex min-h-16 items-center gap-3 rounded-2xl bg-navy p-4 text-white">
+          <div className="flex min-h-16 items-center gap-3 rounded-2xl bg-elevated p-4 text-text">
             <Avatar name={tree.name} photoUrl={tree.photoUrl} size={52} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-lg font-semibold">{tree.name}</p>
-              <p className="truncate text-sm text-white/60">
+              <p className="truncate text-sm text-text-dim">
                 {tree.city ?? ""}
                 {tree.directCount > 0 &&
                   `${tree.city ? " · " : ""}${tree.directCount} direct`}
@@ -181,17 +181,17 @@ export default function TeamTreeView({
             <span className="flex flex-col items-end gap-1">
               <span className="text-sm">
                 <b>{tree.logsThisMonth}</b>
-                <span className="text-white/60"> logs this month</span>
+                <span className="text-text-dim"> logs this month</span>
               </span>
               <span
                 className={`text-xs ${
-                  tree.loggedToday ? "font-semibold text-gold" : "text-white/60"
+                  tree.loggedToday ? "font-semibold text-gold-ink" : "text-text-dim"
                 }`}
               >
                 {tree.loggedToday ? "Logged today" : "Not logged today"}
               </span>
               {tree.targetPct !== null && (
-                <span className="rounded-full bg-gold px-2 py-0.5 text-xs font-semibold text-navy">
+                <span className="rounded-full bg-gold px-2 py-0.5 text-xs font-semibold text-on-gold">
                   Target {tree.targetPct}%
                 </span>
               )}

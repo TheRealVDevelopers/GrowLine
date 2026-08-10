@@ -7,7 +7,7 @@ export default function NewProspectPage() {
     <div className="flex flex-col gap-4">
       <Link
         href="/prospects"
-        className="flex h-12 items-center gap-2 self-start font-medium text-gold-600"
+        className="flex h-12 items-center gap-2 self-start font-medium text-gold-ink"
       >
         <BackIcon className="h-5 w-5" />
         Back

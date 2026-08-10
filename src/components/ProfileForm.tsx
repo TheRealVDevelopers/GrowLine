@@ -20,7 +20,7 @@ type EditProps = {
 type Props = SignupProps | EditProps;
 
 const inputCls =
-  "h-12 w-full rounded-xl border border-navy/20 bg-white px-4 text-base outline-none focus:border-gold focus:ring-2 focus:ring-gold/30";
+  "h-12 w-full rounded-xl border border-hairline bg-elevated px-4 text-base outline-none focus:border-gold focus:ring-2 focus:ring-gold/30";
 
 export default function ProfileForm(props: Props) {
   const router = useRouter();
@@ -95,7 +95,7 @@ export default function ProfileForm(props: Props) {
         className="flex items-center gap-4 self-start rounded-xl"
       >
         <Avatar name={name || "?"} photoUrl={photoUrl} size={64} />
-        <span className="font-medium text-gold-600">
+        <span className="font-medium text-gold-ink">
           {photoUrl ? "Change photo" : "Add photo (optional)"}
         </span>
       </button>
@@ -135,7 +135,7 @@ export default function ProfileForm(props: Props) {
       {isSignup && (
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-medium">
-            Referral code <span className="font-normal text-navy/50">(from your coach, optional)</span>
+            Referral code <span className="font-normal text-text-dim">(from your coach, optional)</span>
           </span>
           <input
             className={`${inputCls} uppercase tracking-widest`}
@@ -150,13 +150,13 @@ export default function ProfileForm(props: Props) {
       )}
 
       {error && (
-        <p className="rounded-xl bg-error-100 px-4 py-3 text-sm text-error">{error}</p>
+        <p className="rounded-xl bg-elevated px-4 py-3 text-sm text-heat">{error}</p>
       )}
 
       <button
         type="submit"
         disabled={busy}
-        className="h-12 rounded-xl bg-gold font-semibold text-navy disabled:opacity-50"
+        className="h-12 rounded-xl bg-gold font-semibold text-on-gold disabled:opacity-50"
       >
         {busy ? "Saving…" : isSignup ? "Start my Growline" : "Save changes"}
       </button>
@@ -164,7 +164,7 @@ export default function ProfileForm(props: Props) {
         <button
           type="button"
           onClick={props.onDone}
-          className="h-12 rounded-xl border border-navy/20 font-medium"
+          className="h-12 rounded-xl border border-hairline font-medium"
         >
           Cancel
         </button>

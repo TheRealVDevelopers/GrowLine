@@ -22,8 +22,8 @@ const TABS = [
 
 function Wordmark({ className = "" }: { className?: string }) {
   return (
-    <span className={`text-xl font-bold tracking-tight text-white ${className}`}>
-      Grow<span className="text-gold">line</span>
+    <span className={`text-xl font-bold tracking-tight text-text ${className}`}>
+      Grow<span className="text-gold-ink">line</span>
     </span>
   );
 }
@@ -42,21 +42,21 @@ export default function AppNav({
   return (
     <>
       {/* Mobile top bar */}
-      <header className="fixed inset-x-0 top-0 z-20 flex h-14 items-center justify-between bg-navy px-4 md:hidden">
+      <header className="fixed inset-x-0 top-0 z-20 flex h-14 items-center justify-between bg-elevated px-4 md:hidden">
         <Link href="/" className="flex h-12 items-center">
           <Wordmark />
         </Link>
         <Link
           href="/settings"
           aria-label="Settings"
-          className="flex h-12 w-12 items-center justify-center rounded-full text-white/80"
+          className="flex h-12 w-12 items-center justify-center rounded-full text-text-dim"
         >
           <SettingsIcon className="h-6 w-6" />
         </Link>
       </header>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-20 grid h-16 grid-cols-5 border-t border-navy/10 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-20 grid h-16 grid-cols-5 border-t border-hairline bg-elevated pb-[env(safe-area-inset-bottom)] md:hidden">
         {TABS.map(({ href, label, Icon }) => {
           const active = isActive(href);
           return (
@@ -64,10 +64,10 @@ export default function AppNav({
               key={href}
               href={href}
               className={`flex min-h-12 flex-col items-center justify-center gap-0.5 ${
-                active ? "text-navy" : "text-navy/45"
+                active ? "text-text" : "text-text/45"
               }`}
             >
-              <Icon className={`h-6 w-6 ${active ? "text-gold" : ""}`} />
+              <Icon className={`h-6 w-6 ${active ? "text-gold-ink" : ""}`} />
               <span className={`text-xs ${active ? "font-semibold" : ""}`}>{label}</span>
             </Link>
           );
@@ -75,7 +75,7 @@ export default function AppNav({
       </nav>
 
       {/* Desktop side rail */}
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col bg-navy p-4 text-white md:flex">
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col bg-elevated p-4 text-text md:flex">
         <Link href="/" className="flex h-12 items-center px-2">
           <Wordmark className="text-2xl" />
         </Link>
@@ -88,8 +88,8 @@ export default function AppNav({
                 href={href}
                 className={`flex h-12 items-center gap-3 rounded-xl px-3 ${
                   active
-                    ? "bg-white/10 font-semibold text-gold"
-                    : "text-white/75 hover:bg-white/5 hover:text-white"
+                    ? "bg-elevated/10 font-semibold text-gold-ink"
+                    : "text-text-dim hover:bg-elevated/5 hover:text-text"
                 }`}
               >
                 <Icon className="h-5 w-5" />
@@ -103,8 +103,8 @@ export default function AppNav({
             href="/settings"
             className={`flex h-12 items-center gap-3 rounded-xl px-3 ${
               isActive("/settings")
-                ? "bg-white/10 font-semibold text-gold"
-                : "text-white/75 hover:bg-white/5 hover:text-white"
+                ? "bg-elevated/10 font-semibold text-gold-ink"
+                : "text-text-dim hover:bg-elevated/5 hover:text-text"
             }`}
           >
             <SettingsIcon className="h-5 w-5" />
@@ -112,7 +112,7 @@ export default function AppNav({
           </Link>
           <div className="flex items-center gap-3 rounded-xl px-3 py-2">
             <Avatar name={userName} photoUrl={userPhotoUrl} size={32} />
-            <span className="truncate text-sm text-white/85">{userName}</span>
+            <span className="truncate text-sm text-text-dim">{userName}</span>
           </div>
         </div>
       </aside>

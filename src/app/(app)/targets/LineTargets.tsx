@@ -123,13 +123,13 @@ function LineRow({ row, month }: { row: Row; month: string }) {
         <Avatar name={row.coach.name} photoUrl={row.coach.photoUrl} size={44} />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{row.coach.name}</p>
-          <p className="truncate text-xs text-navy/60">
+          <p className="truncate text-xs text-text-dim">
             {/* Their own label if they set one — never a rank we supplied. */}
             {row.coach.levelName ?? row.coach.city ?? ""}
           </p>
         </div>
         {achieved && (
-          <span className="shrink-0 rounded-full bg-success-100 px-2.5 py-1 text-xs font-semibold text-success">
+          <span className="shrink-0 rounded-full bg-elevated px-2.5 py-1 text-xs font-semibold text-gem-green">
             Reached
           </span>
         )}
@@ -142,7 +142,7 @@ function LineRow({ row, month }: { row: Row; month: string }) {
           achieved={achieved}
         />
       ) : (
-        <p className="text-sm text-navy/70">No target set for this month yet.</p>
+        <p className="text-sm text-text-dim">No target set for this month yet.</p>
       )}
 
       {editing ? (
@@ -158,13 +158,13 @@ function LineRow({ row, month }: { row: Row; month: string }) {
               setPoints(digits === "" ? 0 : Math.min(MAX_TARGET_POINTS, Number(digits)));
             }}
             inputMode="numeric"
-            className="h-12 w-full rounded-xl border border-navy/20 bg-white px-4 text-xl font-bold tabular-nums outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
+            className="h-12 w-full rounded-xl border border-hairline bg-elevated px-4 text-xl font-bold tabular-nums outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
           />
           <div className="flex flex-wrap gap-2">
             <button
               onClick={saveTarget}
               disabled={busy || points < 1}
-              className="h-12 rounded-xl bg-gold px-5 font-semibold text-navy disabled:opacity-40"
+              className="h-12 rounded-xl bg-gold px-5 font-semibold text-on-gold disabled:opacity-40"
             >
               {busy ? "Saving…" : "Save target"}
             </button>
@@ -173,7 +173,7 @@ function LineRow({ row, month }: { row: Row; month: string }) {
                 setPoints(row.target?.targetPoints ?? 0);
                 setEditing(false);
               }}
-              className="h-12 rounded-xl border border-navy/20 px-4 font-medium"
+              className="h-12 rounded-xl border border-hairline px-4 font-medium"
             >
               Cancel
             </button>
@@ -183,14 +183,14 @@ function LineRow({ row, month }: { row: Row; month: string }) {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setEditing(true)}
-            className="h-12 rounded-xl border border-navy/20 px-4 font-medium"
+            className="h-12 rounded-xl border border-hairline px-4 font-medium"
           >
             {row.target ? "Change target" : "Set a target"}
           </button>
           {row.target && (
             <button
               onClick={() => setAsking((v) => !v)}
-              className="h-12 rounded-xl border border-navy/20 px-4 font-medium"
+              className="h-12 rounded-xl border border-hairline px-4 font-medium"
             >
               Ask for proof
             </button>
@@ -199,18 +199,18 @@ function LineRow({ row, month }: { row: Row; month: string }) {
       )}
 
       {asking && row.target && (
-        <div className="flex flex-col gap-2 border-t border-navy/10 pt-3">
+        <div className="flex flex-col gap-2 border-t border-hairline pt-3">
           <input
             value={askNote}
             onChange={(e) => setAskNote(e.target.value)}
             maxLength={MAX_NOTE}
             placeholder="What would you like to see? (optional)"
-            className="h-12 w-full rounded-xl border border-navy/20 bg-white px-4 outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
+            className="h-12 w-full rounded-xl border border-hairline bg-elevated px-4 outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
           />
           <button
             onClick={askForProof}
             disabled={busy}
-            className="h-12 rounded-xl bg-gold px-5 font-semibold text-navy disabled:opacity-50"
+            className="h-12 rounded-xl bg-gold px-5 font-semibold text-on-gold disabled:opacity-50"
           >
             {busy ? "Sending…" : "Send request"}
           </button>
@@ -218,11 +218,11 @@ function LineRow({ row, month }: { row: Row; month: string }) {
       )}
 
       {error && (
-        <p className="rounded-xl bg-error-100 px-4 py-3 text-sm text-error">{error}</p>
+        <p className="rounded-xl bg-elevated px-4 py-3 text-sm text-heat">{error}</p>
       )}
 
       {row.target && row.target.proofs.length > 0 && (
-        <div className="flex flex-col gap-2 border-t border-navy/10 pt-3">
+        <div className="flex flex-col gap-2 border-t border-hairline pt-3">
           {row.target.proofs.map((p) => (
             <ProofToReview key={p.id} proof={p} />
           ))}
@@ -271,12 +271,12 @@ function ProofToReview({ proof }: { proof: ProofRow }) {
   const reviewable = proof.status === "submitted";
 
   return (
-    <div className="rounded-xl bg-white p-3">
+    <div className="rounded-xl bg-elevated p-3">
       <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 flex-1 text-sm text-navy/80">
+        <p className="min-w-0 flex-1 text-sm text-text/80">
           {proof.requestNote ?? "Proof requested"}
         </p>
-        <span className="shrink-0 text-xs font-semibold text-navy/70">{label}</span>
+        <span className="shrink-0 text-xs font-semibold text-text-dim">{label}</span>
       </div>
 
       {proof.mediaUrl && (
@@ -288,10 +288,10 @@ function ProofToReview({ proof }: { proof: ProofRow }) {
         />
       )}
       {proof.submitNote && (
-        <p className="mt-2 text-sm text-navy/80">They wrote: {proof.submitNote}</p>
+        <p className="mt-2 text-sm text-text/80">They wrote: {proof.submitNote}</p>
       )}
       {proof.comment && (
-        <p className="mt-2 text-sm text-navy/70">You said: {proof.comment}</p>
+        <p className="mt-2 text-sm text-text-dim">You said: {proof.comment}</p>
       )}
 
       {reviewable && (
@@ -301,20 +301,20 @@ function ProofToReview({ proof }: { proof: ProofRow }) {
             onChange={(e) => setComment(e.target.value)}
             maxLength={MAX_NOTE}
             placeholder="Comment (needed if you send it back)"
-            className="h-12 w-full rounded-xl border border-navy/20 px-4 outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
+            className="h-12 w-full rounded-xl border border-hairline px-4 outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
           />
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => decide("approved")}
               disabled={busy !== null}
-              className="h-12 flex-1 rounded-xl bg-success px-4 font-semibold text-white disabled:opacity-50"
+              className="h-12 flex-1 rounded-xl bg-gem-green px-4 font-semibold text-text disabled:opacity-50"
             >
               {busy === "approved" ? "Saving…" : "Approve"}
             </button>
             <button
               onClick={() => decide("rejected")}
               disabled={busy !== null}
-              className="h-12 rounded-xl border border-navy/20 px-4 font-medium disabled:opacity-50"
+              className="h-12 rounded-xl border border-hairline px-4 font-medium disabled:opacity-50"
             >
               {busy === "rejected" ? "Saving…" : "Send back"}
             </button>
@@ -322,7 +322,7 @@ function ProofToReview({ proof }: { proof: ProofRow }) {
         </div>
       )}
 
-      {error && <p className="mt-2 text-sm text-error">{error}</p>}
+      {error && <p className="mt-2 text-sm text-heat">{error}</p>}
     </div>
   );
 }

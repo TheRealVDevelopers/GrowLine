@@ -73,7 +73,7 @@ export default function ProspectDetailsEditor({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="h-12 self-start rounded-xl border border-navy/20 px-4 font-medium"
+        className="h-12 self-start rounded-xl border border-hairline px-4 font-medium"
       >
         Edit details
       </button>
@@ -85,19 +85,19 @@ export default function ProspectDetailsEditor({
       <h2 className="font-semibold">Edit details</h2>
       <CaptureFields values={values} onChange={setValues} />
       {error && (
-        <p className="rounded-xl bg-error-100 px-4 py-3 text-sm text-error">{error}</p>
+        <p className="rounded-xl bg-elevated px-4 py-3 text-sm text-heat">{error}</p>
       )}
       <button
         type="submit"
         disabled={busy}
-        className="h-14 rounded-xl bg-gold text-lg font-semibold text-navy disabled:opacity-50"
+        className="h-14 rounded-xl bg-gold text-lg font-semibold text-on-gold disabled:opacity-50"
       >
         {busy ? "Saving…" : "Save details"}
       </button>
       <button
         type="button"
         onClick={() => setOpen(false)}
-        className="h-12 rounded-xl border border-navy/20 font-medium"
+        className="h-12 rounded-xl border border-hairline font-medium"
       >
         Cancel
       </button>

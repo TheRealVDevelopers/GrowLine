@@ -50,11 +50,11 @@ export default async function PublicReportPage({ params }: Params) {
     return (
       <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-6 py-10 text-center">
         <h1 className="text-2xl font-bold">This link is not available</h1>
-        <p className="mt-2 text-navy/70">
+        <p className="mt-2 text-text-dim">
           Wellness snapshot links stop working after a while. Ask your coach to send a
           fresh one.
         </p>
-        <p className="mt-6 text-sm text-navy/70">{DISCLAIMER}</p>
+        <p className="mt-6 text-sm text-text-dim">{DISCLAIMER}</p>
       </main>
     );
   }
@@ -72,13 +72,13 @@ export default async function PublicReportPage({ params }: Params) {
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-8">
       <header className="flex flex-col gap-1">
-        <p className="text-sm font-medium text-gold-600">Growline</p>
+        <p className="text-sm font-medium text-gold-ink">Growline</p>
         <h1 className="text-3xl font-bold leading-tight">{REPORT_TITLE}</h1>
-        <p className="text-navy/70">For {firstName}</p>
+        <p className="text-text-dim">For {firstName}</p>
       </header>
 
       {/* Disclaimer above the fold, never behind a "read more" */}
-      <p className="mt-5 rounded-2xl bg-navy-100 px-4 py-3 text-sm leading-snug text-navy">
+      <p className="mt-5 rounded-2xl bg-hairline px-4 py-3 text-sm leading-snug text-text">
         {DISCLAIMER} {NOT_A_DOCTOR}
       </p>
 
@@ -86,18 +86,18 @@ export default async function PublicReportPage({ params }: Params) {
         <SnapshotMetrics metrics={report.snapshot.metrics} />
       </div>
 
-      <p className="mt-5 rounded-2xl bg-gold-100 px-5 py-4 text-base leading-snug text-navy">
+      <p className="mt-5 rounded-2xl bg-elevated px-5 py-4 text-base leading-snug text-text">
         {nextStepLine(report.id)}
       </p>
 
       {/* Kept visually separate from the numbers, so the page never reads as
           "here is your problem, here is who to buy from". */}
-      <section className="mt-8 border-t border-navy/10 pt-6">
+      <section className="mt-8 border-t border-hairline pt-6">
         <div className="flex items-center gap-4">
           <Avatar name={coach.name} photoUrl={coach.photoUrl} size={56} />
           <div className="min-w-0">
             <p className="truncate text-lg font-semibold">{coach.name}</p>
-            <p className="truncate text-sm text-navy/70">
+            <p className="truncate text-sm text-text-dim">
               {COACH_ROLE}
               {coach.city ? ` · ${coach.city}` : ""}
             </p>
@@ -107,13 +107,13 @@ export default async function PublicReportPage({ params }: Params) {
           href={waLink}
           target="_blank"
           rel="noreferrer noopener"
-          className="mt-4 flex h-14 items-center justify-center rounded-xl bg-gold text-lg font-semibold text-navy"
+          className="mt-4 flex h-14 items-center justify-center rounded-xl bg-gold text-lg font-semibold text-on-gold"
         >
           Message {coach.name.split(" ")[0]} on WhatsApp
         </a>
       </section>
 
-      <footer className="mt-8 flex flex-col gap-3 border-t border-navy/10 pt-6 text-sm text-navy/70">
+      <footer className="mt-8 flex flex-col gap-3 border-t border-hairline pt-6 text-sm text-text-dim">
         <p>{DISCLAIMER}</p>
         <p>{NOT_A_DOCTOR}</p>
         {!viewerOwnsProspect && <RemoveMyDetails token={report.token} />}

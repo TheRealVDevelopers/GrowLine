@@ -21,7 +21,7 @@ export default function LogoutButton() {
     <button
       onClick={logout}
       disabled={busy}
-      className="h-12 rounded-xl border border-error font-semibold text-error disabled:opacity-50"
+      className="h-12 rounded-xl border border-error font-semibold text-heat disabled:opacity-50"
     >
       {busy ? "Logging out…" : "Log out"}
     </button>

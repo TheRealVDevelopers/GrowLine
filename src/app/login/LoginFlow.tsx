@@ -13,7 +13,7 @@ import { firebaseAuth, usingAuthEmulator } from "@/lib/firebase";
 type Step = "phone" | "otp" | "profile";
 
 const inputCls =
-  "h-14 w-full rounded-xl border border-navy/20 bg-white px-4 outline-none focus:border-gold focus:ring-2 focus:ring-gold/30";
+  "h-14 w-full rounded-xl border border-hairline bg-elevated px-4 outline-none focus:border-gold focus:ring-2 focus:ring-gold/30";
 
 export default function LoginFlow() {
   const router = useRouter();
@@ -128,12 +128,12 @@ export default function LoginFlow() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-6 py-10">
       <h1 className="text-4xl font-bold tracking-tight">
-        Grow<span className="text-gold">line</span>
+        Grow<span className="text-gold-ink">line</span>
       </h1>
-      <p className="mt-2 text-navy/60">Your team, your day, your growth — one app.</p>
+      <p className="mt-2 text-text-dim">Your team, your day, your growth — one app.</p>
 
       {refCode && step !== "profile" && (
-        <p className="mt-4 self-start rounded-full bg-gold-100 px-4 py-2 text-sm font-medium text-gold-600">
+        <p className="mt-4 self-start rounded-full bg-elevated px-4 py-2 text-sm font-medium text-gold-ink">
           Joining with code {refCode}
         </p>
       )}
@@ -165,16 +165,16 @@ export default function LoginFlow() {
               </div>
             </label>
             {error && (
-              <p className="rounded-xl bg-error-100 px-4 py-3 text-sm text-error">{error}</p>
+              <p className="rounded-xl bg-elevated px-4 py-3 text-sm text-heat">{error}</p>
             )}
             <button
               type="submit"
               disabled={busy || phone.length !== 10}
-              className="h-14 rounded-xl bg-gold text-lg font-semibold text-navy disabled:opacity-40"
+              className="h-14 rounded-xl bg-gold text-lg font-semibold text-on-gold disabled:opacity-40"
             >
               {busy ? "Sending…" : "Get OTP"}
             </button>
-            <p className="text-center text-sm text-navy/50">
+            <p className="text-center text-sm text-text-dim">
               New here? Enter your number — we&apos;ll set you up in a minute.
             </p>
           </form>
@@ -187,7 +187,7 @@ export default function LoginFlow() {
               <span className="font-semibold">+91 {phone.slice(0, 5)} {phone.slice(5)}</span>
             </p>
             {usingAuthEmulator && (
-              <p className="rounded-xl border border-gold bg-gold-100 px-4 py-3 text-sm">
+              <p className="rounded-xl border border-gold bg-elevated px-4 py-3 text-sm">
                 Emulator — use the code configured for this test number.
               </p>
             )}
@@ -201,10 +201,10 @@ export default function LoginFlow() {
               autoFocus
             />
             {error && (
-              <p className="rounded-xl bg-error-100 px-4 py-3 text-sm text-error">{error}</p>
+              <p className="rounded-xl bg-elevated px-4 py-3 text-sm text-heat">{error}</p>
             )}
-            {busy && <p className="text-center text-sm text-navy/50">Checking…</p>}
-            <div className="flex justify-between text-sm font-medium text-gold-600">
+            {busy && <p className="text-center text-sm text-text-dim">Checking…</p>}
+            <div className="flex justify-between text-sm font-medium text-gold-ink">
               <button className="h-12 px-2" onClick={() => { setStep("phone"); setError(""); }}>
                 Change number
               </button>

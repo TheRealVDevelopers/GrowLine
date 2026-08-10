@@ -62,7 +62,7 @@ export default async function HomePage() {
           <span>
             Free trial · <b>{trialDaysLeft} days</b> left
           </span>
-          <span className="text-sm font-medium text-gold-600">Details</span>
+          <span className="text-sm font-medium text-gold-ink">Details</span>
         </Link>
       )}
 
@@ -71,16 +71,16 @@ export default async function HomePage() {
       {followups.due > 0 && (
         <Link
           href="/prospects?due=1"
-          className="flex items-center justify-between gap-3 rounded-2xl bg-gold-100 px-5 py-4"
+          className="flex items-center justify-between gap-3 rounded-2xl bg-elevated px-5 py-4"
         >
           <span>
             <span className="block text-3xl font-bold">{followups.due}</span>
-            <span className="text-sm text-navy/70">
+            <span className="text-sm text-text-dim">
               {followups.due === 1 ? "person to follow up" : "people to follow up"}
               {followups.overdue > 0 && ` · ${followups.overdue} from earlier`}
             </span>
           </span>
-          <span className="shrink-0 text-sm font-medium text-gold-600">See them</span>
+          <span className="shrink-0 text-sm font-medium text-gold-ink">See them</span>
         </Link>
       )}
 
@@ -89,7 +89,7 @@ export default async function HomePage() {
       {proofsToAnswer > 0 && (
         <Link
           href="/targets"
-          className="flex items-center justify-between gap-3 rounded-2xl bg-gold-100 px-5 py-4"
+          className="flex items-center justify-between gap-3 rounded-2xl bg-elevated px-5 py-4"
         >
           <span>
             <span className="block text-lg font-semibold">
@@ -97,9 +97,9 @@ export default async function HomePage() {
                 ? "Your upline asked for proof"
                 : `${proofsToAnswer} proof requests`}
             </span>
-            <span className="text-sm text-navy/70">Send a photo or a line</span>
+            <span className="text-sm text-text-dim">Send a photo or a line</span>
           </span>
-          <span className="shrink-0 text-sm font-medium text-gold-600">Open</span>
+          <span className="shrink-0 text-sm font-medium text-gold-ink">Open</span>
         </Link>
       )}
 
@@ -114,9 +114,9 @@ export default async function HomePage() {
                 ? "1 proof to check"
                 : `${proofsToReview} proofs to check`}
             </span>
-            <span className="text-sm text-navy/70">Your line is waiting on you</span>
+            <span className="text-sm text-text-dim">Your line is waiting on you</span>
           </span>
-          <span className="shrink-0 text-sm font-medium text-gold-600">Review</span>
+          <span className="shrink-0 text-sm font-medium text-gold-ink">Review</span>
         </Link>
       )}
 
@@ -125,7 +125,7 @@ export default async function HomePage() {
       <Link
         href="/log"
         className={`flex items-center justify-between gap-3 rounded-2xl px-5 py-4 ${
-          logState.hasLoggedToday ? "bg-surface" : "bg-navy text-white"
+          logState.hasLoggedToday ? "bg-surface" : "bg-elevated text-text"
         }`}
       >
         <span>
@@ -134,7 +134,7 @@ export default async function HomePage() {
           </span>
           <span
             className={`text-sm ${
-              logState.hasLoggedToday ? "text-navy/70" : "text-white/75"
+              logState.hasLoggedToday ? "text-text-dim" : "text-text-dim"
             }`}
           >
             {logState.streak > 0
@@ -144,7 +144,7 @@ export default async function HomePage() {
         </span>
         <span
           className={`shrink-0 text-sm font-medium ${
-            logState.hasLoggedToday ? "text-gold-600" : "text-gold"
+            logState.hasLoggedToday ? "text-gold-ink" : "text-gold-ink"
           }`}
         >
           {logState.hasLoggedToday ? "Change it" : "Open"}
@@ -155,24 +155,24 @@ export default async function HomePage() {
       <div className="flex flex-wrap gap-2">
         <Link
           href="/prospects/new"
-          className="flex h-14 flex-1 items-center justify-center rounded-xl bg-gold text-lg font-semibold text-navy"
+          className="flex h-14 flex-1 items-center justify-center rounded-xl bg-gold text-lg font-semibold text-on-gold"
         >
           + New Person
         </Link>
         <Link
           href="/prospects/qr"
-          className="flex h-14 items-center justify-center rounded-xl border border-navy/20 px-4 font-medium"
+          className="flex h-14 items-center justify-center rounded-xl border border-hairline px-4 font-medium"
         >
           My QR code
         </Link>
       </div>
 
-      <section className="rounded-2xl bg-navy p-5 text-white">
-        <h2 className="text-sm font-medium text-white/70">My referral code</h2>
-        <p className="mt-1 text-4xl font-bold tracking-[0.25em] text-gold">
+      <section className="rounded-2xl bg-elevated p-5 text-text">
+        <h2 className="text-sm font-medium text-text-dim">My referral code</h2>
+        <p className="mt-1 text-4xl font-bold tracking-[0.25em] text-gold-ink">
           {user.referralCode}
         </p>
-        <p className="mb-4 mt-2 text-sm text-white/70">
+        <p className="mb-4 mt-2 text-sm text-text-dim">
           Every coach who signs up with your code joins your line — automatically.
         </p>
         <InviteButtons code={user.referralCode} dark />
@@ -185,17 +185,17 @@ export default async function HomePage() {
         className="flex items-center justify-between gap-3 rounded-2xl bg-surface px-5 py-4"
       >
         <span className="min-w-0">
-          <span className="block text-sm text-navy/70">My Target</span>
+          <span className="block text-sm text-text-dim">My Target</span>
           {myTarget ? (
             <>
               <span className="block text-2xl font-bold tabular-nums">
                 {myTarget.progressPoints.toLocaleString("en-IN")}
-                <span className="text-base font-medium text-navy/70">
+                <span className="text-base font-medium text-text-dim">
                   {" / "}
                   {myTarget.targetPoints.toLocaleString("en-IN")}
                 </span>
               </span>
-              <span className="text-sm text-navy/70">
+              <span className="text-sm text-text-dim">
                 {progressPercent(myTarget.progressPoints, myTarget.targetPoints).pct}% this
                 month
               </span>
@@ -204,7 +204,7 @@ export default async function HomePage() {
             <span className="block font-medium">Not set for this month</span>
           )}
         </span>
-        <span className="shrink-0 text-sm font-medium text-gold-600">
+        <span className="shrink-0 text-sm font-medium text-gold-ink">
           {myTarget ? "Update" : "See"}
         </span>
       </Link>
@@ -213,21 +213,21 @@ export default async function HomePage() {
         href="/team"
         className="flex items-center gap-4 rounded-2xl bg-surface px-5 py-4"
       >
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gold-100 text-gold-600">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-elevated text-gold-ink">
           <TeamIcon className="h-6 w-6" />
         </span>
         <span className="flex-1">
           <span className="block text-2xl font-bold">{directCount}</span>
-          <span className="text-sm text-navy/60">
+          <span className="text-sm text-text-dim">
             {directCount === 1 ? "coach" : "coaches"} in my direct line
           </span>
         </span>
-        <span className="text-sm font-medium text-gold-600">My Team</span>
+        <span className="text-sm font-medium text-gold-ink">My Team</span>
       </Link>
 
-      <section className="rounded-2xl border border-navy/10 px-5 py-4">
+      <section className="rounded-2xl border border-hairline px-5 py-4">
         <h2 className="font-semibold">Coming next on Growline</h2>
-        <ul className="mt-2 flex flex-col gap-1.5 text-sm text-navy/60">
+        <ul className="mt-2 flex flex-col gap-1.5 text-sm text-text-dim">
           <li>• Set targets with your upline</li>
           <li>• Get messages from your line</li>
         </ul>

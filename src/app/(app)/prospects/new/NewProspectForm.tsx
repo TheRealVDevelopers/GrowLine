@@ -85,7 +85,7 @@ export default function NewProspectForm() {
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
       {queuedCount > 0 && (
-        <p className="rounded-xl bg-gold-100 px-4 py-3 text-sm text-gold-600">
+        <p className="rounded-xl bg-elevated px-4 py-3 text-sm text-gold-ink">
           Saved on this phone{queuedCount > 1 ? ` · ${queuedCount} so far` : ""}. It will
           upload by itself when you have network — keep going.
         </p>
@@ -94,17 +94,17 @@ export default function NewProspectForm() {
       <CaptureFields values={values} onChange={setValues} />
 
       {error && (
-        <p className="rounded-xl bg-error-100 px-4 py-3 text-sm text-error">{error}</p>
+        <p className="rounded-xl bg-elevated px-4 py-3 text-sm text-heat">{error}</p>
       )}
 
       <button
         type="submit"
         disabled={!canSave || busy}
-        className="h-14 rounded-xl bg-gold text-lg font-semibold text-navy disabled:opacity-40"
+        className="h-14 rounded-xl bg-gold text-lg font-semibold text-on-gold disabled:opacity-40"
       >
         {busy ? "Saving…" : "Save person"}
       </button>
-      <p className="text-center text-sm text-navy/50">
+      <p className="text-center text-sm text-text-dim">
         Only name and number are needed now — you can add the rest later.
       </p>
     </form>

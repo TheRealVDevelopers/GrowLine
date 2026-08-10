@@ -39,7 +39,7 @@ export default function MyTargetCard({
     return (
       <section className="rounded-2xl bg-surface p-5">
         <h2 className="font-semibold">No target set for this month</h2>
-        <p className="mt-2 text-sm leading-snug text-navy/70">
+        <p className="mt-2 text-sm leading-snug text-text-dim">
           Your upline sets your monthly target. Ask them to add one, and your progress
           bar will appear here.
         </p>
@@ -82,9 +82,9 @@ export default function MyTargetCard({
     <>
       {celebrate && (
         // Recognition without animation weight (Section 4.8 vs 4.4).
-        <section className="rounded-2xl bg-success-100 p-5">
-          <p className="text-2xl font-bold text-success">🎉 Target reached</p>
-          <p className="mt-1 text-navy/80">{targetReachedMessage(levelName)}</p>
+        <section className="rounded-2xl bg-elevated p-5">
+          <p className="text-2xl font-bold text-gem-green">🎉 Target reached</p>
+          <p className="mt-1 text-text/80">{targetReachedMessage(levelName)}</p>
         </section>
       )}
 
@@ -94,10 +94,10 @@ export default function MyTargetCard({
             <h2 className="font-semibold">
               {levelName ? levelName : "This month"}
             </h2>
-            <p className="text-sm text-navy/70">Set by {target.setByName}</p>
+            <p className="text-sm text-text-dim">Set by {target.setByName}</p>
           </div>
           {achieved && (
-            <span className="shrink-0 rounded-full bg-success-100 px-3 py-1 text-xs font-semibold text-success">
+            <span className="shrink-0 rounded-full bg-elevated px-3 py-1 text-xs font-semibold text-gem-green">
               Reached
             </span>
           )}
@@ -109,7 +109,7 @@ export default function MyTargetCard({
           achieved={achieved}
         />
 
-        <div className="border-t border-navy/10 pt-4">
+        <div className="border-t border-hairline pt-4">
           <h3 className="font-medium">Update my progress</h3>
           <div className="mt-3 flex items-center gap-2">
             <button
@@ -117,7 +117,7 @@ export default function MyTargetCard({
               aria-label="Ten less"
               onClick={() => bump(-10)}
               disabled={draft === 0}
-              className="h-12 w-14 rounded-xl border border-navy/20 font-semibold disabled:opacity-30"
+              className="h-12 w-14 rounded-xl border border-hairline font-semibold disabled:opacity-30"
             >
               −10
             </button>
@@ -126,7 +126,7 @@ export default function MyTargetCard({
               aria-label="One less"
               onClick={() => bump(-1)}
               disabled={draft === 0}
-              className="h-12 w-12 rounded-xl border border-navy/20 text-2xl leading-none disabled:opacity-30"
+              className="h-12 w-12 rounded-xl border border-hairline text-2xl leading-none disabled:opacity-30"
             >
               −
             </button>
@@ -141,13 +141,13 @@ export default function MyTargetCard({
                 setDraft(digits === "" ? 0 : Number(digits));
               }}
               inputMode="numeric"
-              className="h-12 min-w-0 flex-1 rounded-xl border border-navy/20 bg-white text-center text-xl font-bold tabular-nums outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
+              className="h-12 min-w-0 flex-1 rounded-xl border border-hairline bg-elevated text-center text-xl font-bold tabular-nums outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
             />
             <button
               type="button"
               aria-label="One more"
               onClick={() => bump(1)}
-              className="h-12 w-12 rounded-xl bg-navy text-2xl leading-none text-white"
+              className="h-12 w-12 rounded-xl bg-elevated text-2xl leading-none text-text"
             >
               +
             </button>
@@ -155,14 +155,14 @@ export default function MyTargetCard({
               type="button"
               aria-label="Ten more"
               onClick={() => bump(10)}
-              className="h-12 w-14 rounded-xl bg-navy font-semibold text-white"
+              className="h-12 w-14 rounded-xl bg-elevated font-semibold text-text"
             >
               +10
             </button>
           </div>
 
           {error && (
-            <p className="mt-3 rounded-xl bg-error-100 px-4 py-3 text-sm text-error">
+            <p className="mt-3 rounded-xl bg-elevated px-4 py-3 text-sm text-heat">
               {error}
             </p>
           )}
@@ -170,7 +170,7 @@ export default function MyTargetCard({
           <button
             onClick={save}
             disabled={busy || !dirty}
-            className="mt-3 h-14 w-full rounded-xl bg-gold text-lg font-semibold text-navy disabled:opacity-40"
+            className="mt-3 h-14 w-full rounded-xl bg-gold text-lg font-semibold text-on-gold disabled:opacity-40"
           >
             {busy ? "Saving…" : dirty ? "Save progress" : "Saved"}
           </button>

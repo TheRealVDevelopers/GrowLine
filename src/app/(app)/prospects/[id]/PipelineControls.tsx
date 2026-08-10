@@ -82,10 +82,10 @@ export default function PipelineControls({
                 aria-pressed={active}
                 className={`h-12 rounded-xl px-4 font-medium disabled:opacity-60 ${
                   active
-                    ? "bg-navy text-white"
+                    ? "bg-elevated text-text"
                     : passed
-                      ? "border border-navy/30 bg-navy-100 text-navy"
-                      : "border border-navy/20 text-navy/70"
+                      ? "border border-hairline bg-hairline text-text"
+                      : "border border-hairline text-text-dim"
                 }`}
               >
                 {STAGE_LABELS[s]}
@@ -97,21 +97,21 @@ export default function PipelineControls({
           <button
             onClick={() => void save({ stage: advance }, "advance")}
             disabled={busy !== null}
-            className="mt-3 h-14 w-full rounded-xl bg-gold text-lg font-semibold text-navy disabled:opacity-50"
+            className="mt-3 h-14 w-full rounded-xl bg-gold text-lg font-semibold text-on-gold disabled:opacity-50"
           >
             {busy === "advance" ? "Saving…" : `Move to ${STAGE_LABELS[advance]}`}
           </button>
         )}
       </div>
 
-      <div className="border-t border-navy/10 pt-4">
+      <div className="border-t border-hairline pt-4">
         <h2 className="font-semibold">Next follow-up</h2>
         {/* The label already reads as a sentence on its own ("Tomorrow", "In 3
             days", "3 days late"), so it is shown directly rather than wrapped in
             a phrase that would produce "Set for in 3 days". */}
         <p
           className={`mt-1 ${
-            followupOverdue ? "font-semibold text-gold-600" : "text-sm text-navy/70"
+            followupOverdue ? "font-semibold text-gold-ink" : "text-sm text-text-dim"
           }`}
         >
           {followupLabel ?? "Not set yet"}
@@ -127,7 +127,7 @@ export default function PipelineControls({
                 )
               }
               disabled={busy !== null}
-              className="h-12 rounded-xl border border-navy/20 px-4 font-medium disabled:opacity-60"
+              className="h-12 rounded-xl border border-hairline px-4 font-medium disabled:opacity-60"
             >
               {busy === `fu-${p.key}` ? "Saving…" : p.label}
             </button>
@@ -136,7 +136,7 @@ export default function PipelineControls({
             <button
               onClick={() => void save({ nextFollowupAt: null }, "fu-clear")}
               disabled={busy !== null}
-              className="h-12 rounded-xl px-4 font-medium text-navy/70 underline disabled:opacity-60"
+              className="h-12 rounded-xl px-4 font-medium text-text-dim underline disabled:opacity-60"
             >
               Clear
             </button>
@@ -144,7 +144,7 @@ export default function PipelineControls({
         </div>
       </div>
 
-      <div className="border-t border-navy/10 pt-4">
+      <div className="border-t border-hairline pt-4">
         <h2 className="font-semibold">Notes</h2>
         {noteOpen ? (
           <div className="mt-3 flex flex-col gap-2">
@@ -154,7 +154,7 @@ export default function PipelineControls({
               rows={4}
               maxLength={2000}
               placeholder="What did you talk about?"
-              className="w-full rounded-xl border border-navy/20 bg-white p-3 text-base outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
+              className="w-full rounded-xl border border-hairline bg-elevated p-3 text-base outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
               autoFocus
             />
             <div className="flex flex-wrap gap-2">
@@ -163,7 +163,7 @@ export default function PipelineControls({
                   if (await save({ notes: noteDraft }, "notes")) setNoteOpen(false);
                 }}
                 disabled={busy !== null}
-                className="h-12 rounded-xl bg-gold px-5 font-semibold text-navy disabled:opacity-50"
+                className="h-12 rounded-xl bg-gold px-5 font-semibold text-on-gold disabled:opacity-50"
               >
                 {busy === "notes" ? "Saving…" : "Save note"}
               </button>
@@ -172,7 +172,7 @@ export default function PipelineControls({
                   setNoteDraft(notes ?? "");
                   setNoteOpen(false);
                 }}
-                className="h-12 rounded-xl border border-navy/20 px-4 font-medium"
+                className="h-12 rounded-xl border border-hairline px-4 font-medium"
               >
                 Cancel
               </button>
@@ -181,13 +181,13 @@ export default function PipelineControls({
         ) : (
           <>
             {notes ? (
-              <p className="mt-2 whitespace-pre-wrap text-navy/80">{notes}</p>
+              <p className="mt-2 whitespace-pre-wrap text-text/80">{notes}</p>
             ) : (
-              <p className="mt-1 text-sm text-navy/70">Nothing written down yet</p>
+              <p className="mt-1 text-sm text-text-dim">Nothing written down yet</p>
             )}
             <button
               onClick={() => setNoteOpen(true)}
-              className="mt-3 h-12 rounded-xl border border-navy/20 px-4 font-medium"
+              className="mt-3 h-12 rounded-xl border border-hairline px-4 font-medium"
             >
               {notes ? "Edit note" : "Add a note"}
             </button>
@@ -196,7 +196,7 @@ export default function PipelineControls({
       </div>
 
       {error && (
-        <p className="rounded-xl bg-error-100 px-4 py-3 text-sm text-error">{error}</p>
+        <p className="rounded-xl bg-elevated px-4 py-3 text-sm text-heat">{error}</p>
       )}
     </section>
   );

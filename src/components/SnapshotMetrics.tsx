@@ -35,12 +35,12 @@ function Tile({
 }) {
   return (
     <div className="flex flex-col rounded-2xl bg-surface p-4">
-      <span className="text-sm font-medium text-navy/70">{label}</span>
+      <span className="text-sm font-medium text-text-dim">{label}</span>
       <span className="mt-1 flex items-baseline gap-1">
         <span className="text-3xl font-bold tabular-nums">{value}</span>
-        {unit && <span className="text-base font-medium text-navy/70">{unit}</span>}
+        {unit && <span className="text-base font-medium text-text-dim">{unit}</span>}
       </span>
-      <span className="mt-2 text-xs leading-snug text-navy/70">{note}</span>
+      <span className="mt-2 text-xs leading-snug text-text-dim">{note}</span>
     </div>
   );
 }
@@ -58,10 +58,10 @@ function BmiStrip({ bmi }: { bmi: number }) {
 
   return (
     <div className="mt-4">
-      <div className="relative h-3 rounded-full bg-navy-100">
+      <div className="relative h-3 rounded-full bg-hairline">
         {/* The general range, marked without judging anything outside it */}
         <div
-          className="absolute inset-y-0 rounded-full bg-navy/20"
+          className="absolute inset-y-0 rounded-full bg-hairline"
           style={{
             left: `${tickPct(HEALTHY_BMI_MIN)}%`,
             width: `${tickPct(HEALTHY_BMI_MAX) - tickPct(HEALTHY_BMI_MIN)}%`,
@@ -75,7 +75,7 @@ function BmiStrip({ bmi }: { bmi: number }) {
       {/* Each label is positioned at its own value, not spaced evenly. Even
           spacing would put "18.5" at a third of the way across while the band
           it marks starts at 17.5% — a scale contradicting itself. */}
-      <div className="relative mt-1.5 h-4 text-xs text-navy/60">
+      <div className="relative mt-1.5 h-4 text-xs text-text-dim">
         {[BMI_SCALE_MIN, HEALTHY_BMI_MIN, HEALTHY_BMI_MAX, BMI_SCALE_MAX].map((v) => (
           <span
             key={v}
@@ -95,7 +95,7 @@ export default function SnapshotMetrics({ metrics }: { metrics: WellnessMetrics 
     <div className="flex flex-col gap-3">
       {metrics.bmi && (
         <section className="rounded-2xl bg-surface p-5">
-          <span className="text-sm font-medium text-navy/70">BMI</span>
+          <span className="text-sm font-medium text-text-dim">BMI</span>
           <div className="mt-1 flex items-baseline gap-3">
             <span className="text-5xl font-bold tabular-nums">
               {metrics.bmi.value.toFixed(1)}
@@ -103,7 +103,7 @@ export default function SnapshotMetrics({ metrics }: { metrics: WellnessMetrics 
             <span className="text-base font-medium">{metrics.bmi.band.label}</span>
           </div>
           <BmiStrip bmi={metrics.bmi.value} />
-          <p className="mt-3 text-xs leading-snug text-navy/70">
+          <p className="mt-3 text-xs leading-snug text-text-dim">
             {BMI_NOT_DIAGNOSIS} {BMI_STANDARD_NOTE}
           </p>
         </section>

@@ -37,7 +37,7 @@ export default function ProfileSection({
       <Avatar name={name} photoUrl={photoUrl} size={64} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-lg font-semibold">{name}</p>
-        <p className="truncate text-sm text-navy/60">
+        <p className="truncate text-sm text-text-dim">
           {city}
           {city ? " · " : ""}
           {phoneDisplay}
@@ -45,7 +45,7 @@ export default function ProfileSection({
       </div>
       <button
         onClick={() => setEditing(true)}
-        className="h-12 rounded-xl border border-navy/20 px-4 font-medium"
+        className="h-12 rounded-xl border border-hairline px-4 font-medium"
       >
         Edit
       </button>

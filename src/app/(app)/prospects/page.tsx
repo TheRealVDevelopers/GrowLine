@@ -29,7 +29,7 @@ export default async function ProspectsPage() {
         <h1 className="text-2xl font-bold">Prospects</h1>
         <Link
           href="/prospects/qr"
-          className="flex h-12 items-center rounded-xl border border-navy/20 px-4 font-medium"
+          className="flex h-12 items-center rounded-xl border border-hairline px-4 font-medium"
         >
           My QR code
         </Link>

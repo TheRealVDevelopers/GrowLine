@@ -50,28 +50,28 @@ function Row({ p }: { p: ProspectRow }) {
       <Link
         href={`/prospects/${p.id}`}
         className={`flex min-h-16 items-center gap-3 rounded-xl p-3 ${
-          overdue ? "border border-gold bg-gold-100/50" : "bg-surface"
+          overdue ? "border border-gold bg-elevated/50" : "bg-surface"
         }`}
       >
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{p.name}</p>
-          <p className="truncate text-sm text-navy/70">{detailLine(p)}</p>
+          <p className="truncate text-sm text-text-dim">{detailLine(p)}</p>
         </div>
         <span className="flex shrink-0 flex-col items-end gap-1">
-          <span className="rounded-full bg-navy-100 px-2.5 py-1 text-xs font-semibold text-navy">
+          <span className="rounded-full bg-hairline px-2.5 py-1 text-xs font-semibold text-text">
             {STAGE_LABELS[toStage(p.stage)]}
           </span>
           {p.followupLabel && (
             <span
               className={`text-xs ${
-                overdue ? "font-semibold text-gold-600" : "text-navy/70"
+                overdue ? "font-semibold text-gold-ink" : "text-text-dim"
               }`}
             >
               {p.followupLabel}
             </span>
           )}
           {!p.followupLabel && p.source === "qr" && (
-            <span className="text-xs text-navy/60">Filled by them</span>
+            <span className="text-xs text-text-dim">Filled by them</span>
           )}
         </span>
       </Link>
@@ -157,7 +157,7 @@ export default function ProspectList({
   return (
     <>
       {justSaved && (
-        <p className="rounded-xl bg-success-100 px-4 py-3 text-sm text-success">
+        <p className="rounded-xl bg-elevated px-4 py-3 text-sm text-gem-green">
           Saved. Nice work — that&apos;s one more person in your list.
         </p>
       )}
@@ -176,7 +176,7 @@ export default function ProspectList({
         >
           <Link
             href="/prospects/new"
-            className="mt-2 flex h-12 items-center rounded-xl bg-gold px-5 font-semibold text-navy"
+            className="mt-2 flex h-12 items-center rounded-xl bg-gold px-5 font-semibold text-on-gold"
           >
             Add first person
           </Link>
@@ -188,16 +188,16 @@ export default function ProspectList({
               onClick={() => setShowDueOnly((v) => !v)}
               aria-pressed={showDueOnly}
               className={`flex min-h-14 items-center justify-between gap-3 rounded-2xl px-5 py-3 text-left ${
-                showDueOnly ? "bg-navy text-white" : "bg-gold-100"
+                showDueOnly ? "bg-elevated text-text" : "bg-elevated"
               }`}
             >
               <span>
                 <span className="block text-2xl font-bold">{due.length}</span>
-                <span className={`text-sm ${showDueOnly ? "text-white/80" : "text-navy/70"}`}>
+                <span className={`text-sm ${showDueOnly ? "text-text-dim" : "text-text-dim"}`}>
                   to follow up today
                 </span>
               </span>
-              <span className={`text-sm font-medium ${showDueOnly ? "text-gold" : "text-gold-600"}`}>
+              <span className={`text-sm font-medium ${showDueOnly ? "text-gold-ink" : "text-gold-ink"}`}>
                 {showDueOnly ? "Show everyone" : "Show only these"}
               </span>
             </button>
@@ -211,7 +211,7 @@ export default function ProspectList({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by name or number"
-            className="h-12 w-full rounded-xl border border-navy/20 bg-white px-4 text-base outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
+            className="h-12 w-full rounded-xl border border-hairline bg-elevated px-4 text-base outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
             autoComplete="off"
           />
 
@@ -221,8 +221,8 @@ export default function ProspectList({
               aria-pressed={stageFilter === null}
               className={`h-12 shrink-0 rounded-xl px-4 font-medium ${
                 stageFilter === null
-                  ? "bg-navy text-white"
-                  : "border border-navy/20 text-navy/70"
+                  ? "bg-elevated text-text"
+                  : "border border-hairline text-text-dim"
               }`}
             >
               All
@@ -236,8 +236,8 @@ export default function ProspectList({
                   aria-pressed={stageFilter === s}
                   className={`h-12 shrink-0 rounded-xl px-4 font-medium ${
                     stageFilter === s
-                      ? "bg-navy text-white"
-                      : "border border-navy/20 text-navy/70"
+                      ? "bg-elevated text-text"
+                      : "border border-hairline text-text-dim"
                   }`}
                 >
                   {STAGE_LABELS[s]}
@@ -248,7 +248,7 @@ export default function ProspectList({
           </div>
 
           {visible.length === 0 && pending.length === 0 ? (
-            <p className="rounded-2xl bg-surface px-5 py-8 text-center text-navy/70">
+            <p className="rounded-2xl bg-surface px-5 py-8 text-center text-text-dim">
               Nobody matches that. Try a different name, number or stage.
             </p>
           ) : (
@@ -259,13 +259,13 @@ export default function ProspectList({
                 pending.map((p) => (
                   <li
                     key={p.clientId}
-                    className="flex min-h-16 items-center gap-3 rounded-xl border border-dashed border-gold bg-gold-100/40 p-3"
+                    className="flex min-h-16 items-center gap-3 rounded-xl border border-dashed border-gold bg-elevated/40 p-3"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold">{p.name}</p>
-                      <p className="truncate text-sm text-navy/70">{detailLine(p)}</p>
+                      <p className="truncate text-sm text-text-dim">{detailLine(p)}</p>
                     </div>
-                    <span className="shrink-0 rounded-full bg-gold-100 px-2.5 py-1 text-xs font-semibold text-gold-600">
+                    <span className="shrink-0 rounded-full bg-elevated px-2.5 py-1 text-xs font-semibold text-gold-ink">
                       On this phone
                     </span>
                   </li>
@@ -282,14 +282,14 @@ export default function ProspectList({
         <div className="flex flex-wrap gap-2">
           <Link
             href="/prospects/new"
-            className="flex h-14 flex-1 items-center justify-center rounded-xl bg-gold text-lg font-semibold text-navy"
+            className="flex h-14 flex-1 items-center justify-center rounded-xl bg-gold text-lg font-semibold text-on-gold"
           >
             + New Person
           </Link>
           <Link
             href={`/c/${referralCode}`}
             target="_blank"
-            className="flex h-14 items-center justify-center rounded-xl border border-navy/20 px-4 font-medium"
+            className="flex h-14 items-center justify-center rounded-xl border border-hairline px-4 font-medium"
           >
             Preview their form
           </Link>

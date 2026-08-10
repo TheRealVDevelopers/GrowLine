@@ -30,6 +30,10 @@
   --gold: #ffc53d;
   --gold-lo: #8a5a0a;
   --on-gold: #412402;
+  /* Gold as TEXT. On a dark surface the bright gold is readable; on a light one it
+     is not — v1 had a separate `gold-600` for exactly this and collapsing the two
+     during the reskin made "Details" unreadable in light theme. */
+  --gold-ink: #ffc53d;
 
   /* Green diamond — money, gains, target crossings. ONLY those. */
   --gem-green-bg: rgba(18, 183, 106, 0.14);
@@ -73,6 +77,7 @@
     --gold: #fca311;
     --gold-lo: #c47c00;
     --on-gold: #14213d;
+    --gold-ink: #8a5a0a;
 
     --gem-green-bg: rgba(46, 125, 50, 0.10);
     --gem-green-line: rgba(46, 125, 50, 0.35);
@@ -105,6 +110,7 @@
   --gold: #fca311;
   --gold-lo: #c47c00;
   --on-gold: #14213d;
+  --gold-ink: #8a5a0a;
   --gem-green-bg: rgba(46, 125, 50, 0.10);
   --gem-green-line: rgba(46, 125, 50, 0.35);
   --gem-green-text: #2e7d32;
@@ -136,23 +142,12 @@
   --color-gold-hi: var(--gold-hi);
   --color-gold-lo: var(--gold-lo);
   --color-on-gold: var(--on-gold);
+  --color-gold-ink: var(--gold-ink);
   --color-gem-green: var(--gem-green-text);
   --color-gem-pink: var(--gem-pink-text);
   --color-platinum: var(--platinum);
   --color-heat: var(--heat);
   --color-info: var(--info);
-
-  /* v1 §9 kept as aliases so screens not yet reskinned still render. Remove when
-     v2.2b finishes the sweep — a stale alias is how two palettes creep back in. */
-  --color-navy: var(--text);
-  --color-navy-600: var(--text-dim);
-  --color-navy-100: var(--surface);
-  --color-gold-600: var(--gold-lo);
-  --color-gold-100: var(--gem-green-bg);
-  --color-success: var(--gem-green-text);
-  --color-success-100: var(--gem-green-bg);
-  --color-error: var(--heat);
-  --color-error-100: rgba(255, 77, 94, 0.12);
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, sans-serif;

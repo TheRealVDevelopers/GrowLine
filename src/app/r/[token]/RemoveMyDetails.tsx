@@ -28,7 +28,7 @@ export default function RemoveMyDetails({ token }: { token: string }) {
 
   if (step === "done") {
     return (
-      <p className="rounded-xl bg-success-100 px-4 py-3 text-success">
+      <p className="rounded-xl bg-elevated px-4 py-3 text-gem-green">
         Your details have been deleted. This link will stop working.
       </p>
     );
@@ -37,24 +37,24 @@ export default function RemoveMyDetails({ token }: { token: string }) {
   if (step === "confirm") {
     return (
       <div className="flex flex-col gap-2 rounded-xl bg-surface px-4 py-3">
-        <p className="text-navy">
+        <p className="text-text">
           Delete your name, number and these numbers from your coach&apos;s list? This
           cannot be undone.
         </p>
         {failed && (
-          <p className="text-error">Could not delete just now. Please try again.</p>
+          <p className="text-heat">Could not delete just now. Please try again.</p>
         )}
         <div className="flex flex-wrap gap-2">
           <button
             onClick={remove}
             disabled={busy}
-            className="h-12 rounded-xl border border-error px-4 font-semibold text-error disabled:opacity-50"
+            className="h-12 rounded-xl border border-error px-4 font-semibold text-heat disabled:opacity-50"
           >
             {busy ? "Deleting…" : "Yes, delete my details"}
           </button>
           <button
             onClick={() => setStep("idle")}
-            className="h-12 rounded-xl border border-navy/20 px-4 font-medium"
+            className="h-12 rounded-xl border border-hairline px-4 font-medium"
           >
             Keep them
           </button>
@@ -66,7 +66,7 @@ export default function RemoveMyDetails({ token }: { token: string }) {
   return (
     <button
       onClick={() => setStep("confirm")}
-      className="h-12 self-start text-left font-medium text-navy/70 underline"
+      className="h-12 self-start text-left font-medium text-text-dim underline"
     >
       Not you, or want this removed?
     </button>

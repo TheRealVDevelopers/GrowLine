@@ -62,7 +62,7 @@ export default function ProspectActions({
         target="_blank"
         rel="noreferrer noopener"
         onClick={markSent}
-        className="flex h-14 items-center justify-center gap-2 rounded-xl bg-gold text-lg font-semibold text-navy"
+        className="flex h-14 items-center justify-center gap-2 rounded-xl bg-gold text-lg font-semibold text-on-gold"
       >
         <WhatsAppIcon className="h-6 w-6" />
         Send on WhatsApp
@@ -71,7 +71,7 @@ export default function ProspectActions({
       <div className="flex flex-wrap gap-2">
         <button
           onClick={copyLink}
-          className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-navy/20 px-4 font-medium"
+          className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-hairline px-4 font-medium"
         >
           <CopyIcon className="h-5 w-5" />
           {copied ? "Copied ✓" : "Copy link"}
@@ -80,7 +80,7 @@ export default function ProspectActions({
           href={`/r/${reportToken}/card.png`}
           target="_blank"
           rel="noreferrer noopener"
-          className="flex h-12 items-center justify-center rounded-xl border border-navy/20 px-4 font-medium"
+          className="flex h-12 items-center justify-center rounded-xl border border-hairline px-4 font-medium"
         >
           Image
         </a>
@@ -88,13 +88,13 @@ export default function ProspectActions({
           href={`/r/${reportToken}/snapshot.pdf`}
           target="_blank"
           rel="noreferrer noopener"
-          className="flex h-12 items-center justify-center rounded-xl border border-navy/20 px-4 font-medium"
+          className="flex h-12 items-center justify-center rounded-xl border border-hairline px-4 font-medium"
         >
           PDF
         </a>
       </div>
 
-      <p className="text-xs leading-snug text-navy/70">{COACH_SHARING_NOTICE}</p>
+      <p className="text-xs leading-snug text-text-dim">{COACH_SHARING_NOTICE}</p>
     </section>
   );
 }

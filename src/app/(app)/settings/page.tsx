@@ -34,14 +34,14 @@ export default async function SettingsPage() {
             <p className="mt-2 text-3xl font-bold">
               {trialDaysLeft} <span className="text-base font-medium">days left</span>
             </p>
-            <p className="mt-1 text-sm text-navy/60">
+            <p className="mt-1 text-sm text-text-dim">
               Free trial ends on {trialEndDate}. After that, Growline is ₹999/month or
               ₹9,999/year (2 months free). No payment method is connected yet — payment
               setup arrives before your trial ends, and you can cancel anytime.
             </p>
           </>
         ) : (
-          <p className="mt-2 text-navy/70">Plan: {user.plan}</p>
+          <p className="mt-2 text-text-dim">Plan: {user.plan}</p>
         )}
       </section>
 
@@ -49,14 +49,14 @@ export default async function SettingsPage() {
 
       <section className="rounded-2xl bg-surface p-5">
         <h2 className="font-semibold">My referral code</h2>
-        <p className="mt-1 text-2xl font-bold tracking-[0.25em] text-gold-600">
+        <p className="mt-1 text-2xl font-bold tracking-[0.25em] text-gold-ink">
           {user.referralCode}
         </p>
       </section>
 
       <LogoutButton />
 
-      <p className="text-center text-xs text-navy/40">
+      <p className="text-center text-xs text-text-dim">
         Growline · Built by The Real V Developers, Bengaluru
       </p>
     </div>

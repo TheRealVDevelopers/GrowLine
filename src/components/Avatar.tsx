@@ -26,7 +26,7 @@ export function Avatar({
   return (
     <span
       aria-hidden
-      className={`flex shrink-0 items-center justify-center rounded-full bg-navy font-semibold text-white ${className}`}
+      className={`flex shrink-0 items-center justify-center rounded-full bg-elevated font-semibold text-text ${className}`}
       style={{ width: size, height: size, fontSize: Math.round(size * 0.42) }}
     >
       {initial}

@@ -33,7 +33,7 @@ const GENDER_LABELS: Record<string, string> = {
 };
 
 const inputCls =
-  "h-14 w-full rounded-xl border border-navy/20 bg-white px-4 text-lg outline-none focus:border-gold focus:ring-2 focus:ring-gold/30";
+  "h-14 w-full rounded-xl border border-hairline bg-elevated px-4 text-lg outline-none focus:border-gold focus:ring-2 focus:ring-gold/30";
 
 export default function CaptureFields({
   values,
@@ -108,7 +108,7 @@ export default function CaptureFields({
               enterKeyHint="next"
               placeholder="165"
             />
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-navy/50">
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-text-dim">
               cm
             </span>
           </div>
@@ -124,7 +124,7 @@ export default function CaptureFields({
               enterKeyHint="done"
               placeholder="70"
             />
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-navy/50">
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-text-dim">
               kg
             </span>
           </div>
@@ -144,8 +144,8 @@ export default function CaptureFields({
                 onClick={() => set("gender", active ? "" : g)}
                 className={`h-12 rounded-xl border text-base font-medium ${
                   active
-                    ? "border-gold bg-gold-100 text-gold-600"
-                    : "border-navy/20 text-navy/70"
+                    ? "border-gold bg-elevated text-gold-ink"
+                    : "border-hairline text-text-dim"
                 }`}
               >
                 {GENDER_LABELS[g]}

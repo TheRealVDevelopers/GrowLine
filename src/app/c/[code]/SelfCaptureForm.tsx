@@ -51,16 +51,16 @@ export default function SelfCaptureForm({
 
   if (done) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-2xl bg-success-100 px-6 py-12 text-center">
-        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-success text-2xl text-white">
+      <div className="flex flex-col items-center gap-3 rounded-2xl bg-elevated px-6 py-12 text-center">
+        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gem-green text-2xl text-text">
           ✓
         </span>
         <h2 className="text-xl font-semibold">Thank you!</h2>
-        <p className="text-navy/70">
+        <p className="text-text-dim">
           {coachName.split(" ")[0]} has your details and will message you on WhatsApp
           shortly.
         </p>
-        <p className="mt-2 text-sm text-navy/70">{DISCLAIMER}</p>
+        <p className="mt-2 text-sm text-text-dim">{DISCLAIMER}</p>
       </div>
     );
   }
@@ -70,20 +70,20 @@ export default function SelfCaptureForm({
       <CaptureFields values={values} onChange={setValues} selfMode />
 
       {error && (
-        <p className="rounded-xl bg-error-100 px-4 py-3 text-sm text-error">{error}</p>
+        <p className="rounded-xl bg-elevated px-4 py-3 text-sm text-heat">{error}</p>
       )}
 
       <button
         type="submit"
         disabled={!canSubmit || busy}
-        className="h-14 rounded-xl bg-gold text-lg font-semibold text-navy disabled:opacity-40"
+        className="h-14 rounded-xl bg-gold text-lg font-semibold text-on-gold disabled:opacity-40"
       >
         {busy ? "Sending…" : "Get my report"}
       </button>
       {/* Says "your coach and their team", not "only {coach}": the Section 5.4
           sharing toggle can make details visible to the coach's upline, and a
           promise of exclusivity here would be a misrepresentation. */}
-      <p className="text-center text-sm text-navy/70">
+      <p className="text-center text-sm text-text-dim">
         Your details go to {coachName} and their coaching team, to send you this
         snapshot and follow up. {DISCLAIMER}
       </p>

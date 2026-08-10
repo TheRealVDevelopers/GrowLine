@@ -31,10 +31,10 @@ export default function InviteButtons({
     }
   };
 
-  const solid = "bg-gold text-navy font-semibold";
+  const solid = "bg-gold text-on-gold font-semibold";
   const outline = dark
-    ? "border border-white/25 text-white"
-    : "border border-navy/20 text-navy";
+    ? "border border-hairline text-text"
+    : "border border-hairline text-text";
 
   return (
     <div className="flex flex-wrap gap-2">

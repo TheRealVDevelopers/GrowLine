@@ -65,13 +65,13 @@ export default function ReminderToggle() {
   return (
     <section className="rounded-2xl bg-surface p-5">
       <h2 className="font-semibold">Morning reminder</h2>
-      <p className="mt-1 text-sm text-navy/70">{describe()}</p>
+      <p className="mt-1 text-sm text-text-dim">{describe()}</p>
 
       {state === "off" && (
         <button
           onClick={turnOn}
           disabled={busy}
-          className="mt-3 h-12 rounded-xl bg-gold px-5 font-semibold text-navy disabled:opacity-50"
+          className="mt-3 h-12 rounded-xl bg-gold px-5 font-semibold text-on-gold disabled:opacity-50"
         >
           {busy ? "Turning on…" : "Turn on reminders"}
         </button>
@@ -80,13 +80,13 @@ export default function ReminderToggle() {
         <button
           onClick={turnOff}
           disabled={busy}
-          className="mt-3 h-12 rounded-xl border border-navy/20 px-4 font-medium disabled:opacity-50"
+          className="mt-3 h-12 rounded-xl border border-hairline px-4 font-medium disabled:opacity-50"
         >
           {busy ? "Turning off…" : "Turn off"}
         </button>
       )}
 
-      {error && <p className="mt-3 text-sm text-error">{error}</p>}
+      {error && <p className="mt-3 text-sm text-heat">{error}</p>}
     </section>
   );
 }

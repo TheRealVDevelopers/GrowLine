@@ -25,19 +25,19 @@ export default async function QrPage() {
     <div className="flex flex-col gap-4">
       <Link
         href="/prospects"
-        className="flex h-12 items-center gap-2 self-start font-medium text-gold-600 print:hidden"
+        className="flex h-12 items-center gap-2 self-start font-medium text-gold-ink print:hidden"
       >
         <BackIcon className="h-5 w-5" />
         Back
       </Link>
       <h1 className="text-2xl font-bold print:hidden">My QR code</h1>
-      <p className="text-navy/60 print:hidden">
+      <p className="text-text-dim print:hidden">
         Show this on your phone or print it for your club wall. They scan, fill their
         own details, and appear in your list.
       </p>
 
       {/* The poster — this is the only part that prints */}
-      <section className="flex flex-col items-center gap-4 rounded-2xl border border-navy/10 bg-white px-6 py-8 text-center">
+      <section className="flex flex-col items-center gap-4 rounded-2xl border border-hairline bg-elevated px-6 py-8 text-center">
         <p className="text-lg font-semibold">Scan for your free wellness report</p>
         <div
           className="w-full max-w-[260px] [&>svg]:h-auto [&>svg]:w-full"
@@ -45,14 +45,14 @@ export default async function QrPage() {
         />
         <div>
           <p className="text-xl font-bold">{user.name}</p>
-          {user.city && <p className="text-navy/60">{user.city}</p>}
+          {user.city && <p className="text-text-dim">{user.city}</p>}
         </div>
-        <p className="text-sm text-navy/50">
+        <p className="text-sm text-text-dim">
           Or open <span className="font-medium">{captureUrl.replace(/^https?:\/\//, "")}</span>
         </p>
         {/* A disclaimer only counts if it can be read: navy/70 keeps it above the
             WCAG AA 4.5:1 contrast floor, where navy/40 did not. */}
-        <p className="max-w-xs text-sm text-navy/70">{DISCLAIMER}</p>
+        <p className="max-w-xs text-sm text-text-dim">{DISCLAIMER}</p>
       </section>
 
       <PrintButton />
