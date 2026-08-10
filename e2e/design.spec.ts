@@ -50,14 +50,36 @@ test("the target ring lights the REMAINING arc, not the completed one", async ({
   expect(remaining).toBe(0);
 });
 
-test("target copy names points and never money (RULES L4)", async ({ page }) => {
+test("no screen puts money next to a target (RULES L4)", async ({ page }) => {
   await loginAsAsha(page);
-  await page.goto("/targets");
-  const text = (await page.locator("main").innerText()).toLowerCase();
+  // Home is included because v2 §4's own example copy for Today's Mission carries
+  // a "₹-equivalent" that D40 deliberately did not build. This is what stops it
+  // being reintroduced later by someone reading the spec literally.
+  for (const path of ["/targets", "/"]) {
+    await page.goto(path);
+    const text = (await page.locator("main").innerText()).toLowerCase();
+    expect(text, `currency on ${path}`).not.toContain("₹");
+    expect(text, `income wording on ${path}`).not.toMatch(
+      /\bincome\b|\bearn(ing|ings)?\b|\bcommission\b|\bpayout\b/
+    );
+  }
+});
 
-  // D30: a target is a count of points and nothing else.
-  expect(text).not.toContain("₹");
-  expect(text).not.toMatch(/\bincome\b|\bearn(ing|ings)?\b|\bcommission\b|\bpayout\b/);
+test("Today's Mission renders actionable items from real data", async ({ page }) => {
+  await loginAsAsha(page);
+  await page.goto("/");
+
+  const card = page.getByTestId("todays-mission");
+  await expect(card).toBeVisible();
+
+  // Never more than three — one item is not a list, four is a to-do app.
+  const items = card.locator("li");
+  expect(await items.count()).toBeLessThanOrEqual(3);
+
+  // Every item must go somewhere: the card's whole job is one tap to the action.
+  for (let i = 0; i < (await items.count()); i++) {
+    await expect(items.nth(i).locator("a")).toHaveAttribute("href", /.+/);
+  }
 });
 
 test("no screen uses backdrop-filter blur (RULES G4)", async ({ page }) => {

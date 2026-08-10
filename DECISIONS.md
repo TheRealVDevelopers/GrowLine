@@ -601,3 +601,26 @@ real, deliberate setting, not a default nobody touched.
 The pre-hydration HTML ships `data-theme="dark"` regardless, because a white
 flash on every load for a dark-mode user is the most visible way a theme system
 can feel broken — that has its own test.
+
+## D40 — Today's Mission shows points, not a rupee equivalent (2026-08-10, v2.2a)
+
+BUILD_PROMPT_V2 §4's example copy for the Today's Mission card reads:
+
+> "🔥 Log today to keep your 12-day streak · 📞 6 follow-ups waiting ·
+> 🎯 **₹-equivalent:** 400 VP to cross 75%"
+
+**Not built as written.** The target item says points and stops.
+
+**Why:** v1 §5.3 forbids income promises anywhere in UI copy, and D30 already
+settled that a target is a count of points with no currency, conversion or
+projection — "volume" was rejected as loaded language for the same reason. A
+rupee figure attached to a progress number on the home screen is the clearest
+possible income projection: it tells a coach what their activity is worth, every
+time they open the app.
+
+RULES L4 is a legal line. An illustrative string inside a design section does not
+outrank it, and the rest of §4 is followed exactly — three items, generated from
+the coach's own data, one tap to the action.
+
+The `e2e/design.spec.ts` money-copy check now covers the home screen as well as
+targets, so this cannot be reintroduced quietly.

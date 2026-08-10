@@ -12,6 +12,7 @@ import {
 import { currentMonth, progressPercent } from "@/lib/targets";
 import InviteButtons from "@/components/InviteButtons";
 import { TeamIcon } from "@/components/icons";
+import TodaysMission, { buildMissions } from "@/components/TodaysMission";
 
 export default async function HomePage() {
   const user = await getSessionUser();
@@ -33,12 +34,25 @@ export default async function HomePage() {
   const firstName = user.name.split(" ")[0];
   const today = todayHeading();
 
+  // The recommendation engine of v2 (§4): what to do next, from their own data.
+  const missions = buildMissions({
+    streak: logState.streak,
+    loggedToday: logState.hasLoggedToday,
+    followupsDue: followups.due,
+    targetPoints: myTarget?.targetPoints ?? null,
+    progressPoints: myTarget?.progressPoints ?? null,
+  });
+
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-bold">Hello, {firstName} 👋</h1>
-        <p className="mt-1 text-navy/60">{today}</p>
+        <h1 className="font-display text-3xl font-bold text-text">
+          Hello, {firstName} 👋
+        </h1>
+        <p className="mt-1 text-text-dim">{today}</p>
       </div>
+
+      <TodaysMission missions={missions} />
 
       {user.plan === "trial" && (
         <Link
