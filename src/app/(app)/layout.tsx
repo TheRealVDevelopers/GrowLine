@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import { getTranslate } from "@/lib/locale-server";
+import { DEMO_ROLES, demoRoleForUid, isDemoMode } from "@/lib/demo";
 import AppNav from "@/components/AppNav";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import OfflineSync from "@/components/OfflineSync";
+import DemoSwitcher from "@/components/DemoSwitcher";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
@@ -27,6 +29,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-dvh md:flex">
       <ServiceWorkerRegistrar />
       <OfflineSync />
+      {/* Renders only when DEMO_MODE is set. In production this whole subtree, and the
+          component's JavaScript, is never reached. */}
+      {isDemoMode() && (
+        <DemoSwitcher
+          roles={DEMO_ROLES}
+          currentKey={demoRoleForUid(user.id)?.key ?? null}
+          currentName={user.name}
+        />
+      )}
       <AppNav
         userName={user.name}
         userPhotoUrl={user.photoUrl}

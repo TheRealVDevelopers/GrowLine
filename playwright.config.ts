@@ -1,5 +1,20 @@
 import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
+import { config as loadEnv } from "dotenv";
+
+/**
+ * Load `.env` into the TEST process, the same file `next start` loads into the server.
+ *
+ * Without this the two disagree about the world. `e2e/demo-gate.spec.ts` asserts that
+ * `/demo` is reachable exactly when `DEMO_MODE` is set — and it read the flag from the
+ * test runner's environment while the server read it from `.env`, so with the demo
+ * enabled locally the test asserted "must be 404" against a server correctly answering
+ * 200. The test was wrong, not the gate.
+ *
+ * `override: false` is the default and is what we want: a variable already set in the
+ * shell or by CI wins, so CI (which has no `.env`) is unaffected.
+ */
+loadEnv();
 
 /**
  * Which browser to drive, resolved per machine rather than hardcoded.

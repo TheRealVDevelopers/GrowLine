@@ -5,7 +5,16 @@ import { NextResponse, type NextRequest } from "next/server";
 const SESSION_COOKIE = "gl_session";
 // /c/<code> is the prospect's self-fill form and /r/<token> is their wellness
 // snapshot — both are opened by people with no account (F2 Mode B, F3/F4).
-const PUBLIC_PATHS = [/^\/login$/, /^\/join(\/|$)/, /^\/c(\/|$)/, /^\/r(\/|$)/];
+// `/demo` is public because it is reached BEFORE there is a session — it is the thing
+// that creates one. It exists at all only when DEMO_MODE is set; the page itself calls
+// notFound() otherwise, so listing it here does not open anything in production.
+const PUBLIC_PATHS = [
+  /^\/login$/,
+  /^\/join(\/|$)/,
+  /^\/c(\/|$)/,
+  /^\/r(\/|$)/,
+  /^\/demo$/,
+];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

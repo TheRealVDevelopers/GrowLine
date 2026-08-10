@@ -1357,3 +1357,59 @@ distinguish *seen* from *acknowledged*), "prospects" (rendered as the plain word
 "people" in all four, since the sales sense has no short natural translation), and
 whether "QR" should stay in Latin. Those lists are in the session record; treat the
 current strings as a working draft, not as finished copy.
+
+## D60 — demo mode is a real session, not an auth bypass (2026-08-10)
+
+The owner needs to show the app on the spot — an investor asks, and an OTP round trip
+kills the moment. They also need to switch between an upline and a downline view, because
+the story being told is a relationship: you set a target, here is how it arrives.
+
+**The tempting implementation is a "skip auth" branch in the session check. Rejected.**
+It would put a code path in production that production never exercises, make the demo
+prove nothing about the real app, and place a bypass inside the one function that must
+never have a way around it.
+
+**Built instead as a real sign-in with the SMS step removed.** `POST /api/demo/session`
+mints a custom token, exchanges it for an ID token, and sets an ordinary session cookie —
+the same objects the phone flow produces. Downstream nothing knows the difference: same
+Security Rules, same queries, same privacy toggle. That also makes it an honest demo,
+because what the room sees is the product rather than a mock of it.
+
+**The gate is one environment variable, `DEMO_MODE`.** Unset — which is production —
+and `/demo` and `/api/demo/session` both return **404, not 403**: a 403 confirms a route
+exists, and on the production deployment this must be indistinguishable from a typo. No
+second way in: no query parameter, no header, and deliberately no "unless localhost"
+check, because a guess about where the code is running is a guess that can be wrong.
+
+**The uid is never taken from the request.** It is looked up from a fixed table of three
+seeded seats, so even with demo mode on this cannot mint a session for an arbitrary
+account. Verified: `role=admin` and `role=usr_root0000000000000000` are both refused.
+
+**Three seats, because the story needs a top, a middle and a bottom.** Senior coach with
+a team; a coach who is simultaneously somebody's downline and somebody's upline (the
+position most coaches are actually in, and the only one where both halves of the
+relationship can be shown); and a new coach receiving a target somebody else set. Fewer
+than three and "here is what your downline sees" cannot be demonstrated at all.
+
+**The chip stays visible, and that is a deliberate cost to the demo's polish.** Because a
+demo session is a real session on real screens, the chip is the only thing distinguishing
+this from the live product — the cue that stops demo data being screenshotted as if it
+were somebody's own. Muted, `--info`-leaning, no gold and no animation: it is chrome, not
+a feature being demonstrated.
+
+**Two mistakes worth recording, both caught by tooling rather than by review:**
+
+1. `window.location.href = next` failed the React Compiler's `react-hooks/immutability`
+   rule. `assign()` is the honest form — the rule is right that assigning to a global is
+   a mutation it cannot reason about.
+2. `e2e/demo-gate.spec.ts` read `DEMO_MODE` from the **test runner's** environment while
+   the server read it from `.env` — two different processes — so with the demo enabled
+   locally the test asserted "must be 404" against a server correctly answering 200. Fixed
+   by loading `.env` in `playwright.config.ts`, so both read one source of truth. CI is
+   unaffected: it has no `.env` and sets nothing, so both sides see the flag unset.
+
+The gate test asserts the correct behaviour for whichever mode it finds rather than
+skipping when the flag is on — a test that quietly skips half the time teaches everybody
+to ignore it. Verified in all three directions: open server + open expectation passes,
+closed + closed passes, and closed-expectation against an open server **fails with the
+intended message**, which is what makes it more than decoration.
