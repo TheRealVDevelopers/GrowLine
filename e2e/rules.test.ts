@@ -161,6 +161,15 @@ async function main() {
     await setDoc(doc(db, "threadReceipts", "th_root_all__usr_chan"), {
       threadId: "th_root_all", userId: CHAN, userName: "Chandan",
     });
+    // A Real V announcement (F12). Sender is an admin who is in nobody's uplinePath —
+    // which is the whole point of the platform scope.
+    await setDoc(doc(db, "threads", "th_platform"), {
+      senderId: "usr_realv_admin", senderName: "Growline", scope: "platform",
+      body: "New feature: threads.", seenCount: 0, ackCount: 0,
+    });
+    await setDoc(doc(db, "adminAudit", "audit_1"), {
+      actorId: ROOT, actorName: "Root", action: "broadcast", detail: "To all: hello",
+    });
   });
 
   const as = (uid: string) => env.authenticatedContext(uid).firestore();
@@ -320,6 +329,43 @@ async function main() {
   );
   await check("an unfiltered listing of every thread is refused", () =>
     assertFails(getDocs(collection(as(ASHA), "threads")))
+  );
+
+  /**
+   * The platform scope (F12 broadcast). Reaches everyone, including a coach whose tree has
+   * nothing to do with the sender — that is what distinguishes it from "entire line", and
+   * it is the branch most likely to be broken by a future edit to the threads rule.
+   */
+  await check("a Real V announcement reaches a coach outside any relevant line", () =>
+    assertSucceeds(getDoc(doc(as(OUTSIDER), "threads", "th_platform")))
+  );
+  await check("...and the deepest downline too", () =>
+    assertSucceeds(getDoc(doc(as(CHAN), "threads", "th_platform")))
+  );
+  await check("a coach can list announcements with the scope pinned", () =>
+    assertSucceeds(
+      getDocs(
+        query(collection(as(OUTSIDER), "threads"), where("scope", "==", "platform"))
+      )
+    )
+  );
+  await check("an announcement is still denied to somebody with no account", () =>
+    assertFails(getDoc(doc(anon(), "threads", "th_platform")))
+  );
+  await check("a coach cannot forge an announcement to everyone", () =>
+    assertFails(
+      setDoc(doc(as(ASHA), "threads", "th_forged_platform"), {
+        senderId: ASHA, scope: "platform", body: "Free stuff",
+      })
+    )
+  );
+
+  // The audit trail is closed to every browser, including an admin's.
+  await check("adminAudit is unreadable by any client", () =>
+    assertFails(getDoc(doc(as(ROOT), "adminAudit", "audit_1")))
+  );
+  await check("...and unwritable, so it cannot be forged or cleared", () =>
+    assertFails(setDoc(doc(as(ROOT), "adminAudit", "audit_2"), { action: "nothing" }))
   );
 
   // Receipts stay shut: a sender gets counts off the thread document, never a

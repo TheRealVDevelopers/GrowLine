@@ -220,10 +220,26 @@ service cloud.firestore {
        */
       allow read: if signedIn() && (
         uid() == resource.data.senderId
+        // A Real V announcement (F12) reaches every signed-in coach. Listed FIRST among
+        // the non-owner branches and needing no `me()` lookup, so a client listening on
+        // `scope == "platform"` is decidable with zero document reads.
+        || resource.data.scope == 'platform'
         || resource.data.senderId == me().uplineId
         || (resource.data.scope == 'all' && resource.data.senderId in me().uplinePath)
       );
       allow write: if false;
+    }
+
+    match /adminAudit/{entryId} {
+      /**
+       * Denied to every client, including admins.
+       *
+       * An audit trail that the audited party can read from the browser is a trail they
+       * can learn to work around, and one they might be able to write to if a future
+       * session relaxes this by half. The admin panel renders it server-side through the
+       * Admin SDK, which is the only reader it needs.
+       */
+      allow read, write: if false;
     }
 
     match /threadReceipts/{receiptId} {

@@ -16,11 +16,19 @@ import { adminEnabled, isAdmin } from "@/lib/admin";
  */
 export const dynamic = "force-dynamic";
 
+/**
+ * No "Promo codes" tab, deliberately.
+ *
+ * A promo code exists to grant an extended Leader trial or a locked founding price. Both
+ * are meaningless until tiers and payments exist (v2.6), so a screen that creates codes
+ * today would create codes that do nothing — and somebody would hand them out at a club
+ * launch and find out in front of a room. Deferred to the session that gives them
+ * something to redeem against.
+ */
 const TABS = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/coaches", label: "Coaches" },
   { href: "/admin/subscriptions", label: "Subscriptions" },
-  { href: "/admin/promo", label: "Promo codes" },
   { href: "/admin/broadcast", label: "Broadcast" },
   { href: "/admin/audit", label: "Audit log" },
 ];

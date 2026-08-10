@@ -10,7 +10,7 @@ import {
   threads,
   users,
 } from "./collections";
-import { canRead, type ThreadScope } from "./threads";
+import { PLATFORM_SCOPE, canRead, type ThreadScope } from "./threads";
 import type { AppUser } from "./users";
 
 /**
@@ -45,12 +45,15 @@ const IN_LIMIT = 30;
 const INBOX_PAGE = 30;
 const SENT_PAGE = 30;
 
+/** Coach scopes plus the admin-only platform scope. */
+export type AppThreadScope = ThreadScope | typeof PLATFORM_SCOPE;
+
 export type AppThread = {
   id: string;
   senderId: string;
   senderName: string;
   senderPhotoUrl: string | null;
-  scope: ThreadScope;
+  scope: AppThreadScope;
   body: string;
   linkUrl: string | null;
   originalSenderId: string | null;
@@ -74,9 +77,18 @@ function toAppThread(snap: DocumentSnapshot): AppThread | null {
     senderId: d.senderId,
     senderName: d.senderName ?? "",
     senderPhotoUrl: d.senderPhotoUrl ?? null,
-    // Anything unrecognised is treated as the NARROWER scope. A corrupt or
-    // future-written value must not widen an audience.
-    scope: d.scope === "all" ? "all" : "direct",
+    /**
+     * Anything unrecognised is treated as the NARROWEST scope. A corrupt or
+     * future-written value must not widen an audience.
+     *
+     * `platform` has to be listed explicitly: without it this normaliser would quietly
+     * rewrite every Real V announcement to "direct", and `canRead` would then hide it
+     * from everyone whose direct upline was not the admin — i.e. from almost everybody.
+     */
+    scope:
+      d.scope === "all" || d.scope === PLATFORM_SCOPE
+        ? (d.scope as AppThreadScope)
+        : "direct",
     body: d.body ?? "",
     linkUrl: d.linkUrl ?? null,
     originalSenderId: d.originalSenderId ?? null,
@@ -118,21 +130,34 @@ export async function getThread(id: string): Promise<AppThread | null> {
 
 export async function createThread(params: {
   sender: AppUser;
-  scope: ThreadScope;
+  /**
+   * Widened to include the platform scope so the admin route can reuse this. The
+   * coach-facing route validates with `isThreadScope`, which does not admit "platform", so
+   * widening the type here does not widen what a coach can send.
+   */
+  scope: AppThreadScope;
   body: string;
   linkUrl: string | null;
   /** Present only when forwarding; carries the original author, not this hop. */
   original?: { id: string; name: string } | null;
+  /**
+   * Overrides the displayed sender name. Used only by platform announcements, which come
+   * FROM GROWLINE rather than from whichever staff member pressed the button — see
+   * `createPlatformThread`.
+   */
+  displayName?: string;
 }): Promise<AppThread> {
-  const { sender, scope, body, linkUrl, original } = params;
+  const { sender, scope, body, linkUrl, original, displayName } = params;
   const ref = threads().doc();
   await ref.set({
     senderId: sender.id,
     // Denormalised so an inbox of 30 threads costs no user reads. A coach who later
     // changes their name leaves older threads showing the name they sent under, which
     // is the honest record of who wrote it at the time.
-    senderName: sender.name,
-    senderPhotoUrl: sender.photoUrl,
+    senderName: displayName ?? sender.name,
+    // No photo on an announcement: a staff member's face on a product notice is both
+    // confusing and a way to learn who the admins are.
+    senderPhotoUrl: displayName ? null : sender.photoUrl,
     scope,
     body,
     linkUrl,
@@ -143,6 +168,38 @@ export async function createThread(params: {
     createdAt: Timestamp.now(),
   });
   return (await getThread(ref.id))!;
+}
+
+/**
+ * A Real V announcement to every coach (F12). Only reachable from the admin-gated route.
+ *
+ * No push fan-out: a notification to every user on the platform from one button press is
+ * not something to fire without a rate-limited job behind it, and the announcement is in
+ * every inbox the moment it is written. Deliberate omission, not an oversight.
+ */
+export const PLATFORM_SENDER_NAME = "Growline";
+
+export async function createPlatformThread(params: {
+  sender: AppUser;
+  body: string;
+  linkUrl: string | null;
+}): Promise<AppThread> {
+  /**
+   * Displayed as from "Growline", not from the staff member who sent it.
+   *
+   * Two reasons, and the second is the one that matters. An announcement attributed to
+   * "Root Coach" reads as a message from another coach, which is confusing and undermines
+   * it. And it would tell every user on the platform which account is an admin — a
+   * standing invitation to go after that one phone number.
+   *
+   * `senderId` still records the actual person, so the audit log and the document agree
+   * about who did it. Only the display name is the product's.
+   */
+  return createThread({
+    ...params,
+    scope: PLATFORM_SCOPE,
+    displayName: PLATFORM_SENDER_NAME,
+  });
 }
 
 /**
@@ -190,17 +247,30 @@ export async function rebroadcast(params: {
  * case of a coach with a handful of ancestors.
  */
 export async function listInbox(reader: AppUser): Promise<InboxThread[]> {
-  if (reader.uplinePath.length === 0) return [];
+  /**
+   * Platform announcements are fetched separately and unconditionally.
+   *
+   * They come from an admin who is nowhere in this coach's `uplinePath`, so the
+   * sender-based query cannot reach them — and the early return for a coach with no upline
+   * would have hidden them from exactly the people most likely to be new. A root coach
+   * with no line still gets Real V's announcements.
+   */
+  const platformQuery = threads()
+    .where("scope", "==", PLATFORM_SCOPE)
+    .orderBy("createdAt", "desc")
+    .limit(INBOX_PAGE)
+    .get();
 
-  const batches = await Promise.all(
-    chunk(reader.uplinePath, IN_LIMIT).map((ids) =>
+  const batches = await Promise.all([
+    platformQuery,
+    ...chunk(reader.uplinePath, IN_LIMIT).map((ids) =>
       threads()
         .where("senderId", "in", ids)
         .orderBy("createdAt", "desc")
         .limit(INBOX_PAGE)
         .get()
-    )
-  );
+    ),
+  ]);
 
   const all = batches
     .flatMap((snap) => snap.docs)

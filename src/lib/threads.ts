@@ -25,6 +25,22 @@ export const THREAD_SCOPES = ["direct", "all"] as const;
 export type ThreadScope = (typeof THREAD_SCOPES)[number];
 
 /**
+ * The scope only Real V can send: everyone on the platform (F12's "broadcast announcement
+ * to all users").
+ *
+ * Deliberately NOT a member of `THREAD_SCOPES`, and that is the whole safety design.
+ * `THREAD_SCOPES` is what the composer renders and what `isThreadScope` accepts, so a
+ * coach cannot select it and the coach-facing API rejects it without needing its own
+ * check. The only way to write one is the admin-gated route.
+ *
+ * It reuses the thread machinery rather than adding an announcements banner because
+ * coaches already know where threads live, already know the acknowledge tap, and the
+ * seen/ack counters come free — which is exactly what you want to know after sending
+ * something to every user.
+ */
+export const PLATFORM_SCOPE = "platform";
+
+/**
  * Long enough for a real announcement, short enough to read standing up. The daily
  * log's note is 140 because it is a scribble; a broadcast is the one place a coach
  * writes something considered, so it gets more room than that and far less than an
@@ -191,6 +207,8 @@ export function canRead(
   reader: { id: string; uplineId: string | null; uplinePath: string[] }
 ): boolean {
   if (thread.senderId === reader.id) return true;
+  // A platform announcement reaches every signed-in coach, whatever the tree says.
+  if (thread.scope === PLATFORM_SCOPE) return true;
   if (thread.scope === "direct") return thread.senderId === reader.uplineId;
   return reader.uplinePath.includes(thread.senderId);
 }

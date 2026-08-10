@@ -1521,3 +1521,70 @@ ids — bounded by (coaches × 7), and it fetches no document bodies because the
 the user (D26). Fine at pilot scale. Before it is not, replace it with a counter
 maintained by a Cloud Function on log write; do **not** switch it to sampling, because a
 heartbeat you cannot trust is worse than none.
+
+## D63 — the rest of the admin panel, and one screen deliberately not built (2026-08-10, F12)
+
+**Coaches list and detail.** The list shows only what lives on the user document, so it
+costs one query however wide the table gets; last-logged and streak need a coach's log
+history and are computed on the DETAIL page, one coach at a time. Putting them in the list
+would multiply a page view by the number of rows — the admin-panel N+1 that is invisible at
+ten users and a bill at ten thousand.
+
+Search filters in memory over one capped query. Firestore has no substring search, and the
+alternatives are a prefix-only index (which cannot find "asha" in "Vidya Asha") or a search
+service. `LIST_CAP` bounds it and the page says when it truncates; when the cap starts
+biting, the answer is a real search index, not a bigger cap.
+
+The detail page calls out a coach with no upline in words rather than showing a dash — an
+unattached coach is exactly the case "Link my line" exists for, and today it cannot be
+fixed after signup.
+
+**Broadcast reuses Threads rather than adding an announcements banner.** Coaches already
+know where threads live and already know the acknowledge tap, so the seen and ack counters
+come free — which is precisely what you want to know after telling every user something.
+
+`PLATFORM_SCOPE` is deliberately NOT a member of `THREAD_SCOPES`. That one decision is the
+whole safety design: `THREAD_SCOPES` is what the composer renders and what `isThreadScope`
+accepts, so a coach cannot select it and the coach-facing API rejects it without needing a
+separate check. The only writer is the admin-gated route, which re-checks `isAdmin` because
+a route is reachable directly whatever the layout does.
+
+Three things this surfaced that were not obvious:
+
+1. **`toAppThread` would have silently rewritten every announcement to "direct".** Its
+   "anything unrecognised is the narrower scope" rule is right, and it needed `platform`
+   listed explicitly or `canRead` would have hidden announcements from everyone whose
+   direct upline was not the admin — i.e. almost everybody.
+2. **`listInbox` returned early for a coach with no upline,** which would have hidden
+   announcements from exactly the people most likely to be new. Platform threads are now
+   fetched unconditionally, by their own query.
+3. **The announcement displayed the admin's personal name.** Caught by looking at the
+   stored document rather than at the screen. It now displays as "Growline" — partly
+   because "Root Coach" reads as a message from another coach and undermines it, but mainly
+   because it would tell every user on the platform which account is an admin. `senderId`
+   still records the real person, so the document and the audit log agree.
+
+**No push on a platform broadcast, deliberately.** A notification to every user from one
+button press needs a rate-limited job behind it. The announcement is in every inbox the
+moment it is written; only the buzz is missing, and that is a smaller problem than a
+fan-out nobody bounded.
+
+**Typed confirmation on broadcast.** It is the widest-reach, least-undoable action in the
+product. A checkbox gets dismissed without reading; typing "SEND TO EVERYONE" requires
+having noticed what it says.
+
+**Audit log is denied to clients, including admins.** A trail the audited party can read
+from a browser is one they can learn to work around, and one they might be able to write to
+if a future session relaxes the rule by half. Entries carry the actor's NAME as well as
+their uid, because a uid is unreadable six months later and an audit entry has to stay
+legible without a join.
+
+**Subscriptions says it is empty rather than showing zeros,** same reasoning as the
+Overview's unmeasurable cards. It also surfaces a row for any unrecognised `plan` value
+instead of hiding the discrepancy in a total that does not add up.
+
+**Promo codes: NOT built, and not in the nav.** A promo code exists to grant an extended
+Leader trial or a locked founding price, and both are meaningless until tiers and payments
+exist (v2.6). A screen that creates codes today creates codes that do nothing — and
+somebody would hand them out at a club launch and find out in front of a room. A dead nav
+item is worse than an absent one.
