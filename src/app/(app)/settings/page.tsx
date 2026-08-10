@@ -7,6 +7,8 @@ import ReminderToggle from "./ReminderToggle";
 import PrivacyToggle from "./PrivacyToggle";
 import LogoutButton from "./LogoutButton";
 import ThemeToggle from "@/components/ThemeToggle";
+import { getTranslate } from "@/lib/locale-server";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 export default async function SettingsPage() {
   const user = await getSessionUser();
@@ -14,10 +16,20 @@ export default async function SettingsPage() {
 
   const trialDaysLeft = daysUntil(user.trialEndsAt);
   const trialEndDate = formatLongDate(user.trialEndsAt);
+  const { locale, t } = await getTranslate();
 
   return (
     <div className="flex flex-col gap-5">
       <ThemeToggle />
+
+      <LanguageSwitcher
+        current={locale}
+        title={t("settings.language.title")}
+        help={t("settings.language.help")}
+        savingLabel={t("settings.language.saving")}
+        errorLabel={t("settings.language.error")}
+        reportNote={t("settings.language.reportNote")}
+      />
       <h1 className="text-2xl font-bold">Settings</h1>
 
       <ProfileSection

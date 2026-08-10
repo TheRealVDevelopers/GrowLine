@@ -1294,3 +1294,66 @@ mechanic lands, without being rewritten to match whatever it does.
 
 This is the pattern for any spec requirement found unbuilt: encode it as a `todo`, never
 as a passing test of the gap.
+
+## D59 — five languages, by cookie, and NOT on the report card (2026-08-10, brought forward from v1 §8)
+
+Kannada, Hindi, Tamil and Telugu alongside English. v1 §8 parks UI localization until
+200 paying users and RULES S7 says do not build Phase 2 early; the owner asked for it
+explicitly, which is the one thing that overrides that.
+
+**A cookie, not `localStorage`.** The theme is a `localStorage` value applied before
+paint, and that works because a theme is only CSS — the server ships one markup tree and
+the browser recolours it. Language is not like that: the strings are IN the markup and
+nearly every screen is server-rendered, so the server must know the language while it
+renders. `localStorage` does not exist there. The cookie also removes any flash of
+English and any layout shift when a longer Kannada word replaces a short English one.
+
+**No `/[locale]` URL prefix,** which is the obvious Next pattern and wrong here: the
+public portfolio lives at the ROOT, `growline.in/<username>` (F9), so a locale segment
+would be indistinguishable from a coach's username and every prospect-facing link would
+grow a prefix.
+
+**No i18n library.** Five languages and a flat dictionary. A library would add a
+dependency and a plural-rules engine for a problem this app does not have — its counts
+render as bare numerals beside a label. `Intl.PluralRules` is the next step if that
+changes, not a framework.
+
+**Completeness is a type, not a convention.** `Dict = Record<keyof typeof en, string>`,
+so a missing or misspelled key is a build error. `Record` rather than `typeof en`
+deliberately: the values must be strings, not the same literal strings, or a translation
+would only typecheck while it was still in English.
+
+**What types cannot see, `tests/i18n.test.ts` does:** a key left in English, an empty
+string, a dropped or renamed `{days}` placeholder, a string in the wrong script. All four
+ship silently and none is caught by `tsc` or by a screenshot unless a reader of that
+language looks at it. Script is asserted as "contains at least one character from this
+block", not "only" — "QR" stays in Latin in several translations, and an over-strict test
+must not break a real product decision.
+
+**Layout is asserted, not eyeballed.** `e2e/language.spec.ts` switches through all four
+and asserts the document never scrolls sideways AND that no nav label is clipped inside
+the fixed-height bar. Those are different failures: a clipped label leaves the page
+exactly 375px wide and simply becomes unreadable. Assertions are on SCRIPT rather than on
+words, because every translator flagged wording they were unsure of and a test pinned to
+a specific string would fail on a legitimate copy fix.
+
+**The switcher never translates its own options.** All five always show their native
+names. A coach who cannot read English cannot find "Kannada" in a list, but can find
+ಕನ್ನಡ — and the case that matters most is somebody who has landed in a language they
+cannot read and needs to get out of it. Translating the option labels would break exactly
+that.
+
+**The report card and PDF stay in English, and this is the important limitation.** They
+are rendered as images by satori, which has no Indic shaper: Devanagari, Kannada, Tamil
+and Telugu all come out with vowel marks misplaced and conjuncts broken, and committing
+fonts does not fix it. A translated report would look worse than an English one, and the
+report is the coach's first impression on a prospect. The switcher says so in plain words
+rather than leaving a coach to discover it.
+
+**Every translation needs a native-speaker review before launch.** They were produced by
+this build, not by a translator, and each one came back with a flagged list — chiefly
+"acknowledge" (no short natural equivalent in any of the four, and the app needs to
+distinguish *seen* from *acknowledged*), "prospects" (rendered as the plain word for
+"people" in all four, since the sales sense has no short natural translation), and
+whether "QR" should stay in Latin. Those lists are in the session record; treat the
+current strings as a working draft, not as finished copy.
