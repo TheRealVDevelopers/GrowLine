@@ -45,7 +45,8 @@ Append a row every time you hand the work over. Newest at the bottom.
 | 9 | Phone → Claude Code web | v2.1b: real Security Rules + **21 rules checks incl. both mandatory ones**, Cloud Functions (counter, morning reminder, 180-day purge), Storage rules, realtime QR listener. | FCM delivery + deploy need a real project. |
 | 10 | Phone → Claude Code web | v2.2a started: Dark Achiever token layer, theme switching (5 tests), NeoPOP/gem/metal components. Recorded D39 — "dark by default" vs "respect the system" genuinely conflict on the web. | Screens not yet reskinned; v1 palette aliases still in place. |
 | 11 | Phone → Claude Code web | Target ring (remaining arc) + streak flame wired into targets and log. 4 design-rule tests: arc direction, no-money copy, no backdrop-filter anywhere, theme switch persists. | 14 e2e, 21 rules, 29 data — all green. Home + Today's Mission next. |
-| 12 | PC | _(fill this in from the PC — even one line is enough)_ | |
+| 12 | Phone → Claude Code web | Today's Mission card + home reskin. Recorded **D40** — v2 §4's own example copy carries a "₹-equivalent" that L4/D30 forbid; built with points only. | 15 e2e, 21 rules, 29 data. v2.2b (capture/pipeline/report/team/settings) next. |
+| 13 | PC | _(fill this in from the PC — even one line is enough)_ | |
 
 ---
 
