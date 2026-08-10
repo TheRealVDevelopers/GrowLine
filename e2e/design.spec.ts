@@ -210,3 +210,43 @@ for (const theme of ["dark", "light"] as const) {
     }
   });
 }
+
+test("the Weekly Recap shows counts and shares without money or rank", async ({
+  page,
+}) => {
+  await loginAsAsha(page);
+  await page.goto("/");
+
+  const recap = page.getByTestId("weekly-recap");
+  await expect(recap).toBeVisible();
+
+  // Counts and a streak, nothing that reads as earnings (RULES L1, L4). This is
+  // the most forwarded string the app produces, so it is the most likely to be
+  // read by someone who never installed it.
+  const text = (await recap.innerText()).toLowerCase();
+  expect(text).not.toContain("₹");
+  expect(text).not.toMatch(/\bincome\b|\bearn(ing|ings)?\b|\bcommission\b|\bpayout\b/);
+
+  // Sharing falls back to wa.me when the Web Share API is absent — RULES S4, no
+  // paid Business API ever.
+  //
+  // window.open is stubbed rather than the popup being followed: wa.me is not
+  // reachable from a sandbox, so following it would assert the network rather
+  // than the app. What matters is the URL the app asks for.
+  await page.evaluate(() => {
+    (window as unknown as { __opened?: string }).__opened = undefined;
+    window.open = ((url?: string | URL) => {
+      (window as unknown as { __opened?: string }).__opened = String(url);
+      return null;
+    }) as typeof window.open;
+    // Force the fallback path even where the runner exposes Web Share.
+    delete (navigator as unknown as { share?: unknown }).share;
+  });
+
+  await page.getByTestId("recap-share").click();
+  const opened = await page.evaluate(
+    () => (window as unknown as { __opened?: string }).__opened
+  );
+  expect(opened).toContain("wa.me/?text=");
+  expect(decodeURIComponent(opened ?? "")).not.toContain("₹");
+});

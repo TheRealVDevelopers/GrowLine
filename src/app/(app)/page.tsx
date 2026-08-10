@@ -13,6 +13,8 @@ import { currentMonth, progressPercent } from "@/lib/targets";
 import InviteButtons from "@/components/InviteButtons";
 import { TeamIcon } from "@/components/icons";
 import TodaysMission, { buildMissions } from "@/components/TodaysMission";
+import { getWeeklyRecap, recapShareText } from "@/lib/weekly-recap";
+import WeeklyRecap from "@/components/WeeklyRecap";
 
 export default async function HomePage() {
   const user = await getSessionUser();
@@ -34,6 +36,8 @@ export default async function HomePage() {
   const firstName = user.name.split(" ")[0];
   const today = todayHeading();
 
+  const recap = await getWeeklyRecap(user.id, logState.streak);
+
   // The recommendation engine of v2 (§4): what to do next, from their own data.
   const missions = buildMissions({
     streak: logState.streak,
@@ -53,6 +57,21 @@ export default async function HomePage() {
       </div>
 
       <TodaysMission missions={missions} />
+
+      {/* The brag loop (§4). Hidden on an empty week — there is nothing to be
+          proud of yet, and a card of zeroes is the opposite of motivating. */}
+      {!recap.empty && (
+        <WeeklyRecap
+          data={{
+            peopleMet: recap.peopleMet,
+            invites: recap.invites,
+            memberships: recap.memberships,
+            sessions: recap.sessions,
+            streak: recap.streak,
+            shareText: recapShareText(recap),
+          }}
+        />
+      )}
 
       {user.plan === "trial" && (
         <Link
