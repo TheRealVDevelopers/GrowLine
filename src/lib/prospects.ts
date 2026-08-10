@@ -93,6 +93,12 @@ export type NewProspect = {
   nextFollowupAt?: Date | null;
   source?: string;
   notes?: string | null;
+  /**
+   * Whether this person agreed (RULES P6). The CALLER establishes this — the coach's
+   * tick for a manual capture, the act of filling the form for a QR self-fill — and the
+   * timestamp is stamped here, server-side.
+   */
+  consentGiven?: boolean;
 };
 
 /**
@@ -124,6 +130,10 @@ export async function createProspect(
     nextFollowupAt: input.nextFollowupAt ? Timestamp.fromDate(input.nextFollowupAt) : null,
     source: input.source ?? "manual",
     notes: input.notes ?? null,
+    // Stamped server-side from the coach's tick, or from the prospect filling the QR
+    // form themselves. Never taken as a date from the client: a consent date the client
+    // chooses is worth nothing as evidence.
+    consentAt: input.consentGiven ? Timestamp.now() : null,
     createdAt: Timestamp.now(),
   };
 

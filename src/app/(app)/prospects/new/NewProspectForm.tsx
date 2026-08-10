@@ -20,11 +20,13 @@ function toPayload(v: CaptureValues) {
 export default function NewProspectForm() {
   const router = useRouter();
   const [values, setValues] = useState<CaptureValues>(emptyCapture);
+  const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
   const [queuedCount, setQueuedCount] = useState(0);
   const [busy, setBusy] = useState(false);
 
-  const canSave = values.name.trim().length >= 2 && values.phone.length === 10;
+  const canSave =
+    values.name.trim().length >= 2 && values.phone.length === 10 && consent;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +35,10 @@ export default function NewProspectForm() {
     setBusy(true);
 
     const clientId = newClientId();
-    const payload = { clientId, ...toPayload(values) };
+    // `canSave` already required the tick, so this is always true here — sent explicitly
+    // rather than implied, because the server refuses a capture that does not carry it
+    // and a silent default is exactly what that check exists to catch.
+    const payload = { clientId, consentGiven: true, ...toPayload(values) };
 
     // Keep the capture on the phone and sync later. The coach must never lose a
     // person they just met. Confirmation happens in place: navigating away would
@@ -46,6 +51,9 @@ export default function NewProspectForm() {
       try {
         await queueProspect({ ...payload, savedAt: Date.now() });
         setValues(emptyCapture);
+        // A fresh tick for the next person. Carrying it over would mean the coach
+        // consents once and the app assumes it for everybody they meet after.
+        setConsent(false);
         setQueuedCount((n) => n + 1);
         window.dispatchEvent(new Event(QUEUE_CHANGED));
       } catch {
@@ -92,6 +100,37 @@ export default function NewProspectForm() {
       )}
 
       <CaptureFields values={values} onChange={setValues} />
+
+      {/*
+        The Mode A consent gate (v2 §5.2, RULES P6).
+
+        Placed with the Save button rather than among the inputs, deliberately. RULES S2
+        caps a screen at six input fields and CaptureFields already uses all six — but
+        this is not a seventh field: nothing is entered, nothing is stored from it beyond
+        a timestamp, and it gates the ACTION rather than collecting data. Splitting the
+        capture across two screens to make room would break the 30-second rule (S1) for a
+        control that costs one tap.
+
+        Calm register: no gold, nothing animated. This is the one moment in the flow that
+        belongs to somebody who is not holding the phone, and the app should not be
+        cheerful about it.
+      */}
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-hairline p-4">
+        <input
+          type="checkbox"
+          data-testid="capture-consent"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+          className="mt-0.5 h-6 w-6 shrink-0 accent-gold"
+        />
+        <span className="text-sm">
+          This person knows I am saving their details and agrees.
+          <span className="mt-1 block text-text-dim">
+            Ask them before you save. They can ask you to remove their details at any
+            time.
+          </span>
+        </span>
+      </label>
 
       {error && (
         <p className="rounded-xl bg-elevated px-4 py-3 text-sm text-heat">{error}</p>

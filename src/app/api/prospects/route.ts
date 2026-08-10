@@ -42,12 +42,35 @@ export async function POST(req: Request) {
       ? rawClientId.slice(0, MAX_CLIENT_ID)
       : null;
 
+  /**
+   * Mode A consent is a HARD requirement (v2 §5.2, RULES P6), enforced here and not only
+   * by a disabled button.
+   *
+   * The person whose name, number and body measurements are being stored is not in this
+   * request and cannot object to it, so the gate has to live where it cannot be skipped
+   * — a client that omits the flag is refused rather than defaulted.
+   *
+   * Strict `=== true`: no coercion, for the same reason as the privacy toggle (D50).
+   * `Boolean("false")` is `true`, and recording consent nobody gave is the one mistake
+   * this field must not be able to make.
+   */
+  if ((body as Record<string, unknown>)?.consentGiven !== true) {
+    return NextResponse.json(
+      {
+        error:
+          "Please confirm this person knows you are saving their details and agrees.",
+      },
+      { status: 400 }
+    );
+  }
+
   // Replaying a queued capture must not create a second person. The check is no
   // longer a lookup-then-insert: the composite document id makes it atomic (D35).
   const { prospect, duplicate } = await createProspect({
     coachId: uid,
     clientId,
     source: "manual",
+    consentGiven: true,
     ...parsed.value,
   });
   if (duplicate) {

@@ -201,6 +201,19 @@ export type ProspectDoc = {
   nextFollowupAt: Timestamp | null;
   source: string;
   notes: string | null;
+  /**
+   * When this person agreed to their details being kept (v2 §5.2, RULES P6).
+   *
+   * A timestamp rather than a boolean, because "did they consent" and "when" are
+   * different questions and only the second one is answerable to a regulator. Under
+   * DPDP the burden is on us to show consent was obtained, and `true` with no date
+   * cannot be corroborated against anything.
+   *
+   * Null means NOT RECORDED, which is not the same as refused. Every prospect captured
+   * before this field existed has null, and the migration deliberately leaves them that
+   * way rather than backfilling a consent nobody actually gave.
+   */
+  consentAt: Timestamp | null;
   createdAt: Timestamp;
 };
 

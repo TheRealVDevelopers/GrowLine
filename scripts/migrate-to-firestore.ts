@@ -216,6 +216,15 @@ async function main() {
         nextFollowupAt: ts(p.nextFollowupAt),
         source: p.source,
         notes: p.notes,
+        /**
+         * NOT backfilled, deliberately.
+         *
+         * These rows predate the consent tick (RULES P6), so no consent was recorded for
+         * them. Writing a timestamp here would invent evidence — and the whole point of
+         * storing a date is that it can be corroborated. Null reads as "not recorded",
+         * which is the truth, and the 180-day health-data purge covers them regardless.
+         */
+        consentAt: null,
         createdAt: ts(p.createdAt),
         legacyId: p.id, // lets reports resolve their prospect after the id change
       },

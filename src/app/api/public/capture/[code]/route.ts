@@ -45,6 +45,13 @@ export async function POST(
   const { prospect } = await createProspect({
     coachId: coach.id,
     source: "qr",
+    /**
+     * Mode B consent is the act itself: this person scanned the code and typed their own
+     * details, having read the notice on the form. Nobody is asserting it on their
+     * behalf, which makes it the STRONGER of the two consents — Mode A records a coach's
+     * word that a conversation happened; this records the person's own submission.
+     */
+    consentGiven: true,
     ...parsed.value,
   });
   // Generate the report now so it's waiting for the coach (F3). The token is

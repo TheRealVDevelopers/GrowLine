@@ -52,7 +52,20 @@ test("a capture made offline survives and syncs when the signal returns", async 
 
   await page.getByPlaceholder("Who did you meet?").fill(name);
   await page.getByPlaceholder("98765 43210").fill("9111100001");
-  await page.getByRole("button", { name: /save person/i }).click();
+
+  /**
+   * Save is blocked until the consent tick (RULES P6) — asserted here rather than in its
+   * own test, because this is the offline path and consent has to survive the QUEUE. A
+   * capture that lost its tick on the way through IndexedDB would be refused by the API
+   * on replay and sit in the queue forever, which is a silent failure: the coach was told
+   * "saved on this phone" and the person never arrives.
+   */
+  const save = page.getByRole("button", { name: /save person/i });
+  await expect(save).toBeDisabled();
+  await page.getByTestId("capture-consent").check();
+  await expect(save).toBeEnabled();
+
+  await save.click();
 
   // The coach must be told it is safe, on the spot — not left staring at a
   // spinner that cannot resolve.

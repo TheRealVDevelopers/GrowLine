@@ -1413,3 +1413,53 @@ skipping when the flag is on — a test that quietly skips half the time teaches
 to ignore it. Verified in all three directions: open server + open expectation passes,
 closed + closed passes, and closed-expectation against an open server **fails with the
 intended message**, which is what makes it more than decoration.
+
+## D61 — Mode A consent: a timestamp, enforced server-side (2026-08-10, v2.3)
+
+v2 §5.2 and RULES P6: manual capture requires the coach to confirm the person knows and
+agrees, before save.
+
+**A timestamp, not a boolean.** "Did they consent" and "when" are different questions and
+only the second is answerable to a regulator. Under DPDP the burden is on us to show
+consent was obtained, and `true` with no date cannot be corroborated against anything.
+
+**Null means NOT RECORDED, which is not the same as refused.** Every prospect captured
+before this existed has null, and the migration **deliberately does not backfill** — a
+timestamp written there would be invented evidence, which defeats the reason for storing
+a date at all.
+
+**Enforced in the API, not only by a disabled button.** The person whose name, phone and
+body measurements are being stored is not in the request and cannot object to it, so the
+gate has to live where a client cannot skip it. Strict `=== true`, no coercion — same
+reasoning as D50: `Boolean("false")` is `true`, and recording a consent nobody gave is the
+one mistake this field must not be able to make. The timestamp is stamped server-side; a
+date the client chooses is worth nothing as evidence.
+
+**Where the tick sits is a rules decision, not a layout preference.** RULES S2 caps a
+screen at six input fields and `CaptureFields` already uses all six. This is not a seventh:
+nothing is entered, nothing is stored from it but a timestamp, and it gates the ACTION
+rather than collecting data. Splitting capture across two screens to make room would break
+the 30-second rule (S1) for a control that costs one tap. So it sits with the Save button,
+in the calm register — no gold, no animation. It is the one moment in the flow belonging to
+somebody who is not holding the phone.
+
+**It has to survive the offline queue (S5), and that is the subtle part.** The person was
+standing there when the coach ticked; by the time the queue drains — hours later, on
+another screen — nobody can confirm anything, so re-asking on sync is not an option. The
+flag therefore travels in the queued record. A capture that lost it would be refused by
+the API on replay and sit in the queue forever while the coach had already been told
+"saved on this phone" — a silent loss of the person they just met. `offline-capture.spec`
+asserts the tick is required AND that a queued capture still lands, which is why that
+assertion lives in the offline test rather than in one of its own.
+
+**Mode B needs no tick, because the act is the consent.** A QR self-fill is the person
+scanning the code and typing their own details. Nobody is asserting anything on their
+behalf, which makes it the stronger of the two: Mode A records a coach's word that a
+conversation happened, Mode B records the person's own submission. Both now stamp
+`consentAt`.
+
+**Still outstanding:** the itemized privacy notice that v2 §5.2 wants linked from this
+flow. It needs a grievance officer, a contact address and the legal entity — facts only
+the owner can supply — and human translation for the four languages, so it is not
+buildable here. The consent tick does not depend on it, and the erasure control on the
+report page (D17) already gives the prospect a self-serve exit.

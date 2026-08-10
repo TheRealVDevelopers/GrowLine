@@ -23,6 +23,16 @@ export type PendingProspect = {
   gender: string | null;
   heightCm: number | null;
   weightKg: number | null;
+  /**
+   * The coach's consent tick, carried through the queue (RULES P6 + S5).
+   *
+   * It has to be stored with the capture rather than re-asked on sync: the person was
+   * standing there when the coach ticked it, and by the time the queue drains — hours
+   * later, on a different screen — nobody can confirm anything. A queued capture that
+   * lost its consent would be refused by the API on replay and silently stuck in the
+   * queue forever, which is the failure mode this field prevents.
+   */
+  consentGiven: boolean;
   savedAt: number;
 };
 
