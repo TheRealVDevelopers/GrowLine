@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { Timestamp } from "firebase-admin/firestore";
 import { db } from "./firebase-admin";
 
@@ -32,6 +33,11 @@ export const COLLECTIONS = {
   dailyLogs: "dailyLogs",
   targets: "targets",
   proofs: "proofs",
+  /**
+   * Web Push subscriptions (D22). Carried over as-is so Prisma can go; v2.1b
+   * replaces the whole mechanism with FCM and retires this collection.
+   */
+  pushSubscriptions: "pushSubscriptions",
   // Not yet written to. Named here so v2.4–v2.6 do not invent variants.
   threads: "threads",
   threadReceipts: "threadReceipts",
@@ -79,6 +85,19 @@ export function dailyLogDocId(userId: string, dayKey: string): string {
 /** month is "YYYY-MM". */
 export function targetDocId(coachId: string, month: string): string {
   return assertValidDocId(`${coachId}${SEPARATOR}${month}`, "target");
+}
+
+/**
+ * `unique(endpoint)` from the push_subscriptions table, as a document id.
+ *
+ * The endpoint is a push-service URL, so it cannot be an id directly — it
+ * contains "/" and can exceed the 1500-byte limit. Hashing keeps the uniqueness
+ * guarantee the constraint existed for: a device that re-subscribes replaces its
+ * own row instead of accumulating duplicates and sending the same notification
+ * twice.
+ */
+export function pushSubscriptionDocId(endpoint: string): string {
+  return createHash("sha256").update(endpoint).digest("hex");
 }
 
 /**

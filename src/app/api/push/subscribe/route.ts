@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { COLLECTIONS, pushSubscriptionDocId } from "@/lib/collections";
+import { db } from "@/lib/firebase-admin";
 import { getSessionUserId } from "@/lib/session";
 import { isPushConfigured } from "@/lib/push";
 
@@ -50,11 +51,14 @@ export async function POST(req: Request) {
 
   // Upsert on endpoint: a device that re-subscribes must replace its old row, and
   // an endpoint that moved to a different coach (shared phone) must follow them.
-  await prisma.pushSubscription.upsert({
-    where: { endpoint },
-    create: { userId: uid, endpoint, p256dh, auth, timezone: safeTimezone },
-    update: { userId: uid, p256dh, auth, timezone: safeTimezone },
-  });
+  // The endpoint hash IS the document id, so `set` is the upsert: a device that
+  // re-subscribes replaces its own row rather than accumulating duplicates and
+  // sending twice, and an endpoint that moved to a different coach (shared phone)
+  // follows them.
+  await db
+    .collection(COLLECTIONS.pushSubscriptions)
+    .doc(pushSubscriptionDocId(endpoint))
+    .set({ userId: uid, endpoint, p256dh, auth, timezone: safeTimezone });
 
   return NextResponse.json({ ok: true });
 }

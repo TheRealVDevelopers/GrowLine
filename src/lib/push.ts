@@ -1,5 +1,6 @@
 import webpush from "web-push";
-import { prisma } from "./db";
+import { COLLECTIONS } from "./collections";
+import { db } from "./firebase-admin";
 
 /**
  * Web push over VAPID rather than FCM (see DECISIONS.md D22). Same delivery
@@ -52,7 +53,19 @@ export async function sendToUser(
 ): Promise<SendResult> {
   if (!isPushConfigured()) return { sent: 0, removed: 0, failed: 0 };
 
-  const subs = await prisma.pushSubscription.findMany({ where: { userId } });
+  // Still Web Push over VAPID (D22). v2.1b replaces this wholesale with FCM;
+  // moving the collection now is only about removing the last Prisma dependency,
+  // not about changing how a notification is delivered.
+  const snap = await db
+    .collection(COLLECTIONS.pushSubscriptions)
+    .where("userId", "==", userId)
+    .get();
+  const subs = snap.docs.map((d) => ({
+    id: d.id,
+    endpoint: d.data().endpoint as string,
+    p256dh: d.data().p256dh as string,
+    auth: d.data().auth as string,
+  }));
   const result: SendResult = { sent: 0, removed: 0, failed: 0 };
 
   await Promise.all(
@@ -69,8 +82,10 @@ export async function sendToUser(
       } catch (err) {
         const status = (err as { statusCode?: number })?.statusCode;
         if (status === 404 || status === 410) {
-          await prisma.pushSubscription
-            .delete({ where: { id: sub.id } })
+          await db
+            .collection(COLLECTIONS.pushSubscriptions)
+            .doc(sub.id)
+            .delete()
             .catch(() => {});
           result.removed++;
         } else {
