@@ -1,10 +1,13 @@
-import { prisma } from "./db";
-import { APP_TIMEZONE, dayKey } from "./day";
+import { Timestamp } from "firebase-admin/firestore";
+import { dailyLogDocId, dailyLogs } from "./collections";
+import { getUserById } from "./users";
+import { APP_TIMEZONE } from "./day";
 import {
   EMPTY_LOG,
   MAX_BACKFILL_DAYS,
   logDateFor,
   loggedToday,
+  shiftKey,
   streakFromKeys,
   todayKey,
   type DailyLogValues,
@@ -13,33 +16,12 @@ import {
 /**
  * Database side of the daily log. Split from daily-log.ts so the log form (a client
  * component) can use the field definitions and streak maths without pulling the
- * SQLite driver into the browser bundle.
+ * server data layer into the browser bundle (D25 — the same reason, now that the
+ * driver is firebase-admin rather than SQLite).
  */
 
 /** Enough history to compute any streak we display, and no more. */
 const STREAK_WINDOW_DAYS = 400;
-
-type LogRow = {
-  logDate: Date;
-  servings: number;
-  memberships: number;
-  sessions: number;
-  invites: number;
-  followupsDone: number;
-  note: string | null;
-};
-
-function toValues(row: LogRow | null): DailyLogValues | null {
-  if (!row) return null;
-  return {
-    servings: row.servings,
-    memberships: row.memberships,
-    sessions: row.sessions,
-    invites: row.invites,
-    followupsDone: row.followupsDone,
-    note: row.note,
-  };
-}
 
 /** Today's log (or null), plus the streak it belongs to. */
 export async function getLogState(
@@ -48,28 +30,32 @@ export async function getLogState(
   now = new Date()
 ) {
   const today = todayKey(timeZone, now);
-  const since = new Date(now.getTime() - STREAK_WINDOW_DAYS * 86_400_000);
+  // Day keys sort lexicographically, so the window is a string range — no date
+  // arithmetic on the query side and no timezone drift (D26).
+  const since = shiftKey(today, -STREAK_WINDOW_DAYS);
 
-  const rows = await prisma.dailyLog.findMany({
-    where: { userId, logDate: { gte: since } },
-    orderBy: { logDate: "desc" },
-    select: {
-      logDate: true,
-      servings: true,
-      memberships: true,
-      sessions: true,
-      invites: true,
-      followupsDone: true,
-      note: true,
-    },
-  });
+  const snap = await dailyLogs()
+    .where("userId", "==", userId)
+    .where("dayKey", ">=", since)
+    .orderBy("dayKey", "desc")
+    .get();
 
-  const keys = rows.map((r) => dayKey(r.logDate, timeZone));
-  const todayRow = rows.find((r) => dayKey(r.logDate, timeZone) === today) ?? null;
+  const keys = snap.docs.map((d) => d.data().dayKey as string);
+  const todayDoc = snap.docs.find((d) => d.data().dayKey === today);
+  const t = todayDoc?.data();
 
   return {
     today,
-    values: toValues(todayRow) ?? { ...EMPTY_LOG },
+    values: t
+      ? {
+          servings: t.servings,
+          memberships: t.memberships,
+          sessions: t.sessions,
+          invites: t.invites,
+          followupsDone: t.followupsDone,
+          note: t.note ?? null,
+        }
+      : { ...EMPTY_LOG },
     hasLoggedToday: loggedToday(keys, today),
     streak: streakFromKeys(keys, today),
   };
@@ -80,8 +66,11 @@ export type SaveLogResult =
   | { ok: false; error: string };
 
 /**
- * Writes one day's log. Upsert on (userId, logDate) so re-saving corrects the day
- * rather than creating a second row, and so a retried offline sync is idempotent.
+ * Writes one day's log.
+ *
+ * D26's `unique(userId, logDate)` is now the document id, so re-saving corrects
+ * the day rather than creating a second row and a retried offline sync stays
+ * idempotent — the same guarantee, enforced by the primary key.
  */
 export async function saveLog(
   userId: string,
@@ -104,7 +93,17 @@ export async function saveLog(
     return { ok: false, error: "That day is too far back to log now." };
   }
 
-  const logDate = logDateFor(key, timeZone);
+  const ref = dailyLogs().doc(dailyLogDocId(userId, key));
+
+  // Read before writing so a milestone is celebrated for the act of logging the
+  // day, not replayed every time the coach corrects a number (D27).
+  const existing = await ref.get();
+
+  // uplinePath is stamped at write time so the upline's roll-up is one
+  // array-contains query rather than a groupBy Firestore cannot express (D36).
+  // Frozen here: moving a coach in the tree would not re-stamp old logs.
+  const user = existing.exists ? null : await getUserById(userId);
+
   const data = {
     servings: values.servings,
     memberships: values.memberships,
@@ -114,24 +113,24 @@ export async function saveLog(
     note: values.note,
   };
 
-  // Checked before writing so a milestone is celebrated for the act of logging the
-  // day, not replayed every time the coach corrects a number.
-  const existing = await prisma.dailyLog.findUnique({
-    where: { userId_logDate: { userId, logDate } },
-    select: { id: true },
-  });
-
-  await prisma.dailyLog.upsert({
-    where: { userId_logDate: { userId, logDate } },
-    create: { userId, logDate, ...data },
-    update: data,
-  });
+  if (existing.exists) {
+    await ref.update(data);
+  } else {
+    await ref.set({
+      userId,
+      dayKey: key,
+      logDate: Timestamp.fromDate(logDateFor(key, timeZone)),
+      uplinePath: user?.uplinePath ?? [],
+      ...data,
+      createdAt: Timestamp.now(),
+    });
+  }
 
   const state = await getLogState(userId, timeZone, now);
   return {
     ok: true,
     streak: state.streak,
     loggedKey: key,
-    wasFirstSaveOfDay: existing === null,
+    wasFirstSaveOfDay: !existing.exists,
   };
 }
