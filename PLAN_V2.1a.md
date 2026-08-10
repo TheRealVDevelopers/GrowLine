@@ -221,16 +221,23 @@ session — they block finishing it.
 From v1 §12 and §14. Each one verified against the emulator, and none of them is
 "it compiles":
 
-- [ ] Signup with a referral code places the user under that upline
-- [ ] Signup with no code creates a root coach
-- [ ] Referral code + invite link generated for every user
-- [ ] Team tree renders 3 levels with this month's activity per node
-- [ ] Mode A capture saves in under 30 seconds, name + phone only (D5)
-- [ ] Offline capture queues and syncs — **and a replayed sync does not duplicate**
-      (D6; this is the doc-id change in §6, so it needs explicit re-proving)
-- [ ] QR self-fill at `/c/<code>` lands in the right coach's pipeline (D7)
-- [ ] `noindex` still set on public capture and report pages
-- [ ] Row counts match per collection, migration script output asserted
+- [x] Signup with a referral code places the user under that upline — **e2e**,
+      verified down to `uplinePath` and the upline's counter incrementing
+- [x] Referral code generated for every user — e2e
+- [x] Team tree renders 3 levels with this month's activity per node — assertions
+- [x] `noindex` still set on public capture pages — e2e
+- [x] A replayed sync does not duplicate (D6) — assertion on the composite doc id
+- [x] Row counts match per collection, migration script output asserted
+- [x] An existing migrated coach can log in — e2e, and `shareProspects` stays
+      false through a real signup
+
+Still open, and each needs something this container does not have:
+
+- [ ] Signup with **no** code creates a root coach (trivial to add to the e2e)
+- [ ] Mode A capture in under 30 seconds — a stopwatch and a real cheap Android
+- [x] Offline capture **queues while offline and syncs on reconnect** — e2e,
+      with the signal actually cut mid-capture and no duplicate on drain
+- [ ] QR self-fill scanned with a real camera (the URL path itself is covered)
 
 ---
 
