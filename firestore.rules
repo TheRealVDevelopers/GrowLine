@@ -1,23 +1,127 @@
 rules_version = '2';
 
-// v2.1a — DENY ALL, deliberately.
-//
-// Nothing in the app talks to Firestore from the browser yet. Every read and
-// write goes through API routes and server components using the Admin SDK,
-// which bypasses these rules entirely — the same server-only shape the Prisma
-// build had (DECISIONS.md D1). So the safe default here is "no client access
-// at all", not a permissive placeholder that someone forgets to tighten.
-//
-// The real rules land in v2.1b, together with:
-//   - the privacy toggle enforced in rules (BUILD_PROMPT_V2.md §3, v1 §5.4)
-//   - the mandatory test proving an upline CANNOT read a downline's prospects
-//     while shareProspects is false (BUILD_PROMPT_V2.md §5.7)
-//   - client listeners for realtime QR capture, which is the first thing that
-//     actually needs client reads to be allowed
-//
-// Until then, if a client read starts failing, that is this file working.
+/**
+ * Growline Security Rules.
+ *
+ * The privacy toggle (v1 §5.4) is enforced HERE, not in app code. BUILD_PROMPT_V2
+ * §3 calls this non-negotiable, and §5.7 makes the test mandatory: an upline must
+ * not be able to read a downline's prospects while `shareProspects` is false, even
+ * with a hand-written query that bypasses the UI entirely.
+ *
+ * ## Reads are allowed; writes are not
+ *
+ * Every write still goes through an API route using the Admin SDK, which bypasses
+ * rules — the server-only shape D1 established and D38 kept. So writes are denied
+ * to clients across the board. This is not laziness: a client-writable collection
+ * needs per-field validation rules to be safe, and none of that is needed while no
+ * client writes. v2.1b opens reads only because realtime listeners need them.
+ *
+ * When a future session does allow a client write, it must add field validation in
+ * the same change. "allow write: if isSignedIn()" would let anyone set their own
+ * `uplinePath`, which is the array every other rule here trusts.
+ */
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    // The user document IS keyed by the Auth uid (D34), so this is a direct read
+    // with no mapping collection and no second lookup.
+    function coach(coachId) {
+      return get(/databases/$(database)/documents/users/$(coachId)).data;
+    }
+
+    /**
+     * Activity flows upward, always (v1 §5.4). `uplinePath` holds every ancestor,
+     * so one array membership test covers the whole line at any depth.
+     */
+    function inLineOf(path) {
+      return signedIn() && uid() in path;
+    }
+
+    match /users/{userId} {
+      // A coach reads themselves; an upline reads anyone in their line. The
+      // upline sees the summary fields — name, photo, counts — which is exactly
+      // what the team tree is allowed to show.
+      allow read: if signedIn() && (uid() == userId || inLineOf(resource.data.uplinePath));
+      allow write: if false;
+    }
+
+    match /prospects/{prospectId} {
+      /**
+       * THE privacy rule. Two ways in, and only two:
+       *
+       *   1. it is your own prospect, or
+       *   2. that coach has turned sharing ON *and* you are in their upline path.
+       *
+       * Both halves of (2) matter. Without the toggle check an upline sees
+       * everything; without the path check anyone with sharing on is public.
+       *
+       * Note the query constraint this imposes: a client listing prospects must
+       * filter on a single `coachId`, so every document in the result resolves the
+       * same `get()`. Listing across a whole line is not expressible here, and
+       * that is the intended outcome rather than a limitation.
+       */
+      allow read: if signedIn() && (
+        uid() == resource.data.coachId
+        || (
+          coach(resource.data.coachId).shareProspects == true
+          && uid() in coach(resource.data.coachId).uplinePath
+        )
+      );
+      allow write: if false;
+    }
+
+    match /dailyLogs/{logId} {
+      // Counts always flow up, regardless of the prospect toggle — this is the
+      // accountability loop F6 is built on, and it carries no prospect identity.
+      allow read: if signedIn() && (
+        uid() == resource.data.userId || inLineOf(resource.data.uplinePath)
+      );
+      allow write: if false;
+    }
+
+    match /targets/{targetId} {
+      allow read: if signedIn() && (
+        uid() == resource.data.coachId || inLineOf(resource.data.uplinePath)
+      );
+      allow write: if false;
+    }
+
+    match /proofs/{proofId} {
+      // Only the two people in the exchange: the coach it is about, and the
+      // upline who asked. Not the rest of the line — a proof photo is evidence
+      // for one reviewer, not a team broadcast.
+      allow read: if signedIn() && (
+        uid() == resource.data.coachId || uid() == resource.data.requestedById
+      );
+      allow write: if false;
+    }
+
+    match /reports/{reportId} {
+      /**
+       * Denied to every client, deliberately.
+       *
+       * A report is reached by its token through a public server route (D17) —
+       * the token IS the access control, and the prospect holding it has no
+       * account at all. Allowing signed-in clients to read this collection would
+       * add a second, weaker path to the same health data for no feature.
+       */
+      allow read, write: if false;
+    }
+
+    match /pushSubscriptions/{subId} {
+      allow read, write: if false;
+    }
+
+    // Anything not named above — including collections a future session adds and
+    // forgets to think about — is denied.
     match /{document=**} {
       allow read, write: if false;
     }

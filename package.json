@@ -12,7 +12,8 @@
     "db:seed": "tsx scripts/seed-sqlite.ts",
     "migrate:firestore": "tsx scripts/migrate-to-firestore.ts",
     "migrate:verify": "tsx scripts/verify-migration.ts",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "test:rules": "tsx e2e/rules.test.ts"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
@@ -26,6 +27,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
     "@playwright/test": "^1.62.1",
     "@prisma/adapter-better-sqlite3": "^7.9.1",
     "@prisma/client": "^7.9.1",
