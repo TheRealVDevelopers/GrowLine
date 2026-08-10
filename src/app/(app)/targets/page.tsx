@@ -5,6 +5,7 @@ import {
   getMyTarget,
 } from "@/lib/targets-queries";
 import { currentMonth, monthLabel } from "@/lib/targets";
+import TargetRing from "@/components/TargetRing";
 import MyTargetCard from "./MyTargetCard";
 import LineTargets from "./LineTargets";
 import LevelNameField from "./LevelNameField";
@@ -28,9 +29,13 @@ export default async function TargetsPage() {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-bold">My Target</h1>
-        <p className="mt-1 text-navy/70">{monthLabel(month)}</p>
+        <h1 className="font-display text-3xl font-bold text-text">My Target</h1>
+        <p className="mt-1 text-text-dim">{monthLabel(month)}</p>
       </div>
+
+      {mine && (
+        <TargetRing progress={mine.progressPoints} target={mine.targetPoints} />
+      )}
 
       <MyTargetCard
         target={
