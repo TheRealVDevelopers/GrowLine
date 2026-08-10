@@ -12,6 +12,13 @@ import { auth, db } from "../src/lib/firebase-admin";
 import { COLLECTIONS, dailyLogDocId, reportDocId } from "../src/lib/collections";
 import { buildTeamTree, isInDownline } from "../src/lib/team";
 import { followupCounts } from "../src/lib/followup-queries";
+import {
+  getMyTarget,
+  pendingProofCount,
+  proofsAwaitingReview,
+  setTarget,
+  updateProgress,
+} from "../src/lib/targets-queries";
 
 const ROOT = "usr_root0000000000000000";
 const ASHA = "usr_asha0000000000000000";
@@ -138,6 +145,35 @@ async function main() {
     counts.overdue === 0, `overdue=${counts.overdue}`);
   check("a future follow-up is not counted as due today",
     counts.today === 0, `today=${counts.today}`);
+
+  // --- targets and proofs: D32's matrix, on Firestore -------------------------
+  const month = new Date("2026-08-09T12:00:00Z").toISOString().slice(0, 7);
+  const myTarget = await getMyTarget(ASHA, month);
+  check("target addressable by coachId__month", myTarget !== null, myTarget?.id);
+  check("proofs hydrated without a join", myTarget?.proofs.length === 1);
+  check("setBy resolved to a name", myTarget?.setBy.name === "Root Coach",
+    myTarget?.setBy.name);
+
+  // The relational filter `where: { target: { coachId } }` has no Firestore
+  // equivalent; this proves the denormalised coachId replaces it correctly.
+  check("proofsAwaitingReview finds the submitted proof",
+    (await proofsAwaitingReview(ROOT)) === 1);
+  check("pendingProofCount excludes an already-submitted proof",
+    (await pendingProofCount(ASHA)) === 0);
+
+  // Authorization is re-derived from the database, not trusted from the caller.
+  check("a coach cannot set their own target",
+    (await setTarget(ASHA, ASHA, month, 100)).ok === false);
+  check("a non-upline cannot set someone's target",
+    (await setTarget(BHAV, CHAN, month, 100)).ok === false);
+  check("an upline two levels up cannot set a target",
+    (await setTarget(ROOT, CHAN, month, 100)).ok === false);
+  check("the direct upline CAN set a target",
+    (await setTarget(ASHA, CHAN, month, 250)).ok === true);
+  check("progress is movable only by the target's own coach",
+    (await updateProgress(ROOT, `${CHAN}__${month}`, 50)).ok === false);
+  check("the coach CAN move their own progress",
+    (await updateProgress(CHAN, `${CHAN}__${month}`, 50)).ok === true);
 
   console.log(failures === 0 ? "\nAll checks passed.\n" : `\n${failures} check(s) FAILED.\n`);
   if (failures > 0) process.exitCode = 1;
