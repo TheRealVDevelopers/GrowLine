@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { Timestamp } from "firebase-admin/firestore";
+import { prospects } from "@/lib/collections";
+import { createProspect } from "@/lib/prospects";
+import { getUserByReferralCode } from "@/lib/users";
 import { parseProspectInput } from "@/lib/prospect";
 import { ensureCurrentReport } from "@/lib/report";
 
@@ -12,10 +15,7 @@ export async function POST(
   { params }: { params: Promise<{ code: string }> }
 ) {
   const { code } = await params;
-  const coach = await prisma.user.findUnique({
-    where: { referralCode: code.toUpperCase() },
-    select: { id: true },
-  });
+  const coach = await getUserByReferralCode(code.toUpperCase());
   if (!coach) {
     return NextResponse.json(
       { error: "This link isn't valid. Please ask for a new one." },
@@ -23,13 +23,14 @@ export async function POST(
     );
   }
 
-  const recent = await prisma.prospect.count({
-    where: {
-      coachId: coach.id,
-      source: "qr",
-      createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) },
-    },
-  });
+  const recent = (
+    await prospects()
+      .where("coachId", "==", coach.id)
+      .where("source", "==", "qr")
+      .where("createdAt", ">=", Timestamp.fromMillis(Date.now() - 60 * 60 * 1000))
+      .count()
+      .get()
+  ).data().count;
   if (recent >= MAX_PER_CODE_PER_HOUR) {
     return NextResponse.json(
       { error: "Too many submissions right now. Please try again later." },
@@ -41,15 +42,10 @@ export async function POST(
   const parsed = parseProspectInput(body);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
-  const prospect = await prisma.prospect.create({
-    data: { coachId: coach.id, source: "qr", ...parsed.value },
-    select: {
-      id: true,
-      age: true,
-      gender: true,
-      heightCm: true,
-      weightKg: true,
-    },
+  const { prospect } = await createProspect({
+    coachId: coach.id,
+    source: "qr",
+    ...parsed.value,
   });
   // Generate the report now so it's waiting for the coach (F3). The token is
   // deliberately NOT returned — the prospect gets the link from the coach, so

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { getProspectForCoach } from "@/lib/prospects";
 import { getSessionUserId } from "@/lib/session";
 import { eligibilityMessage, ensureCurrentReport, reportBlocker } from "@/lib/report";
 
@@ -12,18 +12,8 @@ export async function POST(
   if (!uid) return NextResponse.json({ error: "Not logged in" }, { status: 401 });
 
   const { id } = await params;
-  const prospect = await prisma.prospect.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      coachId: true,
-      age: true,
-      gender: true,
-      heightCm: true,
-      weightKg: true,
-    },
-  });
-  if (!prospect || prospect.coachId !== uid) {
+  const prospect = await getProspectForCoach(id, uid);
+  if (!prospect) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

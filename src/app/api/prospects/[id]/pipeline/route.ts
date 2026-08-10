@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { getProspectForCoach, updateProspect } from "@/lib/prospects";
 import { getSessionUserId } from "@/lib/session";
 import { isStage } from "@/lib/pipeline";
 
@@ -20,12 +20,9 @@ export async function PATCH(
   if (!uid) return NextResponse.json({ error: "Not logged in" }, { status: 401 });
 
   const { id } = await params;
-  const existing = await prisma.prospect.findUnique({
-    where: { id },
-    select: { id: true, coachId: true },
-  });
   // Same 404 for "not yours" as for "not found".
-  if (!existing || existing.coachId !== uid) {
+  const existing = await getProspectForCoach(id, uid);
+  if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -81,10 +78,15 @@ export async function PATCH(
     return NextResponse.json({ error: "Nothing to save." }, { status: 400 });
   }
 
-  const prospect = await prisma.prospect.update({
-    where: { id },
-    data,
-    select: { id: true, stage: true, nextFollowupAt: true, notes: true },
+  const updated = await updateProspect(id, data);
+  if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json({
+    ok: true,
+    prospect: {
+      id: updated.id,
+      stage: updated.stage,
+      nextFollowupAt: updated.nextFollowupAt,
+      notes: updated.notes,
+    },
   });
-  return NextResponse.json({ ok: true, prospect });
 }
