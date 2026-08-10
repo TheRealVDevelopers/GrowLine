@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Timestamp } from "firebase-admin/firestore";
 import { COLLECTIONS, pushSubscriptionDocId } from "@/lib/collections";
 import { db } from "@/lib/firebase-admin";
 import { getSessionUserId } from "@/lib/session";
@@ -58,7 +59,16 @@ export async function POST(req: Request) {
   await db
     .collection(COLLECTIONS.pushSubscriptions)
     .doc(pushSubscriptionDocId(endpoint))
-    .set({ userId: uid, endpoint, p256dh, auth, timezone: safeTimezone });
+    .set({
+      userId: uid,
+      endpoint,
+      p256dh,
+      auth,
+      timezone: safeTimezone,
+      // The daily job orders by this to pick one timezone per coach — the most
+      // recently registered device wins. Without it that ordering is undefined.
+      createdAt: Timestamp.now(),
+    });
 
   return NextResponse.json({ ok: true });
 }

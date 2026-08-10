@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { COLLECTIONS } from "@/lib/collections";
+import { db } from "@/lib/firebase-admin";
+import { getUserById, updateUser } from "@/lib/users";
 import { dayKey, hourInZone } from "@/lib/day";
 import { MORNING_HOURS, followupNotificationBody } from "@/lib/followup";
 import { followupCounts } from "@/lib/followup-queries";
@@ -38,10 +40,14 @@ export async function POST(req: Request) {
   const now = new Date();
 
   // Only coaches who actually asked for reminders.
-  const subscribers = await prisma.pushSubscription.findMany({
-    select: { userId: true, timezone: true },
-    orderBy: { createdAt: "desc" },
-  });
+  const subSnap = await db
+    .collection(COLLECTIONS.pushSubscriptions)
+    .orderBy("createdAt", "desc")
+    .get();
+  const subscribers = subSnap.docs.map((d) => ({
+    userId: d.data().userId as string,
+    timezone: (d.data().timezone as string) ?? "Asia/Kolkata",
+  }));
 
   // One timezone per coach — the most recently registered device wins.
   const zoneByUser = new Map<string, string>();
@@ -73,10 +79,7 @@ export async function POST(req: Request) {
       continue;
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { followupPushOn: true, plan: true },
-    });
+    const user = await getUserById(userId);
     if (!user) {
       record("no-user", 0);
       continue;
@@ -109,10 +112,7 @@ export async function POST(req: Request) {
 
     // Recorded even when every device turned out to be dead, so a broken
     // subscription cannot cause a retry loop that notifies all day.
-    await prisma.user.update({
-      where: { id: userId },
-      data: { followupPushOn: localDay },
-    });
+    await updateUser(userId, { followupPushOn: localDay });
   }
 
   return NextResponse.json({
