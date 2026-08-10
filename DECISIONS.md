@@ -720,10 +720,22 @@ person twice, one apparently unsaved, and it never settles.
 only the newest. The `cancelled` flag it already had guards unmount, which is a
 different problem and does not help here.
 
-Found by `offline-capture.spec.ts` failing on a **clean** emulator — the sync
-completed fast enough to lose the race. On a polluted emulator it passed. Worth
-noting for what it says about the next bug of this shape: the test was correct and
-the timing was doing the hiding.
+**Correction to this entry as first written.** It claimed `offline-capture.spec.ts`
+had caught this race. It had not, and the original attribution was wrong.
+
+That test was failing on a strict-mode violation — `toBeVisible()` throws rather than
+retries when a locator matches two elements — and the two elements were both
+server-rendered rows, momentarily present while `router.refresh()` swapped the tree
+in. The pending list was not involved at all: the failure snapshot contains neither
+the "On this phone" badge nor the "waiting to upload" banner, and the database held
+exactly one document for that prospect throughout. Fixed on the test side (D51), and
+the transient double-render during a refresh is a Next behaviour, not a defect here.
+
+The race described above is still real and the guard is still correct — three event
+sources, unordered IndexedDB reads, last-writer-wins. But it was found by reading the
+code, and it has never been observed in the wild. Recorded that way rather than
+claiming a test caught it, because a decision record that credits the wrong evidence
+sends the next person to the wrong file.
 
 ## D44 — `npm run e2e:reset` before every e2e run (2026-08-10, v2.2b)
 
@@ -1014,3 +1026,94 @@ lookup, so the cap that was thought to block it does not exist.
 consent tick (v2 §5.2, unbuilt) covers "I am saving your details", not "I may show
 them to my upline". Whoever writes that tick decides whether it mentions onward
 sharing.
+
+## D51 — Threads: addressed by sender, not by a recipient list (2026-08-10, v2.4)
+
+F8 built. The design question that shaped everything: how does a downline find the
+broadcasts meant for them?
+
+**Rejected: a recipient list on the thread.** It breaks on the two things that
+actually happen. A senior coach's line of a few thousand does not belong in one
+document, and anyone who joins tomorrow would never see what their upline sent last
+week — the list is fixed at send time and a line is not.
+
+**Chosen: a thread stores only who sent it.** A coach receives it if the sender is one
+of their own ancestors, which they already know from `uplinePath` (D36). The inbox is
+`senderId in <my uplinePath>`, so one broadcast is one document however many thousand
+people it reaches, there is no fan-out at send time, and a coach who joins later sees
+the history. `scope` then narrows it: "all" reaches every descendant, "direct" only
+the sender's own direct downlines — resolved against the reader, never stored per
+recipient.
+
+**The rules shape follows from how Firestore evaluates a list.** Rules for a query are
+evaluated ONCE against the query, not per document (D48), so every field the rule
+tests must be pinned by the query's constraints. That is why the rule has a separate
+branch for the direct upline instead of one branch testing both path membership and
+scope: a client pinning `senderId == <one id>` makes `senderId == me().uplineId` a
+decidable boolean, so a coach needs one listener for their upline rather than one per
+scope. A deeper ancestor's threads require pinning `scope == "all"` too — which is
+correct, because a "direct line only" message from a grandparent is not addressed to
+you and the rules will not serve it. The rules tests pin all five query shapes,
+including the one that must be refused.
+
+**Re-broadcast copies rather than points.** A forward is a new thread owned by the
+forwarder, carrying the ORIGINAL author's name — not the hop it arrived through, so a
+chain reads "via Asha" rather than accumulating a map of somebody's team structure. It
+then travels by exactly the same rule as anything else that coach sends: no special
+case in the query, the rules, or the UI. And the original sender's ack count keeps
+counting only the people they wrote to themselves, which is the number they can act
+on.
+
+**Receipts are denied to every client.** A sender watches `seenCount` and `ackCount`,
+which sit on the thread document they already read. Nothing in the browser needs the
+individual receipts, and opening them would hand a sender a per-person read log of
+their line — a different and more intrusive thing than a number.
+
+**Counters and idempotency.** `threadReceipts/{threadId}__{userId}` is a deterministic
+id for the same reason as the constraints in D35: a doubled tap on a flaky connection
+must not increment a count somebody is watching. The receipt and the increment move in
+one transaction, and an ack implies a seen, so `ackCount` can never exceed `seenCount`.
+
+**Seen is reported by the client, in one batch, after paint.** Not during the server
+render: marking a message read is a write, and a render that writes fires again on
+every refresh, so the count would measure renders rather than readers. Not one request
+per card either — opening the tab on 3G must not fire thirty requests to move somebody
+else's counter.
+
+**Links, not uploads.** F8 asks for "video link", and a URL satisfies it — so Storage
+stays deny-all (D49). The scheme is an allow-list of `http` and `https`, parsed with
+`new URL` rather than a regex: this is the one field in the app authored by one user
+and rendered to thousands, so `javascript:` and `data:text/html` both have to be
+unreachable, and a regex on URLs is how `https:/\/evil.com` gets through.
+
+**Not built: the Leader-tier gate.** v2 §8 makes sending a paid feature, but tiers do
+not exist yet (v2.6), so gating now would lock every coach out of a feature they can
+use. Left open deliberately rather than faked.
+
+**Push is capped at 200 and says so.** One tap from a senior coach would otherwise fan
+into thousands of push requests inside one HTTP handler. Past the cap the thread is
+still delivered — it is in every inbox the moment it is written — and the route logs
+how many were notified versus how many have it. A cap that stays silent reads as
+"everyone was notified" when they were not.
+
+## D52 — the offline-capture assertion was brittle, not the sync (2026-08-10, v2.4)
+
+`expect(locator).toBeVisible()` throws a strict-mode violation when the locator
+matches two elements, and does not retry it away. The prospects list momentarily holds
+two copies of the same row while `router.refresh()` swaps in the server-rendered tree,
+so the test failed intermittently — roughly one run in three, and only in-suite, which
+is what made it look like state pollution and then like the D43 race.
+
+It was neither. Verified: the failure snapshot contains no "On this phone" badge and no
+"waiting to upload" banner, so the pending list is not involved, and the database held
+exactly one document for that prospect. Both matches were server-rendered rows.
+
+Fixed by asserting visibility on `.first()` and moving the no-duplicate guarantee onto
+`toHaveCount(1)`, which retries until the count SETTLES at one. That is stronger than
+the original pair: it catches a duplicate row that persists as well as a duplicate
+document, and it cannot pass by racing. Confirmed over four repeats of the interaction
+that reproduced it.
+
+The general lesson, since this shape has now cost two debugging cycles on this branch:
+`toBeVisible()` on a possibly-duplicated locator tests the renderer's transient state,
+not the property you meant. Assert the property.

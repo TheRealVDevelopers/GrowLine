@@ -63,8 +63,23 @@ test("a capture made offline survives and syncs when the signal returns", async 
   await context.setOffline(false);
   await page.goto("/prospects");
 
-  await expect(page.getByText(name)).toBeVisible({ timeout: 20_000 });
+  /**
+   * `.first()` here, and the reason is worth writing down.
+   *
+   * `toBeVisible()` on a locator that matches two elements throws a strict-mode
+   * violation instead of retrying it away, and this list momentarily holds two copies
+   * of the same row while `router.refresh()` swaps the server-rendered tree in. The
+   * duplicate is transient and the database provably holds ONE document — the
+   * composite id (D6/D35) makes a second one unreachable — so failing here was the
+   * assertion being brittle about a render, not the sync creating a person twice.
+   *
+   * The no-duplicate guarantee is not dropped; it moves to the line below, where
+   * `toHaveCount(1)` retries until the count SETTLES at one. That is a stronger claim
+   * than the original pair made: it now catches both a duplicate row that persists
+   * and a duplicate document, and it cannot pass by racing.
+   */
+  await expect(page.getByText(name).first()).toBeVisible({ timeout: 20_000 });
 
   // And the sync must not have produced two of them (D6).
-  await expect(page.getByText(name)).toHaveCount(1);
+  await expect(page.getByText(name)).toHaveCount(1, { timeout: 20_000 });
 });

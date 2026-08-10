@@ -143,6 +143,24 @@ async function main() {
     await setDoc(doc(db, "reports", "r_1"), {
       prospectId: "p_asha", coachId: ASHA, token: "tok", metricsJson: "{}",
     });
+
+    // Threads (F8). ROOT sends both scopes so the grandchild case is testable:
+    // CHAN is ROOT's grandchild, so "all" reaches them and "direct" must not.
+    await setDoc(doc(db, "threads", "th_root_all"), {
+      senderId: ROOT, senderName: "Root", scope: "all",
+      body: "Club meet on Sunday.", seenCount: 0, ackCount: 0,
+    });
+    await setDoc(doc(db, "threads", "th_root_direct"), {
+      senderId: ROOT, senderName: "Root", scope: "direct",
+      body: "Just for my direct line.", seenCount: 0, ackCount: 0,
+    });
+    await setDoc(doc(db, "threads", "th_asha_direct"), {
+      senderId: ASHA, senderName: "Asha", scope: "direct",
+      body: "Asha to her own line.", seenCount: 0, ackCount: 0,
+    });
+    await setDoc(doc(db, "threadReceipts", "th_root_all__usr_chan"), {
+      threadId: "th_root_all", userId: CHAN, userName: "Chandan",
+    });
   });
 
   const as = (uid: string) => env.authenticatedContext(uid).firestore();
@@ -238,6 +256,81 @@ async function main() {
     assertFails(getDoc(doc(as(ASHA), "reports", "r_1")))
   );
 
+  // ---- Threads: addressed by who sent them, narrowed by scope ----------------
+  /**
+   * The scope test is the one that matters, and CHAN is why the fixture has three
+   * levels. A "direct line only" broadcast from ROOT must not reach ROOT's
+   * GRANDCHILD, and the only thing standing between them is this rule — the app's
+   * `canRead` would filter it out of the rendered list, but a hand-written query
+   * bypasses the app entirely.
+   */
+  await check("a sender reads their own thread", () =>
+    assertSucceeds(getDoc(doc(as(ROOT), "threads", "th_root_all")))
+  );
+  await check("a direct downline reads their upline's 'whole line' thread", () =>
+    assertSucceeds(getDoc(doc(as(ASHA), "threads", "th_root_all")))
+  );
+  await check("a GRANDCHILD reads a 'whole line' thread — that is what 'all' means", () =>
+    assertSucceeds(getDoc(doc(as(CHAN), "threads", "th_root_all")))
+  );
+  await check(
+    "MANDATORY: a grandchild CANNOT read a 'direct line only' thread",
+    () => assertFails(getDoc(doc(as(CHAN), "threads", "th_root_direct")))
+  );
+  await check("a direct downline CAN read the 'direct line only' one", () =>
+    assertSucceeds(getDoc(doc(as(ASHA), "threads", "th_root_direct")))
+  );
+  await check("somebody outside the line reads nothing", () =>
+    assertFails(getDoc(doc(as(OUTSIDER), "threads", "th_root_all")))
+  );
+  await check("a sibling cannot read a thread sent down another branch", () =>
+    assertFails(getDoc(doc(as(BHAV), "threads", "th_asha_direct")))
+  );
+
+  /**
+   * Query shapes. These pin the design decision in the rule's comment: because rules
+   * for a list are evaluated once against the QUERY, a listener must pin every field
+   * the rule tests. The direct upline needs no scope pin; a deeper ancestor does.
+   */
+  await check("a coach can list their own sent threads", () =>
+    assertSucceeds(
+      getDocs(query(collection(as(ROOT), "threads"), where("senderId", "==", ROOT)))
+    )
+  );
+  await check("a coach can list their DIRECT upline's threads, either scope", () =>
+    assertSucceeds(
+      getDocs(query(collection(as(ASHA), "threads"), where("senderId", "==", ROOT)))
+    )
+  );
+  await check("a grandchild can list a grandparent's threads ONLY with scope pinned", () =>
+    assertSucceeds(
+      getDocs(
+        query(
+          collection(as(CHAN), "threads"),
+          where("senderId", "==", ROOT),
+          where("scope", "==", "all")
+        )
+      )
+    )
+  );
+  await check("...and is refused the same query without the scope constraint", () =>
+    assertFails(
+      getDocs(query(collection(as(CHAN), "threads"), where("senderId", "==", ROOT)))
+    )
+  );
+  await check("an unfiltered listing of every thread is refused", () =>
+    assertFails(getDocs(collection(as(ASHA), "threads")))
+  );
+
+  // Receipts stay shut: a sender gets counts off the thread document, never a
+  // per-person read log of their line.
+  await check("threadReceipts are unreadable by the reader they describe", () =>
+    assertFails(getDoc(doc(as(CHAN), "threadReceipts", "th_root_all__usr_chan")))
+  );
+  await check("...and by the sender of the thread", () =>
+    assertFails(getDoc(doc(as(ROOT), "threadReceipts", "th_root_all__usr_chan")))
+  );
+
   // ---- No client writes anywhere ---------------------------------------------
   await check("a coach cannot write their own user document", () =>
     assertFails(setDoc(doc(as(ASHA), "users", ASHA), { name: "Hacked" }))
@@ -247,6 +340,18 @@ async function main() {
   );
   await check("a coach cannot write a prospect directly", () =>
     assertFails(setDoc(doc(as(ASHA), "prospects", "p_new"), { coachId: ASHA }))
+  );
+  await check("a coach cannot forge a thread from their upline", () =>
+    assertFails(
+      setDoc(doc(as(CHAN), "threads", "th_forged"), { senderId: ROOT, scope: "all" })
+    )
+  );
+  await check("nor inflate an ack count by writing a receipt", () =>
+    assertFails(
+      setDoc(doc(as(CHAN), "threadReceipts", "th_root_direct__usr_chan"), {
+        threadId: "th_root_direct", userId: CHAN,
+      })
+    )
   );
 
   // ---- Scale: the coach lookup is charged per request, not per document -------

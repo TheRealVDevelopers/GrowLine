@@ -130,6 +130,18 @@ export function referralCodeDocId(code: string): string {
 }
 
 /**
+ * One receipt per person per thread, as a document id (F8).
+ *
+ * Same reasoning as the constraints above: a coach who taps acknowledge twice — or
+ * whose tap is retried on a flaky connection — must not create two receipts, because
+ * the ack COUNT is what the sender is watching. An auto-id plus a "have they already?"
+ * query is not atomic, and the number the sender trusts would drift upward.
+ */
+export function threadReceiptDocId(threadId: string, userId: string): string {
+  return assertValidDocId(`${threadId}${SEPARATOR}${userId}`, "threadReceipt");
+}
+
+/**
  * Ordered ancestors, nearest first: `uplinePath[0]` is the direct upline.
  *
  * This is what replaces `isInDownline()`, which walked the tree with one query per
@@ -244,6 +256,63 @@ export type ProofDoc = {
   reviewedAt: Timestamp | null;
 };
 
+/**
+ * A broadcast from one coach to their line (F8). One-way by design — v1 §5.5 / RULES
+ * S3 forbid group chat, so there is no reply field and no thread of replies to hang
+ * off this. Acknowledgement is the only response, and it is a count.
+ *
+ * ## How a downline finds threads addressed to them
+ *
+ * There is no audience array. A thread is addressed by WHO SENT IT: a coach receives
+ * it if the sender is one of their own ancestors, which they already know from their
+ * `uplinePath` (D36). So the inbox query is `senderId in <my uplinePath>` — no
+ * fan-out at send time, no array that grows with the size of a line, and a thread
+ * costs exactly one document however many thousand people it reaches.
+ *
+ * The alternative — writing the recipient list onto the thread — breaks on the two
+ * things that actually happen: a line of a few thousand exceeds what belongs in one
+ * document, and anyone who joins after the send would never see it.
+ *
+ * `scope` then narrows it: "all" reaches every descendant, "direct" only the sender's
+ * direct downlines. Both are resolved against the reader, not stored per recipient.
+ */
+export type ThreadDoc = {
+  senderId: string;
+  /** Denormalised so the inbox needs no user read per row. */
+  senderName: string;
+  senderPhotoUrl: string | null;
+  /** "direct" = my direct downlines only. "all" = my entire line, any depth. */
+  scope: string;
+  body: string;
+  /**
+   * An optional link — a video, a voice note, a poster hosted anywhere. NOT an
+   * upload: Storage is deny-all until something legitimately uploads (D49), and F8's
+   * "video link" is satisfied by a URL. Revisit when Storage is switched on.
+   */
+  linkUrl: string | null;
+  /**
+   * Set only on a re-broadcast, so the attribution line ("via Asha") survives being
+   * passed down a chain. Carries the ORIGINAL author, not the previous hop — the
+   * person a coach is being asked to trust is whoever wrote it.
+   */
+  originalSenderId: string | null;
+  originalSenderName: string | null;
+  /** Maintained by increment alongside the receipt write; Firestore cannot count. */
+  seenCount: number;
+  ackCount: number;
+  createdAt: Timestamp;
+};
+
+/** One per (thread, reader). Id is deterministic — see threadReceiptDocId. */
+export type ThreadReceiptDoc = {
+  threadId: string;
+  userId: string;
+  /** Denormalised so a sender's receipt list needs no user read per row. */
+  userName: string;
+  seenAt: Timestamp | null;
+  ackedAt: Timestamp | null;
+};
+
 export const users = () => db.collection(COLLECTIONS.users);
 export const prospects = () => db.collection(COLLECTIONS.prospects);
 export const reports = () => db.collection(COLLECTIONS.reports);
@@ -251,3 +320,5 @@ export const dailyLogs = () => db.collection(COLLECTIONS.dailyLogs);
 export const targets = () => db.collection(COLLECTIONS.targets);
 export const proofs = () => db.collection(COLLECTIONS.proofs);
 export const referralCodes = () => db.collection(COLLECTIONS.referralCodes);
+export const threads = () => db.collection(COLLECTIONS.threads);
+export const threadReceipts = () => db.collection(COLLECTIONS.threadReceipts);

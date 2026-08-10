@@ -84,7 +84,7 @@ test("Today's Mission renders actionable items from real data", async ({ page })
 
 test("no screen uses backdrop-filter blur (RULES G4)", async ({ page }) => {
   await loginAsAsha(page);
-  for (const path of ["/", "/log", "/targets", "/prospects", "/settings"]) {
+  for (const path of ["/", "/log", "/targets", "/prospects", "/threads", "/settings"]) {
     await page.goto(path);
     const blurred = await page.evaluate(() =>
       [...document.querySelectorAll("*")].some((el) => {
@@ -143,7 +143,7 @@ function luminance([r, g, b]: number[]) {
 for (const theme of ["dark", "light"] as const) {
   test(`visible text everywhere in ${theme} theme`, async ({ page }) => {
     await loginAsAsha(page);
-    for (const path of ["/", "/log", "/targets", "/prospects", "/team", "/settings"]) {
+    for (const path of ["/", "/log", "/targets", "/prospects", "/team", "/threads", "/settings"]) {
       await page.goto(path);
       await page.evaluate((t) => {
         document.documentElement.setAttribute("data-theme", t);

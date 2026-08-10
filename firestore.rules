@@ -178,6 +178,68 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    /**
+     * The reader's own user document, for rules that need their position in the tree.
+     *
+     * A `get()` inside a rule is not itself subject to rules, which is why this still
+     * works with /users closed to clients (D48). One lookup per request, not per
+     * document — the shared-prospect measurement in D48 established that.
+     */
+    function me() {
+      return get(/databases/$(database)/documents/users/$(uid())).data;
+    }
+
+    match /threads/{threadId} {
+      /**
+       * A broadcast is addressed by WHO SENT IT (F8). Three ways in:
+       *
+       *   1. you wrote it — you watch your own seen and ack counts, or
+       *   2. your DIRECT upline wrote it — either scope reaches you, or
+       *   3. any ancestor wrote it with scope "all".
+       *
+       * ## Why (2) is separate from (3) rather than folded into it
+       *
+       * Not tidiness — it is what makes a client query provable. Rules for a list
+       * request are evaluated ONCE against the query, not per returned document, so
+       * every field the rule tests must be pinned by the query's own constraints. A
+       * client listening on `senderId == <one id>` pins `resource.data.senderId`, so
+       * `senderId == me().uplineId` becomes a concrete boolean and Firestore can
+       * decide it. Written as a single branch needing both `senderId in
+       * me().uplinePath` AND a scope test, a listener would have to pin scope too,
+       * and a coach's direct upline would need two listeners to cover one person.
+       *
+       * A client listening for a DEEPER ancestor's threads must pin `scope == "all"`
+       * as well. That is correct and intended: a "direct line only" message from a
+       * grandparent is not addressed to you, and the rule will not serve it.
+       *
+       * ## What this deliberately does not allow
+       *
+       * An unpinned listing of `threads` is refused, exactly like `prospects`. There
+       * is no query that returns "every thread" — a coach can only ask for a named
+       * sender's, and only for senders standing above them.
+       */
+      allow read: if signedIn() && (
+        uid() == resource.data.senderId
+        || resource.data.senderId == me().uplineId
+        || (resource.data.scope == 'all' && resource.data.senderId in me().uplinePath)
+      );
+      allow write: if false;
+    }
+
+    match /threadReceipts/{receiptId} {
+      /**
+       * Denied to every client, and the counts are why.
+       *
+       * A sender watches `seenCount` and `ackCount`, which live on the thread document
+       * they already read. Nothing in the browser needs the individual receipts, and
+       * opening them would hand a sender a per-person read log of their line — a
+       * different and more intrusive thing than a number. If a "who has acknowledged"
+       * screen is ever built, it is server-rendered like the team tree, and this stays
+       * shut. Same discipline as D48.
+       */
+      allow read, write: if false;
+    }
+
     match /referralCodes/{code} {
       /**
        * Reservation documents (D41). Denied to every client.
