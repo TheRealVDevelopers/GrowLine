@@ -1627,3 +1627,70 @@ against a document that did not exist.
 **A note for whoever adds a client-side team roll-up.** It gets a rule written against the
 query it actually makes — and that rule must resolve the coach live, because a
 snapshot-based grant is wrong again the day re-parenting ships.
+
+## D65 — "Link my line": attach after signup, both directions, always two-sided (2026-08-10, F1)
+
+`uplineId` was written once at signup and never again. So a coach who installed the app
+BEFORE their upline did — which is how adoption actually happens, from the keen person
+downward — signed up with no referral code and became a **permanent root**. There was no way
+to attach them afterwards, ever.
+
+That, and not a senior coach refusing to install, was what blocked bottom-up adoption. If
+the person at the top never joins, the tree simply roots at the highest person who did and
+everyone below still works — *provided* attachment can happen after signup.
+
+**Two-sided approval, in both directions, always.** Never one tap:
+
+- attaching yourself UNDER someone would let you see their line, so anyone could help
+  themselves to a stranger's team by guessing a code;
+- claiming someone as your downline would make their activity flow up to you.
+
+Either direction unilaterally is a privacy hole, so both ask. Enforced in the library from
+the stored request — the approver must be the party who did NOT ask — because the route is
+reachable directly and a disabled button proves nothing.
+
+**Identified by referral code, not phone number.** Both coaches already know each other; the
+app only needs an identifier. Using the code means this cannot be used to test whether a
+phone number has an account. And a failed lookup returns one message for both "no such code"
+and "malformed", so the endpoint is not an oracle for guessing codes either.
+
+**v1 attaches an unattached coach; it does not MOVE an attached one.** Moving somebody who
+already reports to a coach is a different question — whose team are they on, does the old
+upline get a say — and that is a product decision.
+
+It also makes the hard part easy, which is why the constraint is worth keeping. Because the
+child is a root their `uplinePath` is empty and every descendant's path currently ENDS at
+them, so re-parenting is a pure **append** of the child's new ancestors onto every affected
+path. No recomputation, and the same operation for the child, their descendants, and all of
+those coaches' prospects, logs and targets.
+
+**Two phases, because no Firestore transaction is big enough for the second.** The
+authoritative change — the child's `uplineId` and path, the parent's counter, the request
+status — is one transaction. The fan-out across four collections is batched afterwards and
+**idempotent**: each write is skipped if the path already contains the new immediate parent,
+so a fan-out interrupted halfway can simply be re-run. If it is interrupted, the tree is
+correct at the top and stale below, and roll-ups under-report until it is re-run. That is the
+honest trade; the alternative is holding a lock across thousands of writes, whose failure
+mode is a half-attached coach.
+
+**The subtle bug this design has, and how it is handled.** A root's own prospects, logs and
+targets have an EMPTY path — that is what being a root means — so `array-contains child.id`
+does not match them and the subtree passes miss them entirely. They are rewritten by a
+separate owner-scoped pass. This is the single most likely thing to be got wrong here, and it
+is asserted directly.
+
+**`scripts/verify-reparent.ts`**, wired into CI. This operation rewrites documents across
+four collections and its failure mode is silent: the coach looks attached, their team screen
+looks right, and their downlines' work quietly stops rolling up. A unit test cannot reach it
+and an e2e test would drive two browsers to assert what is really a data property. 17 checks,
+including the grandchild (proving the whole subtree moves, not just the top), the root's own
+rows, the cycle guard, the depth cap, that the asker cannot accept their own request, and
+that a stranger cannot accept it either. The fixture is prefixed `vrp_` and self-cleaning so
+it shares an emulator with the seeded data.
+
+The fixture deliberately has TWO levels above the parent, because a bug that appends only
+the immediate parent would pass against a shallower one.
+
+**`lineRequests` is denied to clients entirely**, read included. An open read would let
+anyone list who is trying to attach to whom — somebody's team structure assembled from the
+outside.

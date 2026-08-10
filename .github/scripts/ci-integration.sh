@@ -28,6 +28,13 @@ npm run migrate:verify
 echo "--- Security Rules (BUILD_PROMPT_V2 §5.7 makes this one mandatory)"
 npm run test:rules
 
+# Re-parenting rewrites documents across four collections at once and its failure mode is
+# silent — the coach looks attached while their downlines' work quietly stops rolling up.
+# It needs Firestore, so it cannot be a unit test; it runs here. Its fixture is prefixed
+# and self-cleaning, so it does not disturb the seeded data the e2e suite reads.
+echo "--- re-parent (Link my line)"
+npm run verify:reparent
+
 echo "--- starting the production server"
 npx next start &
 SERVER_PID=$!

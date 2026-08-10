@@ -256,6 +256,21 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /lineRequests/{requestId} {
+      /**
+       * Denied to every client.
+       *
+       * A pending request names two coaches and the shape of a proposed relationship, and
+       * accepting one MOVES a subtree — so both the read and the write have to be decided
+       * by a server that can re-check the cycle guard, the depth cap and who is allowed to
+       * approve. The screen is server-rendered and the answers go through an API route.
+       *
+       * The read matters as much as the write here: an open read would let anyone list who
+       * is trying to attach to whom, which is a map of somebody's team being built.
+       */
+      allow read, write: if false;
+    }
+
     match /adminAudit/{entryId} {
       /**
        * Denied to every client, including admins.

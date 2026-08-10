@@ -176,6 +176,12 @@ async function main() {
     await setDoc(doc(db, "adminAudit", "audit_1"), {
       actorId: ROOT, actorName: "Root", action: "broadcast", detail: "To all: hello",
     });
+    // A real pending link request, so the denial checks below are testing a refused read
+    // rather than passing vacuously against a document that does not exist.
+    await setDoc(doc(db, "lineRequests", "req_1"), {
+      childId: OUTSIDER, childName: "Outsider", parentId: ASHA, parentName: "Asha",
+      requestedBy: OUTSIDER, status: "pending",
+    });
   });
 
   const as = (uid: string) => env.authenticatedContext(uid).firestore();
@@ -378,6 +384,27 @@ async function main() {
       setDoc(doc(as(ASHA), "threads", "th_forged_platform"), {
         senderId: ASHA, scope: "platform", body: "Free stuff",
       })
+    )
+  );
+
+  /**
+   * Link requests are server-only. The READ matters as much as the write: an open read
+   * would let anyone list who is trying to attach to whom, which is somebody's team
+   * structure being assembled from the outside.
+   */
+  await check("a party to a link request still cannot read it from a client", () =>
+    assertFails(getDoc(doc(as(ASHA), "lineRequests", "req_1")))
+  );
+  await check("...and cannot forge one that would move them under somebody", () =>
+    assertFails(
+      setDoc(doc(as(ASHA), "lineRequests", "req_forged"), {
+        childId: OUTSIDER, parentId: ASHA, requestedBy: OUTSIDER, status: "pending",
+      })
+    )
+  );
+  await check("...nor accept one by writing the status themselves", () =>
+    assertFails(
+      setDoc(doc(as(ASHA), "lineRequests", "req_1"), { status: "accepted" })
     )
   );
 
