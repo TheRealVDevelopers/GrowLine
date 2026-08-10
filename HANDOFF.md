@@ -40,7 +40,8 @@ Append a row every time you hand the work over. Newest at the bottom.
 | 4 | Phone → Claude Code web | Built the v2.1a foundation: Firebase config, emulator setup, `collections.ts`, migration + seed + verify scripts. 16/16 verification checks pass; `next build` and `tsc --noEmit` clean. | Auth swap and the 18 `lib/db` call sites are next. App still runs on Prisma. |
 | 5 | Phone → Claude Code web | Auth swapped onto Firebase: session cookies, phone auth in the browser, signup tokens retired. Deleted `otp.ts`, `referral.ts`, both OTP routes. Build + typecheck clean, 16/16 migration checks. | ~15 data call sites still on Prisma (prospects, logs, targets, team, push, reports). |
 | 6 | Phone → Claude Code web | Ported to Firestore: team tree (no `groupBy`), prospects, reports, public routes. Found and fixed an erasure bug — Firestore does not cascade deletes. Build clean, 27/27 checks. | **13 files still on Prisma** — see below. |
-| 7 | PC | _(fill this in from the PC — even one line is enough)_ | |
+| 7 | Phone → Claude Code web | Ported everything left: daily log, follow-ups, targets/proofs, push, remaining routes and pages. **Prisma removed from the app.** 40 assertions pass. | v2.1a code complete. Cutover needs a real Firebase project; login flow unproven in a browser. |
+| 8 | PC | _(fill this in from the PC — even one line is enough)_ | |
 
 ---
 
@@ -86,22 +87,27 @@ npm run migrate:verify   # 16 assertions — the real parity evidence
 Both migration scripts are safe to re-run. The migration refuses to touch a real
 project unless `MIGRATE_ALLOW_PRODUCTION=1` is set deliberately.
 
-## Still on Prisma (13 files)
+## v2.1a code work: DONE
 
-Port these, then `db.ts`, `prisma/` and the Prisma dependencies can go:
+Nothing in `src/` imports a database layer any more. `db.ts` and `jose` are gone.
+Prisma remains only as a devDependency, because the migration script reads the
+SQLite source; it goes when cutover is done.
 
-- `src/lib/daily-log-queries.ts`, `followup-queries.ts`, `targets-queries.ts`,
-  `push.ts` — the remaining query modules. Port these first; most routes below
-  only call into them.
-- `api/prospects/[id]/pipeline`, `api/prospects/[id]/report`,
-  `api/public/capture/[code]`, `api/push/subscribe`, `api/push/unsubscribe`,
-  `api/notifications/daily`
-- `(app)/page.tsx`, `(app)/prospects/page.tsx`, `(app)/prospects/[id]/page.tsx`
+40 assertions pass (`npm run migrate:verify`), `next build` and `tsc --noEmit`
+clean.
 
-**Watch for the same class of bug found in erasure:** anything relying on a
-Prisma relation — `onDelete: Cascade`, a nested `select`, an implicit join — has
-no Firestore equivalent and must become an explicit second operation. Grep for
-`include:` and `select: {` with a nested object before porting each file.
+**Four Firestore traps found while porting — worth knowing before v2.1b:**
+
+1. **No cascading deletes.** Erasure deleted the prospect and left the reports —
+   live bearer tokens to the health data being erased. Returned `{ok: true}`.
+2. **`null` sorts before every timestamp.** A plain `< today` range counted every
+   prospect with no follow-up date as overdue.
+3. **No relational filters.** `where: { target: { coachId } }` cannot reach
+   through a reference; `coachId` is denormalised onto proofs instead.
+4. **`settings()` may be called once per Firestore instance, ever.** Caching it
+   only in dev — the shape D1 used for Prisma — breaks `next build`.
+
+None of these announce themselves. Two would have passed every test that existed.
 
 ## Blocking cutover (not the build)
 
