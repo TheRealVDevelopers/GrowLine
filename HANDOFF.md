@@ -41,7 +41,8 @@ Append a row every time you hand the work over. Newest at the bottom.
 | 5 | Phone → Claude Code web | Auth swapped onto Firebase: session cookies, phone auth in the browser, signup tokens retired. Deleted `otp.ts`, `referral.ts`, both OTP routes. Build + typecheck clean, 16/16 migration checks. | ~15 data call sites still on Prisma (prospects, logs, targets, team, push, reports). |
 | 6 | Phone → Claude Code web | Ported to Firestore: team tree (no `groupBy`), prospects, reports, public routes. Found and fixed an erasure bug — Firestore does not cascade deletes. Build clean, 27/27 checks. | **13 files still on Prisma** — see below. |
 | 7 | Phone → Claude Code web | Ported everything left: daily log, follow-ups, targets/proofs, push, remaining routes and pages. **Prisma removed from the app.** 40 assertions pass. | v2.1a code complete. Cutover needs a real Firebase project; login flow unproven in a browser. |
-| 8 | PC | _(fill this in from the PC — even one line is enough)_ | |
+| 8 | Phone → Claude Code web | Playwright e2e in real Chromium: signup with referral, existing-coach login, public capture noindex, **and the offline queue with the signal cut mid-capture**. 4/4 pass. | 6 of 9 parity-gate items closed. Next: v2.1b. |
+| 9 | PC | _(fill this in from the PC — even one line is enough)_ | |
 
 ---
 
@@ -86,6 +87,19 @@ npm run migrate:verify   # 16 assertions — the real parity evidence
 
 Both migration scripts are safe to re-run. The migration refuses to touch a real
 project unless `MIGRATE_ALLOW_PRODUCTION=1` is set deliberately.
+
+## Running the e2e suite
+
+```bash
+npm run emulators          # terminal 1
+npm run db:seed && npm run migrate:firestore
+npm run build && npx next start    # terminal 2
+npm run e2e                # 4 tests, real Chromium
+```
+
+The Auth emulator exposes the codes it "sends" over REST, so phone auth is
+drivable with no SMS and no reCAPTCHA. Chromium is already on the machine —
+`playwright.config.ts` points at it, so **do not run `playwright install`**.
 
 ## v2.1a code work: DONE
 
