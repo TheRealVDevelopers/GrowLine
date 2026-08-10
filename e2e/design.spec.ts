@@ -240,7 +240,16 @@ test("the Weekly Recap shows counts and shares without money or rank", async ({
       return null;
     }) as typeof window.open;
     // Force the fallback path even where the runner exposes Web Share.
-    delete (navigator as unknown as { share?: unknown }).share;
+    //
+    // `delete navigator.share` does NOT work: `share` lives on Navigator.prototype,
+    // so deleting an own property is a silent no-op. In headless Chromium there is
+    // no `share` at all and the fallback ran anyway, which hid the bug; in a real
+    // Chrome the app correctly called navigator.share and window.open never fired.
+    // Redefining the property is what actually makes Web Share absent.
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: undefined,
+    });
   });
 
   await page.getByTestId("recap-share").click();

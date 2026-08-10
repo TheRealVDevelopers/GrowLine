@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { THEME_KEY } from "./ThemeScript";
 
 type Theme = "dark" | "light";
@@ -10,14 +10,31 @@ type Theme = "dark" | "light";
  *
  * Reads the attribute ThemeScript already set rather than re-deriving it, so the
  * control can never disagree with what is on screen.
+ *
+ * That read is an external store, not component state: `data-theme` is owned by the
+ * document and set before hydration. Mirroring it into `useState` inside an effect
+ * meant a synchronous setState on mount, which cascades a second render for every
+ * visitor. `useSyncExternalStore` is the API for exactly this, and it also gives a
+ * server snapshot so the markup matches the "dark by default" rule.
  */
-export default function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("dark");
+const listeners = new Set<() => void>();
 
-  useEffect(() => {
-    const current = document.documentElement.getAttribute("data-theme");
-    setTheme(current === "light" ? "light" : "dark");
-  }, []);
+function subscribe(onChange: () => void) {
+  listeners.add(onChange);
+  return () => listeners.delete(onChange);
+}
+
+function readTheme(): Theme {
+  return document.documentElement.getAttribute("data-theme") === "light"
+    ? "light"
+    : "dark";
+}
+
+/** Dark is the default, so that is what the server renders. */
+const readServerTheme = (): Theme => "dark";
+
+export default function ThemeToggle() {
+  const theme = useSyncExternalStore(subscribe, readTheme, readServerTheme);
 
   const choose = (next: Theme) => {
     document.documentElement.setAttribute("data-theme", next);
@@ -26,7 +43,8 @@ export default function ThemeToggle() {
     } catch {
       // Storage unavailable — the theme still applies for this session.
     }
-    setTheme(next);
+    // The document changed; tell the store's subscribers to re-read it.
+    listeners.forEach((notify) => notify());
   };
 
   return (

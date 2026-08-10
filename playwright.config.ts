@@ -1,4 +1,30 @@
+import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
+
+/**
+ * Which browser to drive, resolved per machine rather than hardcoded.
+ *
+ * The cloud container ships a Chromium at a fixed path and no matching Playwright
+ * download, so the config pointed straight at it. That path does not exist on a
+ * Windows PC, and the suite could not run there at all — which defeats the point of
+ * "phone decides, PC verifies", since e2e is PC work by definition.
+ *
+ * Order: an explicit override, then the container's binary, then the locally
+ * installed Chrome. Never a download.
+ */
+const CONTAINER_CHROMIUM = "/opt/pw-browsers/chromium";
+const explicitPath = process.env.PW_CHROMIUM_PATH;
+const resolvedPath =
+  explicitPath && existsSync(explicitPath)
+    ? explicitPath
+    : existsSync(CONTAINER_CHROMIUM)
+      ? CONTAINER_CHROMIUM
+      : undefined;
+const browserBinding = resolvedPath
+  ? { launchOptions: { executablePath: resolvedPath } }
+  : // Uses the Chrome already installed on the machine, so no revision has to
+    // match and nothing is fetched.
+    { channel: "chrome" as const };
 
 /**
  * e2e against the Firebase emulators — no real project, no SMS, no reCAPTCHA.
@@ -31,12 +57,9 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Pixel 5"],
-        // Point at the Chromium already on the machine rather than downloading
-        // one. @playwright/test pins a browser build (1234 at time of writing)
-        // and this image ships 1194; without this the runner fails with
-        // "Executable doesn't exist" and tells you to run `playwright install`,
-        // which is both a large download and unnecessary.
-        launchOptions: { executablePath: "/opt/pw-browsers/chromium" },
+        // See browserBinding above: the container's Chromium where it exists, the
+        // machine's installed Chrome otherwise. Never `playwright install`.
+        ...browserBinding,
       },
     },
   ],

@@ -15,13 +15,9 @@ flow works and we can trust it for real work.
 - [x] **Leg 1 — phone → cloud.** Asked from the phone, ran in a Claude Code
       web session, wrote this file, pushed to the branch. (Done, see entry
       below.)
-- [ ] **Leg 2 — cloud → PC.** On the PC:
-      ```bash
-      git fetch origin claude/mobile-pc-workflow-test-alhnwl
-      git checkout claude/mobile-pc-workflow-test-alhnwl
-      git pull
-      ```
-      Then fill in the PC line in the log table below, commit, push.
+- [x] **Leg 2 — cloud → PC.** Done. Fetched, checked out, installed, and ran the
+      whole verification chain on Windows. It did not pass as received — four
+      things only a real PC could surface. See "What the PC leg found" below.
 - [ ] **Leg 3 — PC → phone.** From the phone, ask this session (or a new one)
       to pull and read the file back. If it can read the line the PC wrote,
       the loop is closed.
@@ -47,9 +43,90 @@ Append a row every time you hand the work over. Newest at the bottom.
 | 11 | Phone → Claude Code web | Target ring (remaining arc) + streak flame wired into targets and log. 4 design-rule tests: arc direction, no-money copy, no backdrop-filter anywhere, theme switch persists. | 14 e2e, 21 rules, 29 data — all green. Home + Today's Mission next. |
 | 12 | Phone → Claude Code web | Today's Mission card + home reskin. Recorded **D40** — v2 §4's own example copy carries a "₹-equivalent" that L4/D30 forbid; built with points only. | 15 e2e, 21 rules, 29 data. v2.2b (capture/pipeline/report/team/settings) next. |
 | 13 | Phone → Claude Code web | v2.2b: full token sweep (v1 aliases removed), contrast tripwire in both themes, Weekly Recap card. Found and fixed 3 invisible-text bugs the sweep itself introduced. | 18 e2e, 21 rules, 29 data. v2.2 done bar the Jewel assets. |
-| 14 | PC | _(fill this in from the PC — even one line is enough)_ | |
+| 14 | PC (Windows) | Verified the branch end to end on real hardware. Fixed 4 things that only fail off-container: root tsconfig compiled `functions/`, 3 setState-in-effect lint errors, a Linux-only Chromium path in `playwright.config.ts`, and an undocumented `NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST`. Now green: 18/18 e2e, 21/21 rules, migrate:verify all-pass, build + typecheck + lint clean. Also ran a 6-lens audit — phases 1-6 parity survived intact, but it found a **critical missing-index problem the emulator structurally cannot catch**. | Leg 3 is open: read this from the phone. Before cutover, work the "Audit findings" list — the index gap and referral-code uniqueness are the two that bite in production. |
 
 ---
+
+## What the PC leg found
+
+The branch arrived claiming "build + typecheck clean, 18 e2e, 21 rules". On a Windows
+PC, **none of the three suites could run as received.** Every cause was environmental
+— which is exactly the class of bug a cloud container cannot see, and the reason
+rule 4 puts verification here.
+
+1. **Root `tsconfig.json` compiled `functions/`.** `include: ["**/*.ts"]` swept in the
+   Cloud Functions source, whose deps live in `functions/node_modules` and were never
+   installed. 4 errors. `functions/` has its own tsconfig and a `predeploy` build, so
+   it is now in the root `exclude`.
+2. **Three `setState`-in-effect lint errors** in `TargetRing.tsx` (×2) and
+   `ThemeToggle.tsx`, from the late v2.2 commits. `ThemeToggle` now reads
+   `data-theme` through `useSyncExternalStore` — the attribute is an external store,
+   not component state. `TargetRing` defers both to `requestAnimationFrame`.
+3. **`playwright.config.ts` hardcoded `/opt/pw-browsers/chromium`** — a Linux path.
+   The e2e suite could not start on Windows at all. Now resolved per machine:
+   `PW_CHROMIUM_PATH`, else the container binary, else the installed Chrome. Never a
+   download.
+4. **`NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST` was undocumented.** `src/lib/firebase.ts:74`
+   needs it for the browser Firestore client, but `.env.example` only had the
+   server-side var. Without it the browser silently talks to a **real** project while
+   the server talks to the emulator: nothing errors, the realtime row just never
+   arrives. That was the `realtime.spec.ts` failure.
+
+`offline-capture.spec.ts` also failed in-suite while passing alone. It was collateral:
+the Weekly Recap test's `delete navigator.share` is a no-op (`share` is on
+`Navigator.prototype`), so in a real Chrome the app correctly called Web Share and the
+stubbed `window.open` never fired. Fixing the stub with `Object.defineProperty` fixed
+both tests. **The app was right; the test was wrong.** Headless Chromium has no
+`navigator.share`, which is why the container never saw it.
+
+## Audit findings — work these before cutover
+
+Six independent lenses over the port. **The good news first: parity held.** 12 of 13
+phase 1-6 guarantees verified intact — wa.me country codes, the disclaimer on all six
+surfaces, non-clinical BMI labels, body-fat ranges, plausibility guards, under-18
+refusal, ~130-bit tokens with expiry on every surface, neutral OG image, capture
+idempotency (moved from a unique constraint to the doc id), canvas re-encode, no
+level-name suggestions, direct-only target authorization, the 6-field log.
+
+What needs work, worst first:
+
+- **CRITICAL — `firestore.indexes.json` is missing composite indexes for ~5 shipped
+  queries.** They fail with `FAILED_PRECONDITION` against a real project. **The
+  emulator auto-creates indexes on demand, so no suite here can ever catch this** —
+  not e2e, not rules. One of the missing ones silently disables the 180-day health-data
+  purge, which is a compliance control, not a nicety. This is the single largest
+  cutover risk on the branch.
+- **HIGH — `unique(referralCode)` was dropped.** D35 tables four Prisma constraints
+  re-expressed as doc ids; the schema had six. `generateReferralCode()` kept its
+  read-then-write loop but lost the constraint underneath it. A collision reroutes one
+  coach's QR captures and downlines to another. `reports.token` lost its constraint the
+  same way.
+- **HIGH — logout never invalidates the session.** `revokeRefreshTokens` appears
+  nowhere, so `checkRevoked: true` is inert and a stolen cookie outlives logout for 14
+  days.
+- **HIGH — the boot guard checks only the Firestore emulator var.** Setting
+  `FIREBASE_AUTH_EMULATOR_HOST` in production would disable ID-token signature
+  verification while `usingEmulators` still reads false. A one-variable mistake with no
+  guard rail.
+- **HIGH — Storage rules let any signed-in coach read any other coach's proof media.**
+  Latent, not live: nothing uses Storage yet (no `storageBucket` in the client config,
+  media is still base64 in Firestore). Must be fixed before Storage is switched on, and
+  it has no tests.
+- **MEDIUM — an upline reads the downline's whole user document,** phone number
+  included. Firestore has no field-level reads, so the rule's comment ("the upline sees
+  the summary fields") is not what the grant does.
+- **MEDIUM — the shared-prospect listing does two `get()` per document.** Firestore
+  caps document access at 20 per query, so it fails once a sharing downline has ~10
+  prospects. Only ever tested against a one-document fixture.
+- **MEDIUM — the F11 toggle's allow-branch is unreachable.** Nothing can set
+  `shareProspects` to true: `createUser` hardcodes false and the PATCH handler does not
+  accept it. The rule is right, the switch still does not exist.
+- **MEDIUM — `dailyLogs` and `targets` authorize off a write-time `uplinePath` snapshot,**
+  so access does not follow re-parenting. `prospects` resolves the coach live; these two
+  do not.
+
+Full detail, including the low-severity items and the non-atomic `saveLog` /
+`setTarget` reads, is in the audit transcript for this session.
 
 ## Rules that keep this from breaking
 

@@ -49,8 +49,11 @@ export default function TargetRing({
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce) {
-      setShown(clamped);
-      return;
+      // Deferred a frame rather than set synchronously here: a setState in an
+      // effect body cascades a second render on mount for every visitor. One frame
+      // is imperceptible, and reduced-motion users get the final number either way.
+      const id = requestAnimationFrame(() => setShown(clamped));
+      return () => cancelAnimationFrame(id);
     }
     let frame = 0;
     const steps = 24;
@@ -69,10 +72,16 @@ export default function TargetRing({
     if (!crossed) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-    setCelebrating(true);
+    // Started on the next frame, not synchronously in the effect body — a
+    // celebration is a frame-level concern, and setting it here would cascade an
+    // extra render on the very interaction we want to feel instant.
+    const raf = requestAnimationFrame(() => setCelebrating(true));
     // Under 1.5s and skippable by tap (G5). Never blocks input.
     const id = setTimeout(() => setCelebrating(false), 1400);
-    return () => clearTimeout(id);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(id);
+    };
   }, [pct, previousPercent]);
 
   const dashRemaining = (CIRCUMFERENCE * (100 - clamped)) / 100;
