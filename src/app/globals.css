@@ -1,28 +1,276 @@
 @import "tailwindcss";
 
-/* Section 9 design tokens. Light theme only — deliberate for v1. */
-@theme {
-  --color-navy: #14213d;
-  --color-navy-600: #1d2f57;
-  --color-navy-100: #e8ebf3;
-  --color-gold: #fca311;
-  --color-gold-600: #c47c00;
-  --color-gold-100: #fef3dd;
-  --color-surface: #f5f6fa;
-  --color-success: #2e7d32;
-  --color-success-100: #e6f2e7;
-  --color-error: #d32f2f;
-  --color-error-100: #fdecec;
+/**
+ * Design System 2.0 — "Dark Achiever" (BUILD_PROMPT_V2 §4).
+ *
+ * Dark is the default. Light is a real option, not an afterthought — it is the
+ * refined v1 navy/gold. Both are defined as semantic tokens so a screen never
+ * names a raw colour; that is what lets one reskin change both themes at once.
+ *
+ * Rules this file exists to enforce (RULES G1–G6):
+ *   G3  90% rule — one accent per screen. The palette gives you dark surfaces and
+ *       ONE loud colour. If a screen needs two, the screen is wrong.
+ *   G4  No backdrop-filter blur, anywhere. Too heavy for a ₹10K Android.
+ *   G5  Motion budget: micro 150–250ms, celebrations under 1.5s, and everything
+ *       collapses under prefers-reduced-motion (bottom of this file).
+ */
+
+/* ── Dark: the default ─────────────────────────────────────────────────────── */
+:root {
+  --bg: #0b1020;
+  --surface: #131b33;
+  --elevated: #1b2547;
+  --hairline: rgba(244, 246, 255, 0.10);
+
+  --text: #f4f6ff;
+  --text-dim: #9aa6c9;
+
+  /* Champagne gold — metallic, never flat. The 1px top highlight is the shine. */
+  --gold-hi: #ffe08a;
+  --gold: #ffc53d;
+  --gold-lo: #8a5a0a;
+  --on-gold: #412402;
+
+  /* Green diamond — money, gains, target crossings. ONLY those. */
+  --gem-green-bg: rgba(18, 183, 106, 0.14);
+  --gem-green-line: rgba(18, 183, 106, 0.45);
+  --gem-green-text: #3ddc97;
+
+  /* Pink diamond — milestone surprises only. Never routine UI. */
+  --gem-pink-bg: rgba(244, 114, 182, 0.14);
+  --gem-pink-line: rgba(244, 114, 182, 0.45);
+  --gem-pink-text: #f9a8d4;
+
+  /* Platinum — Elite tier and rare chrome. */
+  --platinum-hi: #e8ebf0;
+  --platinum: #c3cad6;
+  --platinum-lo: #8e97a8;
+
+  --heat: #ff4d5e;
+  --info: #5b8def;
+
+  /* The gem chips use alpha fills + hairline borders. NOT backdrop-filter (G4). */
+  --chip-highlight: rgba(255, 255, 255, 0.15);
+
+  color-scheme: dark;
+}
+
+/* ── Light: chosen explicitly, or the system preference on first run ────────── */
+/* v2 §4: dark is the default, but first run respects the system. A stored choice
+   always wins over both, which is why the media query is scoped away from an
+   explicit [data-theme="dark"]. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #ffffff;
+    --surface: #f5f6fa;
+    --elevated: #ffffff;
+    --hairline: rgba(20, 33, 61, 0.12);
+
+    --text: #14213d;
+    --text-dim: rgba(20, 33, 61, 0.62);
+
+    --gold-hi: #ffd67a;
+    --gold: #fca311;
+    --gold-lo: #c47c00;
+    --on-gold: #14213d;
+
+    --gem-green-bg: rgba(46, 125, 50, 0.10);
+    --gem-green-line: rgba(46, 125, 50, 0.35);
+    --gem-green-text: #2e7d32;
+
+    --gem-pink-bg: rgba(194, 24, 91, 0.08);
+    --gem-pink-line: rgba(194, 24, 91, 0.30);
+    --gem-pink-text: #c2185b;
+
+    --platinum-hi: #ffffff;
+    --platinum: #e4e8f0;
+    --platinum-lo: #8e97a8;
+
+    --heat: #d32f2f;
+    --info: #2f6fdd;
+    --chip-highlight: rgba(255, 255, 255, 0.6);
+
+    color-scheme: light;
+  }
+}
+
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --surface: #f5f6fa;
+  --elevated: #ffffff;
+  --hairline: rgba(20, 33, 61, 0.12);
+  --text: #14213d;
+  --text-dim: rgba(20, 33, 61, 0.62);
+  --gold-hi: #ffd67a;
+  --gold: #fca311;
+  --gold-lo: #c47c00;
+  --on-gold: #14213d;
+  --gem-green-bg: rgba(46, 125, 50, 0.10);
+  --gem-green-line: rgba(46, 125, 50, 0.35);
+  --gem-green-text: #2e7d32;
+  --gem-pink-bg: rgba(194, 24, 91, 0.08);
+  --gem-pink-line: rgba(194, 24, 91, 0.30);
+  --gem-pink-text: #c2185b;
+  --platinum-hi: #ffffff;
+  --platinum: #e4e8f0;
+  --platinum-lo: #8e97a8;
+  --heat: #d32f2f;
+  --info: #2f6fdd;
+  --chip-highlight: rgba(255, 255, 255, 0.6);
+  color-scheme: light;
+}
+
+/* Explicit dark always wins, including over a light system preference. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+  --color-hairline: var(--hairline);
+  --color-text: var(--text);
+  --color-text-dim: var(--text-dim);
+  --color-gold: var(--gold);
+  --color-gold-hi: var(--gold-hi);
+  --color-gold-lo: var(--gold-lo);
+  --color-on-gold: var(--on-gold);
+  --color-gem-green: var(--gem-green-text);
+  --color-gem-pink: var(--gem-pink-text);
+  --color-platinum: var(--platinum);
+  --color-heat: var(--heat);
+  --color-info: var(--info);
+
+  /* v1 §9 kept as aliases so screens not yet reskinned still render. Remove when
+     v2.2b finishes the sweep — a stale alias is how two palettes creep back in. */
+  --color-navy: var(--text);
+  --color-navy-600: var(--text-dim);
+  --color-navy-100: var(--surface);
+  --color-gold-600: var(--gold-lo);
+  --color-gold-100: var(--gem-green-bg);
+  --color-success: var(--gem-green-text);
+  --color-success-100: var(--gem-green-bg);
+  --color-error: var(--heat);
+  --color-error-100: rgba(255, 77, 94, 0.12);
+
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, sans-serif;
+  /* Serif display over sans body — v2 §4's "cheapest single move" that separates
+     this from every template on the Play Store. */
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
 }
 
 body {
-  background: #ffffff;
-  color: var(--color-navy);
+  background: var(--bg);
+  color: var(--text);
   font-family: var(--font-sans);
   font-size: 16px;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Components ─────────────────────────────────────────────────────────────── */
+
+/* Metallic gold: a 3-stop vertical gradient with a hairline top highlight. Flat
+   gold reads as cheap; this is the whole difference. */
+.metal-gold {
+  background-image: linear-gradient(
+    180deg,
+    var(--gold-hi) 0%,
+    var(--gold) 46%,
+    var(--gold-lo) 100%
+  );
+  color: var(--on-gold);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.metal-platinum {
+  background-image: linear-gradient(
+    180deg,
+    var(--platinum-hi) 0%,
+    var(--platinum) 50%,
+    var(--platinum-lo) 100%
+  );
+  color: #1b2547;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+/* Gem chips — alpha fill + hairline border + a top inner highlight. Glassy
+   WITHOUT backdrop-filter, which G4 bans outright. */
+.gem {
+  border-radius: 0.75rem;
+  border: 1px solid var(--gem-green-line);
+  background: var(--gem-green-bg);
+  box-shadow: inset 0 1px 0 var(--chip-highlight);
+  color: var(--gem-green-text);
+}
+
+.gem-pink {
+  border-color: var(--gem-pink-line);
+  background: var(--gem-pink-bg);
+  color: var(--gem-pink-text);
+}
+
+/**
+ * NeoPOP-style primary button (v2 §4, Premium Craft 2).
+ *
+ * Rigid corners, a layered plate shadow, and a physical press that moves the
+ * button onto its own shadow. Replicated in CSS rather than pulling in
+ * neopop-web: that library predates React 19 and this is ~15 lines.
+ */
+.neopop {
+  border-radius: 6px;
+  border: 1px solid var(--gold-lo);
+  box-shadow: 3px 3px 0 0 var(--gold-lo);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.neopop:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 0 var(--gold-lo);
+}
+
+/* Numbers are the emotional content of this app (v1 §9, v2 §4). Tabular figures
+   so a counting-up number does not jitter as digits change width. */
+.numeral {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+/* Glow is for exactly two things: the live streak flame and the target ring at
+   the moment it is crossed. Never body text, never two glows touching. */
+.glow-gold {
+  filter: drop-shadow(0 0 10px rgba(255, 197, 61, 0.45));
+}
+
+@keyframes gl-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.animate-rise {
+  animation: gl-rise 220ms ease-out both;
+}
+
+/* ── Motion budget (RULES G5) ───────────────────────────────────────────────── */
+/* Not a nicety: vestibular disorders are real, and this audience is on cheap
+   phones where animation costs frames. Everything becomes an instant state
+   change; nothing is lost but the movement. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .glow-gold {
+    filter: none;
+  }
 }
 
 /* The QR poster prints on its own — app chrome is not part of the page. */

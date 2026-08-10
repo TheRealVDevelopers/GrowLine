@@ -575,3 +575,29 @@ placeholder is the kind of thing that survives to production; a deny-all cannot.
 
 The real rules land in v2.1b with the privacy toggle, its mandatory test, and the
 client listeners that are the first thing to actually need client reads.
+
+## D39 — "Dark by default" and "respect the system" collide, and the system wins (2026-08-10, v2.2a)
+
+BUILD_PROMPT_V2 §4 asks for both: *"Dark theme is the DEFAULT"* and *"respects
+system preference on first run."* On the web those are not fully compatible.
+
+**Why:** `prefers-color-scheme: no-preference` was removed from the CSS spec.
+Chromium reports **light** for a device that has expressed no preference at all,
+so a browser cannot distinguish "the user chose light" from "the user chose
+nothing". Verified in Playwright: a context created with
+`colorScheme: "no-preference"` still matches `(prefers-color-scheme: light)`.
+
+**Resolved as:** the system preference decides on first run, so a device
+reporting light gets light. Dark remains the default in the two senses that are
+actually implementable — it is what the server renders before any script runs,
+and it is what a device preferring dark (or any device once the Settings switch
+is used) gets.
+
+**Why this way round:** the alternative is ignoring the media query and forcing
+dark until someone finds the Settings switch, which overrides a preference the
+user has genuinely expressed at OS level. On a ₹10K Android the OS theme is a
+real, deliberate setting, not a default nobody touched.
+
+The pre-hydration HTML ships `data-theme="dark"` regardless, because a white
+flash on every load for a dark-mode user is the most visible way a theme system
+can feel broken — that has its own test.

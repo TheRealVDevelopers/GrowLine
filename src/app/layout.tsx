@@ -1,11 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
 import { configuredSiteUrl } from "@/lib/site-url";
+import ThemeScript from "@/components/ThemeScript";
 
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
+});
+
+// Serif display for headings and big numbers (v2 §4). Only the weights actually
+// used — a display face is a real download on a 3G connection.
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  weight: ["600", "700"],
   display: "swap",
 });
 
@@ -19,14 +29,25 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#14213D",
+  // Matches the dark surface so the Android status bar does not sit in a
+  // contrasting strip above a dark app.
+  themeColor: "#0B1020",
   width: "device-width",
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      // Set by ThemeScript before paint; this is only the pre-hydration default.
+      data-theme="dark"
+      className={`${inter.variable} ${fraunces.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
+      <head>
+        <ThemeScript />
+      </head>
       <body className="min-h-full">{children}</body>
     </html>
   );

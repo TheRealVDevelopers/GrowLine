@@ -5,6 +5,7 @@ import { daysUntil, formatLongDate } from "@/lib/dates";
 import ProfileSection from "./ProfileSection";
 import ReminderToggle from "./ReminderToggle";
 import LogoutButton from "./LogoutButton";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default async function SettingsPage() {
   const user = await getSessionUser();
@@ -15,6 +16,7 @@ export default async function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      <ThemeToggle />
       <h1 className="text-2xl font-bold">Settings</h1>
 
       <ProfileSection
