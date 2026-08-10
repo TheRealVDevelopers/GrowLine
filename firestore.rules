@@ -38,6 +38,23 @@ service cloud.firestore {
     }
 
     /**
+     * The upward half of the privacy rule: sharing is ON *and* the reader is an
+     * ancestor. One `get()`, bound once, and both conditions read out of it.
+     *
+     * It is written with a `let` rather than two `coach()` calls for two reasons.
+     * The lookup budget is the smaller one — repeated access to the same path is
+     * documented as cached, but the docs hedge it with "may be", and one `get()` in
+     * the source needs no hedge. The larger reason is that the invariant becomes
+     * syntactic: both halves MUST be about the same coach. Two separate lookups can
+     * drift apart under editing, and a toggle check that reads one document while
+     * the path check reads another is a privacy hole that still looks correct.
+     */
+    function sharedUpwardBy(coachId) {
+      let c = coach(coachId);
+      return c.shareProspects == true && uid() in c.uplinePath;
+    }
+
+    /**
      * Activity flows upward, always (v1 §5.4). `uplinePath` holds every ancestor,
      * so one array membership test covers the whole line at any depth.
      */
@@ -46,11 +63,40 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // A coach reads themselves; an upline reads anyone in their line. The
-      // upline sees the summary fields — name, photo, counts — which is exactly
-      // what the team tree is allowed to show.
-      allow read: if signedIn() && (uid() == userId || inLineOf(resource.data.uplinePath));
-      allow write: if false;
+      /**
+       * Denied to every client, deliberately — including a coach reading their own.
+       *
+       * Nothing in the browser reads this collection. The team tree is the one
+       * screen that shows another coach's name, photo and counts, and it is built
+       * server-side by `buildTeamTree()` through the Admin SDK; drilling into a
+       * downline's line goes through `/api/team`, which checks the line itself. The
+       * listener that opened reads at all (see the header) watches `prospects`,
+       * filtered to its own coach.
+       *
+       * The grant this replaces let an upline read any document in their line, on
+       * the reasoning — stated in its own comment — that the team tree only shows
+       * summary fields. Rules have no field-level reads. The grant was the whole
+       * document, so a hand-written query returned `phone`, `referralCode`,
+       * `levelName`, `followupPushOn`, `plan`, `trialEndsAt`, and `shareProspects`
+       * itself. The last two are why this was worth closing rather than annotating:
+       * `plan == "readonly"` means a failed mandate (F10), and a coach's payment
+       * trouble is not their whole ancestor chain's to read; and a rule that hands
+       * the privacy toggle's current value to the party it protects against is
+       * arguing with v1 §5.4 rather than serving it. The phone number is the least
+       * of it — a direct upline usually has it already, but `inLineOf` was the
+       * entire ancestor chain (up to 100 hops per D36), not the person who
+       * recruited you.
+       *
+       * The privacy rule below calls `coach()`, which `get()`s this collection.
+       * That still resolves: a `get()` inside a rule is not itself subject to these
+       * rules. Emulator-verified — all four privacy-toggle checks pass with this
+       * collection closed, and e2e/rules.test.ts says so where they live.
+       *
+       * If a screen ever needs another coach's name and photo in the BROWSER, add a
+       * server-written summary document holding only those fields. Reopening the
+       * whole user document to get two of its fields is how this started.
+       */
+      allow read, write: if false;
     }
 
     match /prospects/{prospectId} {
@@ -64,16 +110,28 @@ service cloud.firestore {
        * everything; without the path check anyone with sharing on is public.
        *
        * Note the query constraint this imposes: a client listing prospects must
-       * filter on a single `coachId`, so every document in the result resolves the
-       * same `get()`. Listing across a whole line is not expressible here, and
-       * that is the intended outcome rather than a limitation.
+       * filter on a single `coachId`, so the rule resolves exactly one coach for
+       * the whole request. Listing across a whole line is not expressible here,
+       * and that is the intended outcome rather than a limitation.
+       *
+       * WHAT THE LOOKUP COSTS — written down because it has been misread once, as
+       * "one `get()` per returned document, so the listing dies at about ten
+       * prospects". It does not. Firestore evaluates a query ONCE, against the
+       * query's own constraints rather than against the rows that come back — the
+       * same "rules are not filters" machinery that makes the unfiltered listing
+       * below fail while the filtered one passes. So `coachId` is a single bound
+       * value, `sharedUpwardBy` resolves a single `/users` document, and the result
+       * count does not multiply anything. The budget is per REQUEST: 10 document
+       * lookups for a single-document read, 20 for a query (the docs say 10 for
+       * both, so budget against 10). This rule spends ONE of them, and zero on the
+       * ownership branch, which short-circuits before any lookup. Measured, not
+       * assumed: e2e/rules.test.ts lists 26 shared prospects green and pins the
+       * ceilings with a canary, so a future rule that really is charged per row
+       * lands as a red test instead of a production permission-denied.
        */
       allow read: if signedIn() && (
         uid() == resource.data.coachId
-        || (
-          coach(resource.data.coachId).shareProspects == true
-          && uid() in coach(resource.data.coachId).uplinePath
-        )
+        || sharedUpwardBy(resource.data.coachId)
       );
       allow write: if false;
     }

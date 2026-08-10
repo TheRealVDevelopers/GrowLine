@@ -20,9 +20,25 @@ export function proxy(request: NextRequest) {
   if (!hasSession && !isPublic) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
-  if (hasSession && pathname === "/login") {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
+
+  /**
+   * `/login` is NOT redirected away when a cookie is present, deliberately.
+   *
+   * It used to be, and that turned a dead-but-present cookie into a redirect
+   * loop. This gate can only see that a cookie EXISTS — verifying it needs the
+   * Admin SDK, which cannot run here — so "has cookie" and "is signed in" are
+   * different questions, and a revoked or expired session answers yes to the
+   * first and no to the second. The cycle was:
+   *
+   *   /            -> layout cannot verify -> /api/auth/logout
+   *   /api/auth/logout -> clears the cookie -> /login
+   *   /login       -> cookie still on THIS request -> /
+   *
+   * and round again. Sending a signed-in coach from /login to home was a
+   * convenience; bouncing a signed-out one between three routes is a lockout.
+   * The authenticated layout is the only thing that can actually decide, so it
+   * is the only thing that decides.
+   */
 }
 
 export const config = {

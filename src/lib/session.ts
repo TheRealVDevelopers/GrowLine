@@ -50,12 +50,57 @@ export async function clearSessionCookie() {
   (await cookies()).delete(SESSION_COOKIE);
 }
 
+/**
+ * Ends the session for real: revokes on the Auth backend, then drops the cookie.
+ *
+ * Deleting the cookie only stops *this* browser from sending it again. A session
+ * cookie is a signed JWT, not a row we can delete, so a copy taken off a shared
+ * phone before the logout stays valid for the rest of its 14 days — precisely the
+ * window a logout exists to close. `revokeRefreshTokens` stamps
+ * `tokensValidAfterTime` on the Auth user, and the `checkRevoked` verification
+ * below then refuses every cookie whose `auth_time` predates the stamp. That flag
+ * was doing half a job until something finally set the stamp.
+ *
+ * Firebase revocation is per-user, so this also signs the coach out of the phone
+ * in their pocket, not just the club laptop they are standing at. Deliberate, with
+ * the reasoning under "Logout revokes on the Auth backend" in DECISIONS.md — and
+ * the button says so in plain words.
+ *
+ * Order matters. The cookie is the only thing that still names the uid, so it
+ * stays put when the revoke fails; dropping it would turn the coach's retry into a
+ * silent no-op while their other devices stayed signed in. Returns false in that
+ * case so the caller keeps them on the screen instead of showing a login page.
+ */
+export async function endSession(): Promise<boolean> {
+  const uid = await getSessionUserId();
+
+  // Nothing verifiable behind this cookie — expired, already revoked, or never
+  // valid. Clearing it is still right, and revoking on an *unverified* uid would
+  // let a replayed dead cookie sign a coach out of their live devices.
+  if (!uid) {
+    await clearSessionCookie();
+    return true;
+  }
+
+  try {
+    await auth.revokeRefreshTokens(uid);
+  } catch {
+    return false;
+  }
+  await clearSessionCookie();
+  return true;
+}
+
 export async function getSessionUserId(): Promise<string | null> {
   const cookie = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!cookie) return null;
   try {
-    // checkRevoked: a disabled or signed-out account stops working immediately
-    // rather than at the end of a 14-day cookie.
+    // checkRevoked costs one Identity Toolkit round trip per protected request.
+    // It buys two things, and both are worth it: a disabled account stops working
+    // immediately, and so does a logged-out one (`endSession`) instead of living
+    // out its 14 days. Cache the answer and the TTL becomes the exact length of
+    // time a revoked cookie keeps working — read the logout decision in
+    // DECISIONS.md before trying it.
     const decoded = await auth.verifySessionCookie(cookie, true);
     return decoded.uid;
   } catch {

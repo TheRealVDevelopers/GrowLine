@@ -44,6 +44,7 @@ Append a row every time you hand the work over. Newest at the bottom.
 | 12 | Phone → Claude Code web | Today's Mission card + home reskin. Recorded **D40** — v2 §4's own example copy carries a "₹-equivalent" that L4/D30 forbid; built with points only. | 15 e2e, 21 rules, 29 data. v2.2b (capture/pipeline/report/team/settings) next. |
 | 13 | Phone → Claude Code web | v2.2b: full token sweep (v1 aliases removed), contrast tripwire in both themes, Weekly Recap card. Found and fixed 3 invisible-text bugs the sweep itself introduced. | 18 e2e, 21 rules, 29 data. v2.2 done bar the Jewel assets. |
 | 14 | PC (Windows) | Verified the branch end to end on real hardware. Fixed 4 things that only fail off-container: root tsconfig compiled `functions/`, 3 setState-in-effect lint errors, a Linux-only Chromium path in `playwright.config.ts`, and an undocumented `NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST`. Now green: 18/18 e2e, 21/21 rules, migrate:verify all-pass, build + typecheck + lint clean. Also ran a 6-lens audit — phases 1-6 parity survived intact, but it found a **critical missing-index problem the emulator structurally cannot catch**. | Leg 3 is open: read this from the phone. Before cutover, work the "Audit findings" list — the index gap and referral-code uniqueness are the two that bite in production. |
+| 15 | PC (Windows) | Worked the audit list. Closed 8 of 9 findings and **withdrew one as measured wrong** (the 20-`get()` cap — a query is evaluated once against its constraints, not per document). Found two bugs the audit missed: a redirect loop from the proxy treating cookie presence as authentication, and an unguarded read race in the offline pending list. Also learned the hard way that the e2e suite is not idempotent — a green 18/18 went to 6 failed with no code change because the emulator had accumulated state; `npm run e2e:reset` now exists so that cannot recur. Green: 19/19 e2e, 27/27 rules, migrate:verify all-pass, build + typecheck + lint. D41–D50 record every decision. | **Merge to `master`.** The branch is 42+ commits ahead and `master` is still the initial commit — every phase, the whole migration and the design system live only here. Then v2.3: items 2, 4, 5 and 7 (Mode A consent, the trilingual privacy notice, committed Noto TTFs, and CI — there is no `.github` at all). And the indexes need a real project; nothing local can verify them. |
 
 ---
 
@@ -88,42 +89,71 @@ refusal, ~130-bit tokens with expiry on every surface, neutral OG image, capture
 idempotency (moved from a unique constraint to the doc id), canvas re-encode, no
 level-name suggestions, direct-only target authorization, the 6-field log.
 
-What needs work, worst first:
+**All of these are now CLOSED except the last one.** Statuses below; the reasoning for
+each lives in `DECISIONS.md` D41–D50, not here.
 
-- **CRITICAL — `firestore.indexes.json` is missing composite indexes for ~5 shipped
-  queries.** They fail with `FAILED_PRECONDITION` against a real project. **The
-  emulator auto-creates indexes on demand, so no suite here can ever catch this** —
-  not e2e, not rules. One of the missing ones silently disables the 180-day health-data
-  purge, which is a compliance control, not a nicety. This is the single largest
-  cutover risk on the branch.
-- **HIGH — `unique(referralCode)` was dropped.** D35 tables four Prisma constraints
-  re-expressed as doc ids; the schema had six. `generateReferralCode()` kept its
-  read-then-write loop but lost the constraint underneath it. A collision reroutes one
-  coach's QR captures and downlines to another. `reports.token` lost its constraint the
-  same way.
-- **HIGH — logout never invalidates the session.** `revokeRefreshTokens` appears
-  nowhere, so `checkRevoked: true` is inert and a stolen cookie outlives logout for 14
-  days.
-- **HIGH — the boot guard checks only the Firestore emulator var.** Setting
-  `FIREBASE_AUTH_EMULATOR_HOST` in production would disable ID-token signature
-  verification while `usingEmulators` still reads false. A one-variable mistake with no
-  guard rail.
-- **HIGH — Storage rules let any signed-in coach read any other coach's proof media.**
-  Latent, not live: nothing uses Storage yet (no `storageBucket` in the client config,
-  media is still base64 in Firestore). Must be fixed before Storage is switched on, and
-  it has no tests.
-- **MEDIUM — an upline reads the downline's whole user document,** phone number
-  included. Firestore has no field-level reads, so the rule's comment ("the upline sees
-  the summary fields") is not what the grant does.
-- **MEDIUM — the shared-prospect listing does two `get()` per document.** Firestore
-  caps document access at 20 per query, so it fails once a sharing downline has ~10
-  prospects. Only ever tested against a one-document fixture.
-- **MEDIUM — the F11 toggle's allow-branch is unreachable.** Nothing can set
-  `shareProspects` to true: `createUser` hardcodes false and the PATCH handler does not
-  accept it. The rule is right, the switch still does not exist.
-- **MEDIUM — `dailyLogs` and `targets` authorize off a write-time `uplinePath` snapshot,**
-  so access does not follow re-parenting. `prospects` resolves the coach live; these two
-  do not.
+- ~~CRITICAL — `firestore.indexes.json` is missing composite indexes.~~ **FIXED (D42),
+  but NOT verified.** 4 declared → 8. **The emulator creates composite indexes on
+  demand, so no suite here can ever confirm them** — a green local run carries zero
+  information about this. The four added cover the daily log's read *and* write path,
+  My Team + Targets, the QR rate limit, and the 180-day purge, which had been throwing
+  silently once a night. **First deploy to a real project must exercise all four paths
+  and check the console for index-build errors.** This is still the largest cutover
+  risk, now because it is unverifiable rather than because it is unfixed.
+- ~~HIGH — `unique(referralCode)` was dropped.~~ **FIXED (D41).** Reservation document
+  `referralCodes/{CODE}` claimed inside `createUser`'s transaction; resolved through
+  rather than queried; client read and write both denied; migration backfills and
+  throws on collision. `reports.token` is left undefended **on purpose** at ~131 bits
+  from a CSPRNG — a reservation there would cost a write per report to defend against a
+  collision rarer than silent disk corruption.
+- ~~HIGH — logout never invalidates the session.~~ **FIXED (D46).** `endSession()`
+  revokes on the Auth backend and only then clears the cookie. It signs the coach out
+  of **every** device — Firebase has no per-session handle — and the button says so.
+  A failed revoke returns 502 and keeps them logged in, so the retry still knows whose
+  session to end. Also kills the client SDK's persisted refresh token, which was a
+  second key to the same prospect data via `RealtimeProspects`.
+- ~~HIGH — the boot guard checks only the Firestore emulator var.~~ **FIXED (D45), and
+  it was worse than written.** With only the Auth host set, the SDK swaps in a verifier
+  using `algorithms: ['none']` and stops requiring `kid`/RS256 — an **unsigned** cookie
+  naming any uid would be accepted against real data. Now two configurations boot and
+  four throw at boot naming the offending variable. Verified across all six
+  combinations, each in its own process.
+- ~~HIGH — Storage rules let any signed-in coach read any other coach's proof media.~~
+  **FIXED (D49) by going deny-all.** Nothing uses Storage, and `firebase.json` already
+  pointed at the file, so it was one `firebase deploy` from live rather than inert. The
+  path design that the real rules will need is written into `storage.rules` itself.
+- ~~MEDIUM — an upline reads the downline's whole user document.~~ **FIXED (D48).**
+  `users` is now closed to clients entirely, including self-read. Nothing in the
+  browser read it; the team tree is server-rendered. The grant included `plan` (so, a
+  failed mandate) and `shareProspects` itself — the toggle's value readable by the
+  party it protects against.
+- ~~MEDIUM — the shared-prospect listing does two `get()` per document.~~
+  **WITHDRAWN — measured, not a bug (D48).** A query is evaluated once against its own
+  constraints, not once per returned document, and the budget is per request. The rule
+  now spends **one** lookup. Emulator-verified: a 60-document shared listing passes,
+  while the toggle-off listing is still refused at 60. Do **not** "fix" this by copying
+  `shareProspects` onto prospects — `PLAN_V2.1a.md` §4 rejected that for revocation
+  latency, and it would push the privacy predicate out of the rules into every call
+  site.
+- ~~MEDIUM — the F11 toggle's allow-branch is unreachable.~~ **FIXED (D50).** Strict
+  boolean on `PATCH /api/me` (no coercion — `Boolean("false")` is `true`) plus
+  `settings/PrivacyToggle.tsx`. Note it grants a capability **nothing consumes yet**:
+  no upline-facing prospect reader exists.
+- **STILL OPEN — MEDIUM — `dailyLogs` and `targets` authorize off a write-time
+  `uplinePath` snapshot,** so access does not follow re-parenting. `prospects` resolves
+  the coach live; these two do not. Not touched this session.
+
+Two bugs found while closing the above, neither in the original audit:
+
+- **`src/proxy.ts` treated cookie *presence* as being signed in** and bounced `/login`
+  to `/`. Once logout actually revoked, that became a three-route redirect loop for
+  anyone holding a dead cookie. Fixed (D47) by letting the authenticated layout be the
+  only authority — the proxy cannot verify a JWT in the edge runtime, so it must not
+  pretend to.
+- **The offline queue's pending list had no read-ordering guard** (D43). Three events
+  re-read IndexedDB when the signal returns, and a stale read could win, pinning a
+  synced prospect to "On this phone" forever beside its real row. Found by
+  `offline-capture.spec` failing on a *clean* emulator while passing on a polluted one.
 
 Full detail, including the low-severity items and the non-atomic `saveLog` /
 `setTarget` reads, is in the audit transcript for this session.

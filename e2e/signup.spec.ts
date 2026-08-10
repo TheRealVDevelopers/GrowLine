@@ -95,6 +95,56 @@ test("an existing coach logs straight in, with no profile step", async ({ page }
   await expect(page.getByRole("heading", { name: /tell us about you/i })).toHaveCount(0);
 });
 
+test("logging out ends the session on the server, not just in this browser", async ({
+  page,
+  context,
+}) => {
+  await page.goto("/login");
+  await enterPhoneAndCode(page, "9000000002");
+  await expect(page.getByRole("heading", { name: /hello, asha/i })).toBeVisible({
+    timeout: 20_000,
+  });
+
+  // Stands in for a second device, or for anyone who copied the cookie off a
+  // shared phone: the exact cookie, kept from before the logout.
+  const copied = (await context.cookies()).find((c) => c.name === "gl_session");
+  if (!copied) throw new Error("No gl_session cookie after login — nothing to replay.");
+
+  /**
+   * Firebase revocation has one-second granularity, and this matters here.
+   * `revokeRefreshTokens` stamps `validSince` in whole seconds, and the check is
+   * `auth_time < validSince` — strictly less. Log in and log out inside the same
+   * wall-clock second and the two are EQUAL, so the cookie survives its own
+   * revocation. A real coach cannot hit that; a Playwright script does it easily,
+   * and the test then fails for a reason that has nothing to do with the code.
+   *
+   * So: cross the second boundary on purpose. This is one of the few places a
+   * fixed wait is the correct tool rather than a smell — there is no event to
+   * await, the thing being waited on is a clock.
+   */
+  await page.waitForTimeout(1100);
+
+  await page.goto("/settings");
+  await page.getByRole("button", { name: /^log out$/i }).click();
+  await expect(page).toHaveURL(/\/login$/, { timeout: 20_000 });
+
+  /**
+   * The assertion that matters — stated as CAPABILITY, not as a URL.
+   *
+   * Clearing the cookie alone would leave this test green while the session lived
+   * out its 14 days on the Auth backend; only revocation makes the replayed cookie
+   * fail verification. But asserting a final URL was the wrong way to check it: a
+   * rejected cookie takes the coach through the layout's redirect to
+   * /api/auth/logout and on to /login, and where that chain settles depends on the
+   * host it started from. What must be true is simpler and does not care about the
+   * route — the replayed cookie buys no access to the coach's business.
+   */
+  await context.addCookies([copied]);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: /hello, asha/i })).toHaveCount(0);
+  await expect(page.getByRole("navigation")).toHaveCount(0);
+});
+
 test("the public capture page is reachable without an account and is noindex", async ({
   page,
 }) => {

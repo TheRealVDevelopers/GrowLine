@@ -740,3 +740,277 @@ and it cost a full debugging cycle chasing a bug that did not exist.
 because signup creates an account and the Phone provider allows one per number
 (the invariant behind D34). `npm run e2e:reset` chains it into
 `migrate:firestore`, so one command gives a known state.
+
+## D45 — the emulator boot guard describes two switches, not one (2026-08-10, v2.2b)
+
+`src/lib/firebase-admin.ts` derived `usingEmulators` from `FIRESTORE_EMULATOR_HOST`
+alone. The Admin SDK resolves emulator routing **per product**, from two independent
+variables, so one flag could never describe the state correctly.
+
+**Why it mattered, and it is worse than it sounds.** With only
+`FIREBASE_AUTH_EMULATOR_HOST` set in production, `token-verifier.js` swaps in the
+emulator verifier — `verifyJwtSignature(token, undefined, { algorithms: ['none'] })`,
+which also stops requiring `kid` and RS256. `verifyIdToken` and `verifySessionCookie`
+then merely *decode*. An unsigned cookie naming any uid would be accepted against
+real Firestore data, while `usingEmulators` read false, so the missing-credential
+check was satisfied by a real service account and `migrate-to-firestore.ts` still
+printed "PRODUCTION". Nothing would have errored. One variable in a deploy config.
+
+**Resolved as** a `resolveTarget()` returning a discriminated union. Two
+configurations boot — both hosts and no credential (dev, e2e, CI), or a credential
+and neither host — and the other four throw at boot naming the offending variable.
+Because the union carries the service account only on the non-emulator branch,
+`createApp()` dropped its own `if (!raw)` check: "real project, no credential"
+stopped being a state that function can be called in.
+
+**Three deliberate choices.** The resolver sits at module scope, not inside
+`createApp()`, which runs only when `getApps()` is empty — a guard that
+initialization order can skip is not a guard. `NODE_ENV` takes no part:
+`next build && next start` against the emulators is how the production bundle gets
+checked locally, so `NODE_ENV=production` is not evidence of a real deployment, and
+the service account is the honest signal of intent instead — which is why one
+alongside an emulator host is an error rather than a precedence rule to pick. And
+presence is plain truthiness, matching the SDK's own `useEmulator()`, so `FOO=""` is
+unset to both and `.env.example`'s empty credential line still boots. A guard that
+disagrees with the thing it guards is worse than none.
+
+Verified across all six combinations plus the empty-credential shape, each in its own
+process, with the repo's real `.env` as the first case.
+`FIREBASE_STORAGE_EMULATOR_HOST` is not in the pair check because nothing uses
+Storage (D49); it has to join `resolveTarget` in the same change that switches
+Storage on, or the same skew reappears for a third product.
+
+## D46 — logout revokes on the Auth backend, for every device (2026-08-10, v2.2b)
+
+`POST /api/auth/logout` deleted the cookie and stopped. A session cookie is a signed
+JWT, not a row, so deleting the browser's copy told the Auth backend nothing: the
+cookie stayed valid for the rest of its 14 days. Anyone holding a copy taken before
+the logout — the realistic case on shared and second-hand Androids — kept full access
+to prospect names, phones and health inputs.
+
+`revokeRefreshTokens(uid)` closes it, and it does apply to session cookies and not
+only ID tokens: in the installed SDK, `verifySessionCookie` and `verifyIdToken` both
+route through `verifyDecodedJWTNotRevokedOrDisabled`, which compares the token's
+`auth_time` against the user's `tokensValidAfterTime`. Nothing had ever set that
+stamp, so the `checkRevoked` flag `session.ts` always passed was catching disabled
+accounts and no logout at all.
+
+**It signs the coach out of every device, and that is intended.** Revocation is
+per-user; Firebase offers no per-session handle. Per-device logout would mean minting
+our own session ids and storing them — the hand-rolled session table v2.1a deleted —
+and checking one costs a read per request. The price of revoking is one SMS on the
+other device; the price of not revoking is a logout button that logs nobody out.
+v1 §12 does expect a phone and a club laptop signed in at once, so the button says
+plainly that it ends both.
+
+**GET does not revoke.** It is the loop-breaker the authenticated layout redirects
+to, and a `SameSite=lax` cookie rides along on a cross-site top-level navigation — so
+`location = "…/api/auth/logout"` on any page would otherwise sign a visiting coach
+out of every device they own.
+
+**A failed revoke keeps the coach logged in.** POST returns 502 and the cookie
+deliberately stays set, so the button keeps them on the screen to retry — the cookie
+is the only thing that still names the uid. A coach with a dead network therefore
+cannot log out at all: honest, and better than a silent success. Offline-first
+(v1 §4.3) covers capture and daily logs, not ending a session on a backend we cannot
+reach.
+
+**The browser's own Firebase credentials go too** (`signOut` in `LogoutButton`). The
+cookie was never the only key: `RealtimeProspects` reads prospects straight from
+Firestore with the client SDK's persisted refresh token, which the rules allow for
+`coachId == uid`.
+
+**Revocation has one-second granularity.** `validSince` is stamped in whole seconds
+and the check is `auth_time < validSince`, strictly less — so a session created and
+revoked inside the same wall-clock second survives its own revocation. No real coach
+can hit that; a Playwright script hits it easily, which is why the e2e test crosses
+the boundary on purpose. Also note `validSince` comes from our clock and `auth_time`
+from Google's: a server clock running fast would reject cookies minted just after a
+revoke, which looks like a login loop. Check this first if "I logged out and now I
+cannot get back in" ever arrives.
+
+## D47 — `/login` is not redirected away on cookie presence (2026-08-10, v2.2b)
+
+`src/proxy.ts` sent anyone holding a `gl_session` cookie from `/login` to `/`. With
+D46 revoking sessions for real, that turned a dead-but-present cookie into a
+**redirect loop**:
+
+```
+/                 -> layout cannot verify -> /api/auth/logout
+/api/auth/logout  -> clears the cookie    -> /login
+/login            -> cookie still on THIS request -> /
+```
+
+and round again. Found by the D46 e2e test, whose replayed cookie landed on the
+authenticated home instead of the login screen — the loop settling on the wrong side.
+
+The proxy runs in the edge runtime with no Admin SDK, so it can only see that a
+cookie **exists**. "Has a cookie" and "is signed in" are different questions, and a
+revoked or expired session answers yes to the first and no to the second. Sending a
+signed-in coach from `/login` to home was a convenience; bouncing a signed-out one
+between three routes is a lockout. The convenience loses.
+
+The authenticated layout is the only thing that can actually decide, so it is now the
+only thing that decides. The `!hasSession && !isPublic` half is untouched — refusing
+a request with no cookie at all needs no verification.
+
+**The e2e assertion changed shape too, and this is the more general lesson.** It
+asserted a final URL; a rejected cookie travels through the layout's redirect to
+`/api/auth/logout` and on to `/login`, and where that chain settles depends on the
+host it started from — `NextResponse.redirect(new URL("/login", req.url))` resolved
+to `localhost` for a request made to `127.0.0.1`. The property that must hold does
+not care about the route: the replayed cookie buys **no access**. Asserting
+capability instead of location is what made the test both correct and stable.
+
+## D48 — `users` is closed to clients, and the shared-prospect `get()` finding is withdrawn (2026-08-10, v2.2b)
+
+Two audit findings on `firestore.rules`, reconciled into one ruleset.
+
+**`users` is now `allow read, write: if false`.** The old grant was
+`uid() == userId || inLineOf(resource.data.uplinePath)`, with a comment saying the
+upline "sees the summary fields — name, photo, counts". Rules have no field-level
+reads, so that comment described an intention, not the grant. What an ancestor at any
+depth could actually fetch with a hand-written query was the whole document: `phone`,
+`referralCode`, `levelName`, `followupPushOn`, `plan`, `trialEndsAt`, and
+`shareProspects`.
+
+**Why the last two decide it.** `plan == "readonly"` means a failed UPI mandate
+(F10) — a coach's payment trouble is not their whole upline chain's to read. And a
+rule that reports the privacy toggle's current value to the party the toggle protects
+against is arguing with v1 §5.4 rather than serving it. The phone number alone would
+not have justified this; a direct upline usually has it. But `inLineOf` is the entire
+ancestor chain (up to 100 hops, D36), not the person who recruited you.
+
+**Why deny rather than narrow:** nothing in the browser reads this collection. The
+only client-SDK call in the repo is the `prospects` listener in
+`RealtimeProspects.tsx`; the team tree is built server-side through the Admin SDK,
+and drilling goes through `/api/team`, which checks the line itself. D38's discipline
+applies — this was the one read in the file no feature asked for. Self-read is denied
+too, because leaving it open keeps `plan`/`trialEndsAt` reachable from the client, the
+same second-weaker-path this file already rejects for `reports`. If a screen ever
+needs another coach's name and photo in the browser (a v2.4 threads UI is the likely
+first pressure), the answer is a server-written summary document holding only those
+fields.
+
+The privacy rule's `coach()` helper still `get()`s `/users`: a `get()` inside a rule
+is not itself subject to the rules. Emulator-verified — all four toggle checks pass
+with the collection closed.
+
+**The second finding — "the shared listing does two `get()` per document, so it fails
+past ~10 prospects" — is withdrawn as measured wrong.** A query is evaluated once
+against its own constraints, not once per returned document; that is the same
+machinery that refuses an unfiltered listing here. `coachId` is a single bound value,
+so the rule resolves one `/users` document however many prospects come back. Budget
+is per request: measured at 10 lookups for a single-document read and 20 for a query
+(the docs say 10 for both, so the rule budgets against 10). Emulator-verified — the
+shared listing passes at 26 and 60 documents, with and without `orderBy`, while the
+toggle-off listing is still refused at 60.
+
+**Changed anyway:** the two `coach()` calls became one `let`-bound lookup in
+`sharedUpwardBy()`. Not for the budget — 2 of 10 was never near the ceiling — but
+because the docs hedge caching with "may be", and because the invariant that both
+halves of the predicate read the SAME coach document is now syntactic instead of a
+convention two separate lookups could drift out of.
+
+**Not done, deliberately:** copying `shareProspects` onto prospect documents.
+`PLAN_V2.1a.md` §4 already rejected it for revocation latency and that still stands —
+a fan-out window where a stale `true` grants access is exactly what a DPDP control
+cannot have. `coachUplinePath` is already denormalised on prospects and does not
+help: it carries the path but not the toggle, and a rule reading fields the query
+does not constrain refuses the query outright, which would push the privacy predicate
+out of the rules and into every call site — the opposite of BUILD_PROMPT_V2 §3.
+
+`e2e/rules.test.ts` goes 21 → 27 checks: the two `users` assertions flip to
+`assertFails` (plus one for the self read) so a reopening cannot pass quietly, the
+mandatory toggle-off denial is re-run against a 26-document fixture, and a canary on
+a throwaway ruleset pins the lookup ceilings so "26 documents still pass" cannot go
+vacuously green if the emulator ever stops counting. **Honest limit:** the scale and
+canary checks pass against the old rules too, because there was no bug there to
+catch. They are a regression pin, not a reproduction.
+
+## D49 — Storage rules go back to deny-all until something uploads (2026-08-10, v2.2b)
+
+`storage.rules` shipped in v2.1b as a working ruleset for three folders. Nothing in
+the app has ever used Storage: no `storageBucket` in `src/lib/firebase.ts`, no
+`firebase/storage` import, no bucket on the Admin app, `npm run emulators` starts only
+auth and firestore, and proof media is still a base64 data URL in the Firestore
+document (D3, D33).
+
+**Why:** one of those grants was wrong, in the direction that matters.
+`/users/{userId}/proofs/{fileName}` allowed `read: if signedIn()` — any signed-in
+coach could read any other coach's evidence photos, while the Firestore `proofs` rule
+correctly narrows the same evidence to the coach it is about and the upline who
+asked. A signed-in client needs no download token to use that: a constructed `ref()`
+plus `getBytes` is the whole exploit. The header's "enumeration is not possible"
+defence was reasoning about anonymous callers, and its "unguessable id" leaned on the
+shape of file names that no code produces yet.
+
+**Resolved as** deny-all, for exactly the reason D38 gave for `firestore.rules` in
+v2.1a: a permissive placeholder is the kind of thing that survives to production, and
+a deny-all cannot. `firebase.json` already points `storage` at this file, so it was
+one `firebase deploy` from live, not inert. The size and contentType bounds were the
+useful part and they lose nothing by landing with the uploader that must satisfy them.
+
+**The design is not thrown away.** The path conventions and reasoning now live in
+`storage.rules` itself, where the next session will read them. Short version: Storage
+rules cannot `get()` a Firestore document, and object metadata is settable by the
+uploader, so the identities the rule must compare have to live in the path.
+`proofs/{coachId}/{reviewerId}/{rest=**}` reproduces the Firestore predicate from two
+fields that never change after `requestProof` writes them, and it sits outside
+`users/{uid}/` so a future public-read rule on that prefix cannot swallow evidence
+photos. That is correct **only** while those two fields stay immutable — if a proof
+request is ever reassigned to a different upline, the baked path goes stale and the
+reviewer silently loses access.
+
+`initializeTestEnvironment` accepts a `storage` block, so the check that was never
+possible — a coach outside the exchange cannot read the proof — becomes possible the
+day there is a proof to read. Note `submitProof` currently demands a
+`data:image/jpeg;base64,` prefix, so it changes in the same session as the uploader.
+
+## D50 — the F11 toggle had a rule but no switch (2026-08-10, v2.3)
+
+`firestore.rules` has held the correct privacy predicate since the migration: an
+upline reads a downline's prospects only if `shareProspects == true` **and** they are
+in that coach's `uplinePath`. `updateUser` accepted the field. But nothing in the app
+could produce a `true` — `createUser` writes `false`, and `PATCH /api/me` builds a
+whitelist covering `name`, `city`, `photoUrl`, `levelName` and dropped
+`shareProspects` silently. The allow branch was reachable only by hand-editing a
+Firestore document, which is why the rules tests passed: the fixture sets it directly.
+
+The API now accepts the field as a **strict boolean** — no coercion.
+`Boolean("false")` is `true`, and turning sharing ON when the caller meant off is the
+one mistake this field must not be able to make. So `"true"`, `1`, `null`, `[]` are
+all rejected. The response echoes the saved document's value rather than the
+request's, so the client never infers the state of a privacy grant.
+
+`settings/PrivacyToggle.tsx` carries no accent colour and nothing animates: gold on
+"share my prospects" would read as the app leaning on the coach to say yes, and a
+privacy screen has no opinion about their answer (G1, G3). Turning it ON asks a second
+time and names the names and phone numbers out loud; turning it OFF is one tap.
+Withdrawing consent must never cost more taps than giving it — the same
+no-dark-patterns logic as cancel-anytime. State reads as the words "On." / "Off."
+rather than a slider, because a slider's position is the one thing a coach must not
+have to guess at. Both states say the activity counts flow up regardless, so nobody
+turns it on believing it hides their numbers.
+
+**Copy tension worth knowing about.** F11's mandated phrase is "Share my prospect
+details with my upline", so the button carries it verbatim. But the rule grants the
+whole `uplinePath`, not just the direct upline — so the state lines and the confirm
+body widen it to "your upline — and the coaches above them". A coach who reads only
+the button underestimates what they are agreeing to; a button that contradicts the
+spec fails a compliance grep. The widening went in the prose.
+
+A coach with no upline gets an explanation instead of the switch: their `uplinePath`
+is empty, so the switch would change nothing. That is a deviation from a literal
+reading of "this toggle is non-negotiable", taken because a control that does nothing
+is its own dishonesty on a privacy screen.
+
+**The switch grants a capability nothing consumes yet.** Every server read scopes
+prospects to the session user and the team tree shows counts only. An upline-facing
+prospect reader is a separate piece of work — and per D48 the rule now costs one
+lookup, so the cap that was thought to block it does not exist.
+
+**The prospect never consents to this**; the coach consents on their behalf. Mode A's
+consent tick (v2 §5.2, unbuilt) covers "I am saving your details", not "I may show
+them to my upline". Whoever writes that tick decides whether it mentions onward
+sharing.

@@ -4,6 +4,7 @@ import { formatPhoneForDisplay } from "@/lib/phone";
 import { daysUntil, formatLongDate } from "@/lib/dates";
 import ProfileSection from "./ProfileSection";
 import ReminderToggle from "./ReminderToggle";
+import PrivacyToggle from "./PrivacyToggle";
 import LogoutButton from "./LogoutButton";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -46,6 +47,11 @@ export default async function SettingsPage() {
       </section>
 
       <ReminderToggle />
+
+      {/* F11. Above the referral code on purpose — the coach should meet the
+          control that decides what their upline sees before the one that invites
+          people into their line. */}
+      <PrivacyToggle sharing={user.shareProspects} hasUpline={user.uplineId !== null} />
 
       <section className="rounded-2xl bg-surface p-5">
         <h2 className="font-semibold">My referral code</h2>

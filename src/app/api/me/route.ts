@@ -33,6 +33,7 @@ export async function PATCH(req: Request) {
     city?: string;
     photoUrl?: string | null;
     levelName?: string | null;
+    shareProspects?: boolean;
   } = {};
 
   if (body?.name !== undefined) {
@@ -66,6 +67,21 @@ export async function PATCH(req: Request) {
     data.levelName = raw === "" ? null : raw;
   }
 
+  if (body?.shareProspects !== undefined) {
+    // The F11 switch, and the only writer of the field the prospects Security Rule
+    // reads (Section 5.4). Authorization needs nothing extra: `uid` comes from the
+    // session cookie, so a coach can only flip their own flag — an upline has no
+    // route here to grant themselves a read.
+    //
+    // A strict boolean, never a coercion: `Boolean("false")` is true, and turning
+    // sharing ON when the caller meant off is the one mistake this field must not
+    // be able to make.
+    if (typeof body.shareProspects !== "boolean") {
+      return NextResponse.json({ error: "Could not save that setting." }, { status: 400 });
+    }
+    data.shareProspects = body.shareProspects;
+  }
+
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "Nothing to save." }, { status: 400 });
   }
@@ -74,6 +90,13 @@ export async function PATCH(req: Request) {
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({
     ok: true,
-    user: { name: user.name, city: user.city, levelName: user.levelName },
+    // shareProspects is echoed from the saved document, not from the request: the
+    // client must never have to infer the state of a privacy grant.
+    user: {
+      name: user.name,
+      city: user.city,
+      levelName: user.levelName,
+      shareProspects: user.shareProspects,
+    },
   });
 }

@@ -40,6 +40,65 @@ async function check(name: string, fn: () => Promise<unknown>) {
   }
 }
 
+/**
+ * Canary for the scale section: proves this harness still counts document lookups
+ * at all.
+ *
+ * Without it, "26 documents still pass" could equally mean the emulator stopped
+ * enforcing the budget, and the check above would be a vacuous green. These three
+ * pin the ceilings the real rule lives under, using a throwaway ruleset — the real
+ * rules have no way to spend that many lookups, which is the point.
+ *
+ * Measured here: a single-document read allows 10 distinct lookups and refuses 11;
+ * a query refuses 21. (The emulator actually allows 20 for a query, but the docs
+ * say 10 for both, so that ceiling is deliberately not asserted — the rule budgets
+ * against 10 and this must not go red if the emulator ever aligns with the docs.)
+ */
+async function checkLookupBudgetIsEnforced() {
+  const lookups = (n: number) =>
+    Array.from(
+      { length: n },
+      (_, i) => `get(/databases/$(database)/documents/canary/d_${i}).data.ok == true`
+    ).join(" && ");
+
+  const budget = await initializeTestEnvironment({
+    projectId: "growline-rules-budget",
+    firestore: {
+      rules: `rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /overQuery/{id}  { allow read: if ${lookups(21)}; }
+    match /overSingle/{id} { allow read: if ${lookups(11)}; }
+    match /underBoth/{id}  { allow read: if ${lookups(10)}; }
+    match /{document=**}   { allow read, write: if false; }
+  }
+}`,
+      host: "127.0.0.1",
+      port: 8080,
+    },
+  });
+
+  await budget.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    for (let i = 0; i < 21; i++) await setDoc(doc(db, "canary", `d_${i}`), { ok: true });
+    for (const c of ["overQuery", "overSingle", "underBoth"]) {
+      await setDoc(doc(db, c, "x"), { n: 1 });
+    }
+  });
+
+  const db = budget.authenticatedContext(ROOT).firestore();
+  await check("canary: 21 distinct lookups in a query rule is over budget", () =>
+    assertFails(getDocs(collection(db, "overQuery")))
+  );
+  await check("canary: 11 distinct lookups in a single-document rule is over budget", () =>
+    assertFails(getDoc(doc(db, "overSingle", "x")))
+  );
+  await check("canary: 10 distinct lookups is inside both budgets", () =>
+    assertSucceeds(getDoc(doc(db, "underBoth", "x")))
+  );
+  await budget.cleanup();
+}
+
 async function main() {
   env = await initializeTestEnvironment({
     projectId: "growline-rules-test",
@@ -105,6 +164,10 @@ async function main() {
   );
 
   // ---- The toggle actually toggles ------------------------------------------
+  // These two carry a second job since /users was closed to clients: they prove the
+  // privacy rule's `get()` on that collection still resolves, because a `get()`
+  // inside a rule is not subject to the rules. If they ever fail together while the
+  // MANDATORY pair above still passes, suspect that, not the toggle.
   await check("upline CAN read a downline's prospect when the toggle is ON", () =>
     assertSucceeds(getDoc(doc(as(ROOT), "prospects", "p_asha")))
   );
@@ -143,11 +206,19 @@ async function main() {
     assertFails(getDoc(doc(as(ASHA), "dailyLogs", "l_bhav")))
   );
 
-  // ---- Users -----------------------------------------------------------------
-  await check("an upline reads a downline's user document", () =>
-    assertSucceeds(getDoc(doc(as(ROOT), "users", CHAN)))
+  // ---- Users are server-only -------------------------------------------------
+  // No browser code reads this collection — the team tree is built by the Admin
+  // SDK. Rules cannot grant single fields, so any read allowed here is the WHOLE
+  // document: phone, referralCode, plan, trialEndsAt, and shareProspects itself.
+  // These three are what stops that being reopened for the sake of a name and a
+  // photo; the fix they lock in is in the /users comment in firestore.rules.
+  await check("an upline CANNOT read a downline's user document", () =>
+    assertFails(getDoc(doc(as(ROOT), "users", CHAN)))
   );
-  await check("a stranger cannot read someone's user document", () =>
+  await check("nor can a coach read their own", () =>
+    assertFails(getDoc(doc(as(ASHA), "users", ASHA)))
+  );
+  await check("a stranger certainly cannot", () =>
     assertFails(getDoc(doc(as(OUTSIDER), "users", ASHA)))
   );
 
@@ -177,6 +248,48 @@ async function main() {
   await check("a coach cannot write a prospect directly", () =>
     assertFails(setDoc(doc(as(ASHA), "prospects", "p_new"), { coachId: ASHA }))
   );
+
+  // ---- Scale: the coach lookup is charged per request, not per document -------
+  /**
+   * Everything above ran against a one-prospect-per-coach fixture, and a
+   * one-document fixture cannot tell you what the privacy rule's `get()` costs.
+   * Read the rule as "runs once per returned document" and you conclude the shared
+   * listing starts failing somewhere around ten prospects — a coach's first week.
+   * It does not: a query is evaluated once, against its own constraints, so the
+   * single bound `coachId` resolves one `/users` document however many prospects
+   * come back. See the accounting note on the prospects rule.
+   *
+   * 26 documents is well past where the per-document reading predicts
+   * permission-denied, and the mandatory denial is re-run at the same size — a
+   * cheap fix for a cap that does not exist would be to move the toggle out of the
+   * rules and into query constraints, and this is the check that would catch it.
+   */
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    for (let i = 0; i < 25; i++) {
+      await setDoc(doc(db, "prospects", `bulk_asha_${i}`), {
+        coachId: ASHA, coachUplinePath: [ROOT],
+        name: `Asha prospect ${i}`, phone: `+9192222${String(i).padStart(5, "0")}`,
+      });
+      await setDoc(doc(db, "prospects", `bulk_bhav_${i}`), {
+        coachId: BHAV, coachUplinePath: [ROOT],
+        name: `Bhavana prospect ${i}`, phone: `+9193333${String(i).padStart(5, "0")}`,
+      });
+    }
+  });
+
+  await check("a 26-document shared listing still passes — one lookup, not one per row", () =>
+    assertSucceeds(
+      getDocs(query(collection(as(ROOT), "prospects"), where("coachId", "==", ASHA)))
+    )
+  );
+  await check("MANDATORY at scale: 26 documents with the toggle off are still refused", () =>
+    assertFails(
+      getDocs(query(collection(as(ROOT), "prospects"), where("coachId", "==", BHAV)))
+    )
+  );
+
+  await checkLookupBudgetIsEnforced();
 
   await env.cleanup();
   console.log(
