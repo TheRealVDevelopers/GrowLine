@@ -1,0 +1,114 @@
+name: CI
+
+# Everything here already existed as an npm script and ran only when somebody
+# remembered. That is the gap this closes: 21 e2e tests and 43 Security Rules checks
+# are worth nothing as a safety net if they are optional. BUILD_PROMPT_V2 §5.7 makes
+# the rules test MANDATORY, and "mandatory" has to mean a machine enforces it.
+#
+# One job, not several. The suites share a Firebase emulator and a seeded database, so
+# splitting them across jobs would mean booting and seeding twice to save no wall
+# clock. Every step blocks the merge — there is no advisory step here, because a check
+# nobody has to pass is a check nobody reads.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# A second push to the same branch makes the first run irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      # NEXT_PUBLIC_* values are INLINED AT BUILD TIME, so they must be set before the
+      # build step, not just before the tests. Getting this wrong produces a build that
+      # talks to a real project while the server talks to the emulator — the exact
+      # silent failure .env.example warns about, where nothing errors and the realtime
+      # row simply never arrives.
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: growline-dev
+      NEXT_PUBLIC_FIREBASE_API_KEY: fake-api-key
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: growline-dev.firebaseapp.com
+      NEXT_PUBLIC_FIREBASE_APP_ID: 1:0:web:0
+      NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+      NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
+      FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
+      FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+      # Legacy SQLite, still the migration script's source until the cutover completes.
+      DATABASE_URL: file:./dev.db
+      SESSION_SECRET: ci-not-a-secret
+      # FIREBASE_SERVICE_ACCOUNT is deliberately UNSET. Both emulator hosts are set, so
+      # the boot guard (D45) requires the credential to be absent — setting it here
+      # would make the app refuse to start, which is the guard working correctly.
+      #
+      # The VAPID keys are also deliberately unset: `isPushConfigured()` then returns
+      # false and the push fan-out is skipped, so CI never tries to deliver a real
+      # notification. If push logic ever needs covering, it needs a fake, not a key.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # The Firestore emulator is a Java process. ubuntu-latest ships a JDK, but
+      # pinning it means an image change cannot break the build silently.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - run: npm ci
+
+      # --- Cheap and fast first: these need no services, so a typo fails in seconds
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:unit
+
+      - run: npm run build
+
+      # --- Browser for the e2e suite
+      #
+      # playwright.config.ts resolves Chromium per machine: PW_CHROMIUM_PATH, then a
+      # container path, then the installed Chrome channel. Setting the explicit path is
+      # what stops CI depending on whichever Chrome the runner image happens to carry.
+      - run: npx playwright install --with-deps chromium
+      - name: Resolve the Chromium path for playwright.config
+        run: |
+          PW_PATH="$(node -e "console.log(require('playwright-core').chromium.executablePath())")"
+          test -x "$PW_PATH" || { echo "Chromium not executable at: $PW_PATH"; exit 1; }
+          echo "PW_CHROMIUM_PATH=$PW_PATH" >> "$GITHUB_ENV"
+          echo "Using Chromium at $PW_PATH"
+
+      # --- Everything that needs the emulators
+      #
+      # `emulators:exec` boots auth and firestore, runs the script, then tears them
+      # down and fails the job on a non-zero exit. The seeding, the rules tests and the
+      # e2e run all live inside that one lifetime because they share the instance.
+      - name: Integration suites against the Firebase emulators
+        run: >
+          npx firebase emulators:exec
+          --only auth,firestore
+          --project growline-dev
+          "bash .github/scripts/ci-integration.sh"
+
+      # Traces and screenshots are the only way to diagnose a failure that does not
+      # reproduce locally — which, on this project, has been most of them.
+      - name: Upload Playwright artefacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore

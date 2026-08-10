@@ -1117,3 +1117,51 @@ that reproduced it.
 The general lesson, since this shape has now cost two debugging cycles on this branch:
 `toBeVisible()` on a possibly-duplicated locator tests the renderer's transient state,
 not the property you meant. Assert the property.
+
+## D53 — CI, and a unit-test runner that costs nothing (2026-08-10, v2.3)
+
+There was no `.github` directory. 21 e2e tests and 43 Security Rules checks existed and
+ran when somebody remembered — which is not a safety net, and BUILD_PROMPT_V2 §5.7 calls
+the rules test MANDATORY. "Mandatory" has to mean a machine enforces it.
+
+**One job, not several.** The suites share one Firebase emulator and one seeded
+database, so splitting them would mean booting and seeding twice to save no wall clock.
+Every step blocks: there is no advisory step, because a check nobody has to pass is a
+check nobody reads.
+
+**The unit runner is `node --test` via `tsx`, adding zero packages.** Node has shipped a
+test runner since 20 and `tsx` was already a dependency for the seed and migration
+scripts. On a project with a stated infra budget (v1 §10) that installs from lockfile on
+every push, a runner that adds nothing to `node_modules` is the right default. Vitest
+earns its place the day something needs jsdom or module mocking; the pure modules under
+test need neither, because they are pure.
+
+**Three things that would each have made this fail only in CI:**
+
+1. `NEXT_PUBLIC_*` values are inlined at BUILD time, so they are set at job level rather
+   than before the test step. Set them late and the built bundle talks to a real project
+   while the server talks to the emulator — the silent failure `.env.example` warns
+   about, where nothing errors and the realtime row just never arrives.
+2. `FIREBASE_SERVICE_ACCOUNT` is deliberately **unset**, because both emulator hosts are
+   set and the D45 boot guard refuses that combination. A credential added here "for
+   completeness" would stop the app booting, which is the guard working.
+3. Chromium is resolved explicitly into `PW_CHROMIUM_PATH` rather than falling through
+   to `playwright.config`'s `channel: "chrome"` branch, so CI does not depend on
+   whichever Chrome the runner image happens to ship.
+
+**The integration script uses `e2e:reset`, not a bare `migrate:firestore`,** even though
+CI always starts from an empty emulator where the reset is a no-op. That is what makes
+`bash .github/scripts/ci-integration.sh` a faithful local rehearsal — and it is not
+theoretical: run it against emulators that have been up all afternoon and without the
+reset it fails on a migrate MISMATCH, exactly the D44 trap. A CI script you can only
+debug by pushing is a CI script you will not debug.
+
+Rehearsed locally end to end before committing: exit 0, collections match,
+`migrate:verify` all-pass, 43 rules checks, server up, 21 e2e passed. **What is still
+unverified is everything GitHub-specific** — the runner image, `setup-java`,
+`emulators:exec` under Actions, and artefact upload. The first real run is the test of
+those, and it is expected to need a fix or two.
+
+**CI still cannot catch a missing composite index** (D42). The emulator creates them on
+demand. Nothing in this workflow changes that, and it must not be mistaken for
+coverage.

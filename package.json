@@ -12,6 +12,7 @@
     "db:seed": "tsx scripts/seed-sqlite.ts",
     "migrate:firestore": "tsx scripts/migrate-to-firestore.ts",
     "migrate:verify": "tsx scripts/verify-migration.ts",
+    "test:unit": "node --import tsx --test \"tests/**/*.test.ts\"",
     "e2e": "playwright test",
     "e2e:reset": "tsx scripts/reset-emulators.ts && npm run migrate:firestore",
     "test:rules": "tsx e2e/rules.test.ts"
