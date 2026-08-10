@@ -2,18 +2,24 @@
 
 import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
 import { connectAuthEmulator, getAuth, type Auth } from "firebase/auth";
+import {
+  connectFirestoreEmulator,
+  getFirestore,
+  type Firestore,
+} from "firebase/firestore";
 
 /**
- * Browser-side Firebase. Auth only.
+ * Browser-side Firebase: Auth, and — since v2.1b — a read-only Firestore.
  *
- * Firestore is deliberately NOT exported here. Every read and write still goes
- * through API routes and server components using the Admin SDK (DECISIONS.md D1,
- * D38), and `firestore.rules` denies all client access until v2.1b. Importing the
- * client Firestore SDK here would be the first step toward quietly bypassing that.
+ * Every **write** still goes through API routes using the Admin SDK (D1, D38), and
+ * `firestore.rules` denies client writes everywhere. The client Firestore exists
+ * for one thing: listening. v2 §3 asks for QR submissions to appear without a
+ * refresh, and a listener is the only way to do that without polling — which v1
+ * §4.4 rules out, because background polling burns data on the cheap plans this
+ * audience uses (D10).
  *
- * Phone auth is the one thing that MUST happen in the browser: Firebase issues the
- * SMS and solves the reCAPTCHA client-side, then hands back an ID token that the
- * server verifies.
+ * Phone auth MUST happen in the browser: Firebase issues the SMS and solves the
+ * reCAPTCHA client-side, then hands back an ID token the server verifies.
  */
 
 const config = {
@@ -51,3 +57,25 @@ export function firebaseAuth(): Auth {
 export const usingAuthEmulator = Boolean(
   process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST
 );
+
+let cachedDb: Firestore | null = null;
+
+/**
+ * Read-only Firestore for listeners.
+ *
+ * Reads are governed by `firestore.rules`, which for prospects requires the query
+ * be filtered to a single `coachId` — so a listener must always constrain by the
+ * signed-in coach. That is not a workaround; it is the shape the privacy rule
+ * serves, verified in the rules tests.
+ */
+export function firebaseDb(): Firestore {
+  if (cachedDb) return cachedDb;
+  const store = getFirestore(firebaseApp());
+  const emulator = process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST;
+  if (emulator) {
+    const [host, port] = emulator.split(":");
+    connectFirestoreEmulator(store, host, Number(port));
+  }
+  cachedDb = store;
+  return store;
+}

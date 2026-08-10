@@ -4,6 +4,7 @@ import { listProspectsByCoach } from "@/lib/prospects";
 import { getSessionUser } from "@/lib/session";
 import { bucketFollowup, describeFollowup } from "@/lib/followup";
 import ProspectList, { type ProspectRow } from "./ProspectList";
+import RealtimeProspects from "@/components/RealtimeProspects";
 
 export default async function ProspectsPage() {
   const user = await getSessionUser();
@@ -23,6 +24,7 @@ export default async function ProspectsPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <RealtimeProspects />
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Prospects</h1>
         <Link

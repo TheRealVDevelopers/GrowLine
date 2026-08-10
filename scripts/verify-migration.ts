@@ -96,8 +96,11 @@ async function main() {
     q.id === `${q.data().coachId}__${q.data().clientId}`, q.id);
 
   const qr = await db.collection(COLLECTIONS.prospects).where("source", "==", "qr").get();
-  check("QR self-fill kept an id with no clientId component",
-    qr.docs.length === 1 && qr.docs[0].data().clientId === null);
+  // The invariant, not the count: e2e runs add QR prospects to this emulator, and
+  // asserting "exactly one" made this fail for the wrong reason.
+  check("every QR self-fill has an id with no clientId component",
+    qr.docs.length >= 1 && qr.docs.every((d) => d.data().clientId === null),
+    `${qr.docs.length} QR prospect(s)`);
 
   // --- Privacy: the data the v2.1b rules test will need -----------------------
   const share = (await db.collection(COLLECTIONS.users).doc(ASHA).get()).data()!.shareProspects;
@@ -112,12 +115,17 @@ async function main() {
   // --- team.ts on Firestore: the groupBy replacement, end to end --------------
   const tree = await buildTeamTree(ROOT);
   check("team tree builds from the root", tree !== null);
-  check("level 1 has both directs", tree?.children.length === 2,
+  const level1 = tree?.children.map((c) => c.id) ?? [];
+  check("level 1 contains both seeded directs",
+    level1.includes(ASHA) && level1.includes(BHAV),
     tree?.children.map((c) => c.name).join(", "));
 
   const ashaNode = tree?.children.find((c) => c.id === ASHA);
+  // Again the invariant: Chandan hangs off Asha. The e2e signup legitimately adds
+  // another child, so a count assertion here tested the fixture, not the tree.
   check("level 2 renders under the right parent",
-    ashaNode?.children.length === 1 && ashaNode.children[0].id === CHAN);
+    ashaNode?.children.some((c) => c.id === CHAN) === true,
+    `${ashaNode?.children.length} child(ren)`);
 
   // Asha logged 4 days, one of them 31 July. Only 3 fall in the current month.
   check("logsThisMonth excludes last month", ashaNode?.logsThisMonth === 3,
@@ -129,7 +137,8 @@ async function main() {
   check("targetPct derived from the numbers", ashaNode?.targetPct === 105,
     `${ashaNode?.targetPct}%`);
 
-  check("directCount comes from the materialised counter", tree?.directCount === 2);
+  check("directCount comes from the materialised counter and matches the tree",
+    tree?.directCount === tree?.children.length, `counter=${tree?.directCount}`);
   check("hasMore false when children are rendered", ashaNode?.hasMore === false);
 
   check("isInDownline finds a grandchild", await isInDownline(ROOT, CHAN));
