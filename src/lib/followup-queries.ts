@@ -1,12 +1,23 @@
-import { prisma } from "./db";
+import { Timestamp } from "firebase-admin/firestore";
+import { prospects } from "./collections";
 import { APP_TIMEZONE, todayRange } from "./day";
 
 /**
  * Database side of follow-ups. Split from followup.ts so client components can use
- * the date and copy helpers without pulling the SQLite driver into the browser
- * bundle — importing `./db` from anything a "use client" file touches breaks the
- * build with "Can't resolve 'fs'".
+ * the date and copy helpers without pulling the server data layer into the browser
+ * bundle (D25).
  */
+
+/**
+ * In Firestore's type ordering, **null sorts before every timestamp**. So a plain
+ * `where("nextFollowupAt", "<", start)` matches every prospect with NO follow-up
+ * date at all, and the overdue count silently becomes "everyone the coach has
+ * ever met".
+ *
+ * Prisma expressed this as `{ not: null, lt: start }`. The Firestore equivalent is
+ * a lower bound above null — two inequalities on the same field, which is allowed.
+ */
+const NOT_NULL = Timestamp.fromMillis(0);
 
 /**
  * Counts for the home screen and the morning reminder.
@@ -21,13 +32,22 @@ export async function followupCounts(
   now = new Date()
 ) {
   const { start, end } = todayRange(timeZone, now);
+  const base = prospects().where("coachId", "==", coachId);
+
   const [overdue, today] = await Promise.all([
-    prisma.prospect.count({
-      where: { coachId, nextFollowupAt: { not: null, lt: start } },
-    }),
-    prisma.prospect.count({
-      where: { coachId, nextFollowupAt: { gte: start, lt: end } },
-    }),
+    base
+      .where("nextFollowupAt", ">=", NOT_NULL)
+      .where("nextFollowupAt", "<", Timestamp.fromDate(start))
+      .count()
+      .get(),
+    base
+      .where("nextFollowupAt", ">=", Timestamp.fromDate(start))
+      .where("nextFollowupAt", "<", Timestamp.fromDate(end))
+      .count()
+      .get(),
   ]);
-  return { overdue, today, due: overdue + today };
+
+  const o = overdue.data().count;
+  const t = today.data().count;
+  return { overdue: o, today: t, due: o + t };
 }

@@ -11,6 +11,7 @@ import "dotenv/config";
 import { auth, db } from "../src/lib/firebase-admin";
 import { COLLECTIONS, dailyLogDocId, reportDocId } from "../src/lib/collections";
 import { buildTeamTree, isInDownline } from "../src/lib/team";
+import { followupCounts } from "../src/lib/followup-queries";
 
 const ROOT = "usr_root0000000000000000";
 const ASHA = "usr_asha0000000000000000";
@@ -127,6 +128,16 @@ async function main() {
   check("isInDownline finds a grandchild", await isInDownline(ROOT, CHAN));
   check("isInDownline rejects a sibling", (await isInDownline(BHAV, CHAN)) === false);
   check("isInDownline treats a user as their own line", await isInDownline(ASHA, ASHA));
+
+  // --- follow-up counts: null must not sort as "overdue" ----------------------
+  // Asha has Meera (follow-up 2026-08-11, future) and Ravi (no follow-up at all).
+  // In Firestore's type ordering null sorts BEFORE every timestamp, so a plain
+  // "< today" range would count Ravi as overdue. Zero is the proof it does not.
+  const counts = await followupCounts(ASHA, "Asia/Kolkata", new Date("2026-08-09T12:00:00Z"));
+  check("prospects with no follow-up date are not counted overdue",
+    counts.overdue === 0, `overdue=${counts.overdue}`);
+  check("a future follow-up is not counted as due today",
+    counts.today === 0, `today=${counts.today}`);
 
   console.log(failures === 0 ? "\nAll checks passed.\n" : `\n${failures} check(s) FAILED.\n`);
   if (failures > 0) process.exitCode = 1;
