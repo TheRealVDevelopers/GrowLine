@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { listProspectsByCoach } from "@/lib/prospects";
 import { getSessionUser } from "@/lib/session";
 import { bucketFollowup, describeFollowup } from "@/lib/followup";
 import ProspectList, { type ProspectRow } from "./ProspectList";
@@ -9,23 +9,7 @@ export default async function ProspectsPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
-  const rows = await prisma.prospect.findMany({
-    where: { coachId: user.id },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      name: true,
-      phone: true,
-      age: true,
-      gender: true,
-      heightCm: true,
-      weightKg: true,
-      stage: true,
-      source: true,
-      createdAt: true,
-      nextFollowupAt: true,
-    },
-  });
+  const rows = await listProspectsByCoach(user.id);
 
   const prospects: ProspectRow[] = rows.map((p) => ({
     ...p,

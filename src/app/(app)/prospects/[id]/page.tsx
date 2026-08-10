@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { getProspectForCoach } from "@/lib/prospects";
 import { siteUrl } from "@/lib/site-url";
 import { getSessionUser } from "@/lib/session";
 import { computeWellness, reportEligibility, type Gender } from "@/lib/wellness";
@@ -23,23 +23,7 @@ export default async function ProspectDetailPage({
   if (!user) redirect("/login");
 
   const { id } = await params;
-  const prospect = await prisma.prospect.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      coachId: true,
-      name: true,
-      phone: true,
-      age: true,
-      gender: true,
-      heightCm: true,
-      weightKg: true,
-      source: true,
-      stage: true,
-      nextFollowupAt: true,
-      notes: true,
-    },
-  });
+  const prospect = await getProspectForCoach(id, user.id);
   if (!prospect || prospect.coachId !== user.id) notFound();
 
   const inputs = {

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 import { daysUntil, todayHeading } from "@/lib/dates";
 import { followupCounts } from "@/lib/followup-queries";
@@ -18,9 +17,12 @@ export default async function HomePage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
-  const [directCount, followups, logState, myTarget, proofsToAnswer, proofsToReview] =
+  // directDownlineCount is materialised on the user document, maintained in the
+  // same transaction as the signup that creates a downline — Firestore cannot
+  // count children, and this page should not pay for a query to find out.
+  const directCount = user.directDownlineCount;
+  const [followups, logState, myTarget, proofsToAnswer, proofsToReview] =
     await Promise.all([
-      prisma.user.count({ where: { uplineId: user.id } }),
       followupCounts(user.id),
       getLogState(user.id),
       getMyTarget(user.id, currentMonth()),
