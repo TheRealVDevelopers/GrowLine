@@ -1796,3 +1796,66 @@ play: the report's *content* is still immutable, only its typography moved.
 
 Adding a script is one row in `SCRIPTS`, two files, and one line in the test table.
 The `console.warn` in `sanitise` is the signal that one is needed.
+
+## D67 — the Streak Shield: one isolated day a month, and it does not count (2026-08-11, v2.2a)
+
+D58 filed this as three `todo` tests because v2 §4 dopamine map #1 requires "one auto
+grace-day per month so a single miss doesn't kill motivation" and nothing implemented
+it. `StreakFlame` even accepted a `shieldUsed` prop and rendered copy for it, but
+nothing passed it — UI text for a state that could not occur. It occurs now.
+
+### Three rules, and where each line sits
+
+**Keyed to the month of the day that was MISSED, not the month the coach is standing
+in.** A miss on 28 July and a miss on 3 August are two allowances and both are
+absorbed; two misses in August are one allowance and the second breaks the run. This
+is the reading that makes "per month" mean anything as you walk backwards through a
+long history.
+
+**One shield covers one isolated day, never two in a row** — not even across a month
+boundary, where two allowances are technically in reach. "A single miss" is the day
+somebody was ill or travelling. A mechanic that sometimes bridges two days is one no
+coach can predict, and an unpredictable streak stops being worth keeping.
+
+**A shielded day does not COUNT, it only fails to break the run.** This is Duolingo's
+freeze, which v2 §4 cites by name: the streak survives, the number does not advance.
+Eleven logged days across a twelve-day span reads as 11.
+
+**Derived, never stored.** The shield is computed from the logged days on every read.
+No allowance field, no monthly reset job, nothing that can drift out of step with the
+logs it describes — and no new way to manufacture a streak, since `MAX_BACKFILL_DAYS`
+still governs what can be written.
+
+### The assertion in D58 that had to change, and why it is recorded here
+
+D58 said its three tests were "implementation-agnostic … so they should start passing
+when the mechanic lands, without being rewritten". Two did. The third did not, and the
+reason is worth keeping.
+
+`allowance resets each calendar month` asserted
+`streak >= daysBetweenKeys("2026-07-20", today) + 1` — the inclusive **span**, 17. That
+is not agnostic: it silently requires shielded days to count toward the number, which
+rules out the Duolingo behaviour the spec names. Fifteen days were logged in that
+fixture. Printing 17 would credit a coach with two days they know perfectly well they
+missed, on a screen whose whole value is that its numbers can be trusted.
+
+So the assertion now pins what the test is named for — that July's allowance is back in
+August, checked against the seven days the run would have reached without it — and
+states the counting rule outright instead of encoding it in arithmetic. **Changing a
+test written as a spec marker is exactly the move D58 warned about**, which is why it
+is here in full rather than in a commit message.
+
+Two older tests also changed, and those are ordinary consequences rather than
+judgement calls: `the streak breaks only once a whole day has passed unlogged` and
+`a gap in the middle stops the count at the gap` both encoded the no-shield contract.
+Both now assert the shield absorbing the first gap AND the run still stopping at the
+second, so the property each was protecting is still protected.
+
+### What the coach sees
+
+`getLogState` returns `shieldUsed` and `log/page.tsx` passes it, so the existing
+"Shield used this month — keep going" copy finally fires. It is deliberately about the
+current month only: a shield spent in July is not a warning to give somebody in August.
+
+The flame is unchanged otherwise. Losing a streak must never feel like punishment
+(v2 §4), and the copy says the shield caught it rather than that a day was lost.

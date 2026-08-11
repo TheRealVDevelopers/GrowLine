@@ -29,12 +29,16 @@ export default async function LogPage() {
            * ten-day streak as already lost, which is the exact outcome D27 was
            * written to prevent.
            *
-           * Whenever this renders, the streak IS live: `streakFromKeys` anchors on
+           * Whenever this renders, the streak IS live: `streakState` anchors on
            * today OR yesterday, so it already returns 0 once a whole day has lapsed,
            * and the `streak > 0` guard above means a broken streak shows no flame at
            * all. There is nothing left for this prop to express here.
+           *
+           * `shieldUsed` is what the Streak Shield tells the coach: the miss was
+           * caught, and this month's grace day is now spent. Before D67 nothing ever
+           * passed it and the copy described a state that could not occur.
            */
-          <StreakFlame days={state.streak} />
+          <StreakFlame days={state.streak} shieldUsed={state.shieldUsed} />
         )}
       </div>
       <LogForm

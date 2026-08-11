@@ -22,6 +22,7 @@ import {
   milestoneMessage,
   shiftKey,
   streakFromKeys,
+  streakState,
   todayKey,
   totalActivity,
   type DailyLogValues,
@@ -545,15 +546,30 @@ test("an unlogged today measures the streak from yesterday instead of zeroing it
 });
 
 test("the streak breaks only once a whole day has passed unlogged", () => {
-  // Today missing is tolerated; today AND yesterday missing is not. That is the line
-  // D27 draws, and it is the difference between forgiveness and a lie.
-  assert.equal(streakFromKeys(run(TODAY, 2, 11), TODAY), 0);
+  // D27's line: today missing is tolerated, because a coach opening the app at 4pm
+  // has not lost anything yet.
+  assert.equal(streakFromKeys(run(TODAY, 1, 10), TODAY), 10);
+
+  // Today AND yesterday missing used to be a hard zero here. Since D67 that is the
+  // Streak Shield's job — one miss a month is absorbed. The line D27 drew has not
+  // moved; the shield sits in front of it.
+  assert.equal(streakFromKeys(run(TODAY, 2, 11), TODAY), 10);
+
+  // With this month's allowance already spent, the zero is back.
+  const spent = [...run(TODAY, 2, 3), ...run(TODAY, 6, 12)]; // 08-19 and 08-16..15 gone
+  assert.equal(streakFromKeys(spent, TODAY), 2);
 });
 
-test("a gap in the middle stops the count at the gap", () => {
-  // Logged today, yesterday, then nothing the day before that.
+test("a gap in the middle stops the count once the allowance is gone", () => {
+  // Logged today, yesterday, then nothing the day before that. The shield covers
+  // that single day, so the run continues through it (D67).
   const keys = [...run(TODAY, 0, 1), ...run(TODAY, 3, 9)];
-  assert.equal(streakFromKeys(keys, TODAY), 2);
+  assert.equal(streakFromKeys(keys, TODAY), 9);
+
+  // A second gap in the same month is where it stops — and it stops AT the gap,
+  // which is the property this test was written for.
+  const twoGaps = [...run(TODAY, 0, 1), ...run(TODAY, 3, 4), ...run(TODAY, 6, 12)];
+  assert.equal(streakFromKeys(twoGaps, TODAY), 4, "the 20th, 19th, 17th and 16th");
 });
 
 test("streaks cross month, year and leap boundaries", () => {
@@ -617,77 +633,120 @@ test("loggedToday is the live signal, independent of the streak length", () => {
 // ---------------------------------------------------------------------------
 
 /**
- * These three are marked `todo` because the mechanic is NOT BUILT.
+ * These were `todo` while the mechanic did not exist (D58). It exists now (D67), so
+ * the flags are gone and they are ordinary tests.
  *
  * v2 §4 dopamine map #1: "**Streak Shield:** one auto grace-day per month so a single
- * miss doesn't kill motivation … the shield absorbs it once." `src/lib/daily-log.ts`
- * has no allowance, no month bookkeeping and no grace day — `streakFromKeys` (line
- * 91) stops at the first key it does not find. `StreakFlame` accepts a `shieldUsed`
- * prop (StreakFlame.tsx:32,37) and renders copy for it (line 63), but nothing ever
- * passes it: `log/page.tsx:24` supplies only `days` and `live`, so the prop is dead
- * and the shield exists only as UI text for a state that cannot occur.
+ * miss doesn't kill motivation … the shield absorbs it once."
  *
- * They are written as `todo` rather than deleted, and rather than inverted into tests
- * that assert the current no-shield behaviour, on purpose. A passing test saying "one
- * miss ends the streak" would read as a decision, and the next person would treat it
- * as the spec. `node --test` runs these, reports them under `todo`, and exits 0 — so
- * CI stays green while the gap stays loud. Drop the `todo` flag when the mechanic
- * lands; the assertions are deliberately implementation-agnostic (they say "more than
- * the no-shield answer", not "exactly N"), so whatever shape the shield takes, these
- * should start passing without being rewritten to match it.
+ * One assertion below changed on the way in, and the reason is recorded rather than
+ * quietly applied — see the note on `allowance resets each calendar month`.
  */
 
-test(
-  "Streak Shield absorbs a single missed day",
-  { todo: "v2 §4 dopamine map #1 — not implemented; streakFromKeys breaks at the first gap" },
-  () => {
-    // Logged 9-18 August and today the 20th; missed only the 19th. The shield is
-    // supposed to cover that one day, so the streak should still reach back past it.
-    const keys = [TODAY, ...run(TODAY, 2, 11)];
-    const withoutShield = 1; // today alone — what a hard break yields
-    assert.ok(
-      streakFromKeys(keys, TODAY) > withoutShield,
-      "one miss inside a month must not reset a twelve-day habit to one"
-    );
-  }
-);
+test("Streak Shield absorbs a single missed day", () => {
+  // Logged 9-18 August and today the 20th; missed only the 19th. The shield covers
+  // that one day, so the run reaches back past it.
+  const keys = [TODAY, ...run(TODAY, 2, 11)];
+  const withoutShield = 1; // today alone — what a hard break yields
+  assert.ok(
+    streakFromKeys(keys, TODAY) > withoutShield,
+    "one miss inside a month must not reset a twelve-day habit to one"
+  );
+  // Eleven days were logged across a twelve-day span. The shielded day is not one
+  // of them: the shield stops the run breaking, it does not award a day.
+  assert.equal(streakFromKeys(keys, TODAY), 11);
+});
 
-test(
-  "Streak Shield covers one day per month, not every day",
-  { todo: "v2 §4 dopamine map #1 — no per-month allowance exists to exhaust" },
-  () => {
-    // Two misses in the same calendar month: the 19th and the 16th. The first is
-    // absorbed, the second is not, so the streak must stop at the second gap — longer
-    // than one day, and shorter than the whole unbroken run back to the 1st.
-    const keys = [TODAY, ...run(TODAY, 2, 3), ...run(TODAY, 5, 19)];
-    const streak = streakFromKeys(keys, TODAY);
-    assert.ok(streak > 1, "the first miss should have been absorbed");
-    assert.ok(streak < 15, "the second miss in the same month must break the streak");
-  }
-);
+test("Streak Shield covers one day per month, not every day", () => {
+  // Two misses in the same calendar month: the 19th and the 16th. The first is
+  // absorbed, the second is not, so the streak must stop at the second gap — longer
+  // than one day, and shorter than the whole unbroken run back to the 1st.
+  const keys = [TODAY, ...run(TODAY, 2, 3), ...run(TODAY, 5, 19)];
+  const streak = streakFromKeys(keys, TODAY);
+  assert.ok(streak > 1, "the first miss should have been absorbed");
+  assert.ok(streak < 15, "the second miss in the same month must break the streak");
+  assert.equal(streak, 3, "the 20th, the 18th and the 17th");
+});
 
-test(
-  "Streak Shield allowance resets each calendar month",
-  { todo: "v2 §4 dopamine map #1 — no month bookkeeping exists to reset" },
-  () => {
-    // One miss in August (the 3rd) and one in July (the 28th), with a run of days
-    // either side. Both fall in different months, so both should be absorbed and the
-    // streak should reach back to 20 July.
-    const today = "2026-08-05";
-    const logged = [
-      "2026-08-05", "2026-08-04", /* 08-03 missed */ "2026-08-02", "2026-08-01",
-      "2026-07-31", "2026-07-30", "2026-07-29", /* 07-28 missed */ "2026-07-27",
-      "2026-07-26", "2026-07-25", "2026-07-24", "2026-07-23", "2026-07-22",
-      "2026-07-21", "2026-07-20",
-    ];
-    const spanToJuly20 = daysBetweenKeys("2026-07-20", today) + 1; // 17 days inclusive
-    assert.equal(spanToJuly20, 17);
-    assert.ok(
-      streakFromKeys(logged, today) >= spanToJuly20,
-      "a shield spent in July must be back by August"
-    );
-  }
-);
+test("Streak Shield allowance resets each calendar month", () => {
+  // One miss in August (the 3rd) and one in July (the 28th), with a run of days
+  // either side. Both fall in different months, so both are absorbed and the run
+  // reaches back to 20 July.
+  const today = "2026-08-05";
+  const logged = [
+    "2026-08-05", "2026-08-04", /* 08-03 missed */ "2026-08-02", "2026-08-01",
+    "2026-07-31", "2026-07-30", "2026-07-29", /* 07-28 missed */ "2026-07-27",
+    "2026-07-26", "2026-07-25", "2026-07-24", "2026-07-23", "2026-07-22",
+    "2026-07-21", "2026-07-20",
+  ];
+
+  // WHAT CHANGED, AND WHY (D67). This assertion used to read
+  // `>= daysBetweenKeys("2026-07-20", today) + 1`, i.e. >= 17 — the inclusive SPAN
+  // from 20 July to 5 August. That silently required shielded days to count toward
+  // the number, and D58 wrote it believing it was implementation-agnostic. It is not:
+  // it rules out the Duolingo behaviour that v2 §4 cites by name, where a freeze
+  // preserves the streak without incrementing it. Fifteen days were logged; printing
+  // 17 would credit the coach for two days they know they missed. So the assertion
+  // now pins the thing the test was actually named for — that July's allowance is
+  // back in August — and states the counting rule explicitly.
+  const reachedJuly20 = logged.length; // 15 logged days, back to 2026-07-20
+  assert.equal(streakFromKeys(logged, today), reachedJuly20);
+
+  // Without July's allowance the run would have stopped at the 28th — seven days.
+  // That is the comparison the name of this test is about.
+  assert.ok(streakFromKeys(logged, today) > 7, "a shield spent in July must be back by August");
+});
+
+test("a shield never bridges two missed days in a row", () => {
+  // Not even across a month boundary, where two allowances are technically
+  // available. "One auto grace-day so a single miss doesn't kill motivation" is
+  // about the day somebody was ill — a two-day gap is a lapse, and a mechanic that
+  // sometimes covers two days is one nobody can predict.
+  const keys = [TODAY, ...run(TODAY, 3, 12)]; // the 19th AND the 18th missed
+  assert.equal(streakFromKeys(keys, TODAY), 1, "today alone");
+
+  const acrossMonths = [
+    "2026-08-02", "2026-08-01", /* 07-31 and 07-30 missed */ "2026-07-29", "2026-07-28",
+  ];
+  assert.equal(streakFromKeys(acrossMonths, "2026-08-02"), 2);
+});
+
+test("the shield reaches the anchor, so yesterday's miss does not zero the streak", () => {
+  // Today unlogged (fine, D27) and yesterday missed. Before the shield this was a
+  // hard zero at IST midnight — the exact "punishment" v2 §4 rules out.
+  const keys = run(TODAY, 2, 11); // the 18th back to the 9th; the 19th missed
+  assert.equal(streakFromKeys(keys, TODAY), 10);
+
+  // But a spent allowance is spent: add a second August gap and it breaks.
+  const spent = [...run(TODAY, 2, 3), ...run(TODAY, 5, 11)];
+  assert.equal(streakFromKeys(spent, TODAY), 2, "the 18th and the 17th");
+});
+
+test("streakState reports whether THIS month's shield is gone", () => {
+  // The flame's "Shield used this month" copy hangs off this, and it is about the
+  // month the coach is standing in — not about whether any shield was ever spent.
+  const clean = streakState([TODAY, ...run(TODAY, 1, 10)], TODAY);
+  assert.equal(clean.days, 11);
+  assert.equal(clean.shieldUsed, false);
+  assert.deepEqual(clean.shieldedKeys, []);
+  assert.equal(clean.live, true);
+
+  const usedThisMonth = streakState([TODAY, ...run(TODAY, 2, 11)], TODAY);
+  assert.equal(usedThisMonth.shieldUsed, true);
+  assert.deepEqual(usedThisMonth.shieldedKeys, ["2026-08-19"]);
+
+  // Spent in July only: August's is still there, so the coach is not warned.
+  const july = streakState(
+    ["2026-08-02", "2026-08-01", "2026-07-31", /* 07-30 */ "2026-07-29", "2026-07-28"],
+    "2026-08-02"
+  );
+  assert.equal(july.shieldUsed, false, "July's spend is not August's problem");
+  assert.deepEqual(july.shieldedKeys, ["2026-07-30"]);
+
+  // A dead streak is dead: no flame, no shield claim.
+  const dead = streakState(["2026-07-01"], TODAY);
+  assert.deepEqual(dead, { days: 0, shieldUsed: false, live: false, shieldedKeys: [] });
+});
 
 // ---------------------------------------------------------------------------
 // daily-log.ts — limits and the field ceiling

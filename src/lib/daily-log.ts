@@ -74,25 +74,95 @@ export function daysBetweenKeys(fromKey: string, toKey: string): number {
 }
 
 /**
- * Consecutive days logged, counting back from today.
+ * The Streak Shield (v2 §4, dopamine map #1): one automatic grace day per calendar
+ * month, so a single miss does not kill a habit the coach has been keeping.
  *
- * If today has no log yet the streak is measured from yesterday, so a coach who
+ * ## Three rules, and why each is where the line sits
+ *
+ * **One day, per calendar month, keyed to the month of the day that was MISSED** —
+ * not to the month the coach is standing in. A miss on 28 July and a miss on 3
+ * August are two different months' allowances and both are absorbed; two misses in
+ * August are not.
+ *
+ * **A shield covers a single isolated day, never two in a row.** "One auto grace-day
+ * so a single miss doesn't kill motivation" is about the day somebody was ill or
+ * travelling. Bridging a two-day gap — even across a month boundary, where two
+ * allowances are technically available — would make the mechanic unpredictable, and
+ * a streak nobody can predict stops being worth keeping.
+ *
+ * **A shielded day does not COUNT, it only fails to break.** This is Duolingo's
+ * freeze, which v2 §4 cites by name: the run survives, but the number is still the
+ * number of days the coach actually logged. Crediting a day they did not log would
+ * put a figure on the home screen that their own memory contradicts, and this app
+ * asks them to trust its numbers about their business.
+ *
+ * Derived from the logged days every time — there is no stored allowance and nothing
+ * to migrate, reset, or get out of step with the logs themselves.
+ */
+export const SHIELD_DAYS_PER_MONTH = 1;
+
+export type StreakState = {
+  /** Days actually logged in the current unbroken run. Shielded days are not in it. */
+  days: number;
+  /** True when THIS calendar month's shield has already been spent. */
+  shieldUsed: boolean;
+  /** The run is intact. False once a gap the shield could not cover has passed. */
+  live: boolean;
+  /** The days the shield absorbed, newest first. */
+  shieldedKeys: string[];
+};
+
+/**
+ * The streak, and what the shield had to do to keep it.
+ *
+ * If today has no log yet the run is measured from yesterday (D27), so a coach who
  * logged for ten days straight still sees "10" at 4pm rather than a zero that
  * implies they already lost it.
  */
-export function streakFromKeys(loggedKeys: string[], today: string): number {
-  if (loggedKeys.length === 0) return 0;
-  const set = new Set(loggedKeys);
-  const anchor = set.has(today) ? today : shiftKey(today, -1);
-  if (!set.has(anchor)) return 0;
+export function streakState(loggedKeys: string[], today: string): StreakState {
+  const idle: StreakState = { days: 0, shieldUsed: false, live: false, shieldedKeys: [] };
+  if (loggedKeys.length === 0) return idle;
 
-  let streak = 0;
-  let cursor = anchor;
-  while (set.has(cursor)) {
-    streak++;
-    cursor = shiftKey(cursor, -1);
+  const set = new Set(loggedKeys);
+  const spentMonths = new Set<string>();
+  const shieldedKeys: string[] = [];
+
+  // D27: today is not held against the coach until it is over.
+  let cursor = set.has(today) ? today : shiftKey(today, -1);
+  let days = 0;
+
+  for (;;) {
+    if (set.has(cursor)) {
+      days++;
+      cursor = shiftKey(cursor, -1);
+      continue;
+    }
+
+    const month = cursor.slice(0, 7);
+    if (spentMonths.has(month)) break;
+
+    // One shield, one day. If the day before the gap is also missing, this is not a
+    // single miss and no allowance covers it.
+    const before = shiftKey(cursor, -1);
+    if (!set.has(before)) break;
+
+    spentMonths.add(month);
+    shieldedKeys.push(cursor);
+    cursor = before;
   }
-  return streak;
+
+  if (days === 0) return idle;
+  return {
+    days,
+    shieldUsed: spentMonths.has(today.slice(0, 7)),
+    live: true,
+    shieldedKeys,
+  };
+}
+
+/** Just the number, for the many call sites that only want that. */
+export function streakFromKeys(loggedKeys: string[], today: string): number {
+  return streakState(loggedKeys, today).days;
 }
 
 /** Whether today itself is logged — what the team view shows as a live signal. */

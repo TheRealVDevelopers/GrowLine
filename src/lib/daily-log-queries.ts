@@ -8,7 +8,7 @@ import {
   logDateFor,
   loggedToday,
   shiftKey,
-  streakFromKeys,
+  streakState,
   todayKey,
   type DailyLogValues,
 } from "./daily-log";
@@ -43,6 +43,7 @@ export async function getLogState(
   const keys = snap.docs.map((d) => d.data().dayKey as string);
   const todayDoc = snap.docs.find((d) => d.data().dayKey === today);
   const t = todayDoc?.data();
+  const streak = streakState(keys, today);
 
   return {
     today,
@@ -57,7 +58,9 @@ export async function getLogState(
         }
       : { ...EMPTY_LOG },
     hasLoggedToday: loggedToday(keys, today),
-    streak: streakFromKeys(keys, today),
+    streak: streak.days,
+    /** The Streak Shield has already covered a miss this month — the flame says so. */
+    shieldUsed: streak.shieldUsed,
   };
 }
 
