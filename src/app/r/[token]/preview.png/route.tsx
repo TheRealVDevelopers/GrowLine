@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { loadReportForRender } from "@/lib/report-render";
+import { cardFonts } from "@/lib/report-fonts";
 import { PREVIEW_HEIGHT, PREVIEW_WIDTH, ReportPreview } from "@/lib/report-card";
 
 /**
@@ -14,11 +15,14 @@ export async function GET(
   const report = await loadReportForRender(token);
   if (!report) return new Response("Not found", { status: 404 });
 
+  // The coach's name is the only variable string in the preview.
+  const { fonts, safe } = await cardFonts([report.coach.name]);
+
   // Buffered so a render failure is catchable — see the note in card.png.
   try {
     const png = await new ImageResponse(
-      <ReportPreview coachName={report.coach.name} />,
-      { width: PREVIEW_WIDTH, height: PREVIEW_HEIGHT }
+      <ReportPreview coachName={safe(report.coach.name)} />,
+      { width: PREVIEW_WIDTH, height: PREVIEW_HEIGHT, fonts }
     ).arrayBuffer();
     return new Response(png, { headers: { "Content-Type": "image/png" } });
   } catch (err) {

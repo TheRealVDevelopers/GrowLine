@@ -6,6 +6,16 @@ const nextConfig: NextConfig = {
   // Pin the workspace root: a stray package-lock.json in the parent folder
   // otherwise makes Turbopack guess C:\Users\pc.
   turbopack: { root: path.resolve(__dirname) },
+  // The report fonts are read from disk at render time (report-fonts.ts), so the
+  // tracer cannot see them — there is no `import` to follow, only a `readFile` of a
+  // path built at runtime. Without this the three image routes deploy without their
+  // fonts and fall straight back to fetching Google, which is the thing D66 exists
+  // to stop. `assets/fonts` is server-only on purpose and is NOT under `public/`.
+  outputFileTracingIncludes: {
+    "/r/[token]/card.png": ["./assets/fonts/**"],
+    "/r/[token]/preview.png": ["./assets/fonts/**"],
+    "/r/[token]/snapshot.pdf": ["./assets/fonts/**"],
+  },
   async headers() {
     return [
       {

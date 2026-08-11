@@ -1,4 +1,5 @@
 import type { WellnessMetrics } from "./wellness";
+import { CARD_FONT_FAMILY } from "./report-fonts";
 import { HEALTHY_BMI_MAX, HEALTHY_BMI_MIN } from "./wellness";
 import {
   COACH_ROLE,
@@ -13,9 +14,13 @@ import {
  *
  * satori supports a subset of CSS: flexbox only (no grid), and every container
  * needs an explicit `display: flex`. Margins are used instead of `gap` so the
- * layout does not depend on a newer satori than the one Next ships. Only the
- * bundled default font is available, so hierarchy comes from size and colour
- * rather than font weight.
+ * layout does not depend on a newer satori than the one Next ships.
+ *
+ * Fonts come from `report-fonts.ts` — Noto Sans plus the Indic faces, read off
+ * disk. Until D66 the only face available was satori's bundled Geist Regular, so
+ * `fontWeight: 700` was a silent no-op and hierarchy had to come from size and
+ * colour alone (D18). Real weights exist now; `WEIGHT_BOLD` marks the places the
+ * design always meant to be bold.
  *
  * The disclaimer is drawn INTO the pixels on purpose: this PNG is the artefact
  * that gets forwarded and screenshotted, and anything not in the image is gone the
@@ -44,6 +49,8 @@ const FOOTER_RESERVE = 320;
  */
 const MAX_COACH_NAME = 30;
 const MAX_COACH_CITY = 22;
+/** Same reasoning for the prospect's first name, which sits on its own line. */
+const MAX_FIRST_NAME = 24;
 const clamp = (s: string, max: number) =>
   s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s;
 export const PREVIEW_WIDTH = 1200;
@@ -53,6 +60,14 @@ const NAVY = "#14213D";
 const GOLD = "#FCA311";
 const SURFACE = "#F5F6FA";
 const WHITE = "#FFFFFF";
+
+/**
+ * Bold is reserved for the numbers and the two names — v1 §9 ("numbers are the
+ * emotional content of this app") and v2 §5.5 ("non-Latin names must render bold
+ * and correct on every card"). Everything else stays regular, or the weight stops
+ * meaning anything.
+ */
+const WEIGHT_BOLD = 700;
 
 type CoachBrand = {
   name: string;
@@ -85,7 +100,11 @@ function Tile({
     >
       <div style={{ display: "flex", fontSize: 26, color: "#4A5675" }}>{label}</div>
       <div style={{ display: "flex", alignItems: "flex-end", marginTop: 8 }}>
-        <div style={{ display: "flex", fontSize: 56, color: NAVY }}>{value}</div>
+        <div
+          style={{ display: "flex", fontSize: 56, fontWeight: WEIGHT_BOLD, color: NAVY }}
+        >
+          {value}
+        </div>
         <div
           style={{
             display: "flex",
@@ -135,7 +154,9 @@ function CoachBlock({ coach }: { coach: CoachBrand }) {
         </div>
       )}
       <div style={{ display: "flex", flexDirection: "column", marginLeft: 24 }}>
-        <div style={{ display: "flex", fontSize: 38, color: NAVY }}>
+        <div
+          style={{ display: "flex", fontSize: 38, fontWeight: WEIGHT_BOLD, color: NAVY }}
+        >
           {clamp(coach.name, MAX_COACH_NAME)}
         </div>
         <div style={{ display: "flex", fontSize: 26, color: "#4A5675", marginTop: 4 }}>
@@ -206,6 +227,10 @@ export function ReportCard({
         width: CARD_WIDTH,
         height: CARD_HEIGHT,
         backgroundColor: WHITE,
+        // Named once, at the root. The Indic faces are registered under their own
+        // family names and reached by satori's fallback, so the card never has to
+        // know which script the prospect's name is in — see report-fonts.ts.
+        fontFamily: CARD_FONT_FAMILY,
       }}
     >
       {/* Header */}
@@ -220,14 +245,31 @@ export function ReportCard({
           paddingRight: 56,
         }}
       >
-        <div style={{ display: "flex", fontSize: 30, color: GOLD }}>Growline</div>
-        <div style={{ display: "flex", fontSize: 58, color: WHITE, marginTop: 6 }}>
+        <div
+          style={{ display: "flex", fontSize: 30, fontWeight: WEIGHT_BOLD, color: GOLD }}
+        >
+          Growline
+        </div>
+        <div
+          style={{
+            display: "flex",
+            fontSize: 58,
+            fontWeight: WEIGHT_BOLD,
+            color: WHITE,
+            marginTop: 6,
+          }}
+        >
           {REPORT_TITLE}
         </div>
+        {/* "For" and the name are separate nodes so the name can carry the weight
+            without the preposition doing so. */}
         <div
           style={{ display: "flex", fontSize: 30, color: "#B9C0D4", marginTop: 6 }}
         >
-          For {firstName}
+          <div style={{ display: "flex" }}>For&nbsp;</div>
+          <div style={{ display: "flex", fontWeight: WEIGHT_BOLD, color: WHITE }}>
+            {clamp(firstName, MAX_FIRST_NAME)}
+          </div>
         </div>
       </div>
 
@@ -250,7 +292,14 @@ export function ReportCard({
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", fontSize: 28, color: "#4A5675" }}>BMI</div>
             <div style={{ display: "flex", alignItems: "flex-end", marginTop: 2 }}>
-              <div style={{ display: "flex", fontSize: 132, color: NAVY }}>
+              <div
+                style={{
+                  display: "flex",
+                  fontSize: 132,
+                  fontWeight: WEIGHT_BOLD,
+                  color: NAVY,
+                }}
+              >
                 {metrics.bmi.value.toFixed(1)}
               </div>
               <div
@@ -443,14 +492,30 @@ export function ReportPreview({ coachName }: { coachName: string }) {
         backgroundColor: NAVY,
         paddingLeft: 80,
         paddingRight: 80,
+        fontFamily: CARD_FONT_FAMILY,
       }}
     >
-      <div style={{ display: "flex", fontSize: 34, color: GOLD }}>Growline</div>
-      <div style={{ display: "flex", fontSize: 76, color: WHITE, marginTop: 14 }}>
+      <div
+        style={{ display: "flex", fontSize: 34, fontWeight: WEIGHT_BOLD, color: GOLD }}
+      >
+        Growline
+      </div>
+      <div
+        style={{
+          display: "flex",
+          fontSize: 76,
+          fontWeight: WEIGHT_BOLD,
+          color: WHITE,
+          marginTop: 14,
+        }}
+      >
         {REPORT_TITLE}
       </div>
       <div style={{ display: "flex", fontSize: 34, color: "#B9C0D4", marginTop: 14 }}>
-        From {coachName}
+        <div style={{ display: "flex" }}>From&nbsp;</div>
+        <div style={{ display: "flex", fontWeight: WEIGHT_BOLD, color: WHITE }}>
+          {clamp(coachName, MAX_COACH_NAME)}
+        </div>
       </div>
       <div style={{ display: "flex", fontSize: 26, color: "#B9C0D4", marginTop: 40 }}>
         {DISCLAIMER}

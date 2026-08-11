@@ -1694,3 +1694,105 @@ the immediate parent would pass against a shallower one.
 **`lineRequests` is denied to clients entirely**, read included. An open read would let
 anyone list who is trying to attach to whom — somebody's team structure assembled from the
 outside.
+
+## D66 — the report fonts ship with the repo, and the name stops going to Google (2026-08-11, v2.3)
+
+v2 §5.5 asks for Noto TTFs committed and used by the report renderer, with no network
+font fetches at render time. Doing it turned up something worse than the missing bold
+weight D18 flagged, and something the spec asks for that **cannot be delivered at all**.
+
+### What was actually broken
+
+D18 recorded that satori ships one face (Geist Regular), so `fontWeight: 700` was a
+silent no-op, and that a missing glyph was fetched from Google at render time. The
+second half was understated. The call `next/og` makes is:
+
+```
+https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari&text=<the string>
+```
+
+The **prospect's name is a query parameter**. Every time a Devanagari or Kannada card
+was drawn, that name left the server for a third party, on the request path, with the
+latency and the hard egress dependency thrown in. For an app whose whole privacy
+posture is P1–P6 — a toggle enforced in Security Rules, bearer tokens with expiry,
+EXIF stripped off proof photos, health data purged at 180 days — this was the loudest
+hole in it, and it was in the one artefact designed to be forwarded.
+
+### Ten faces, five scripts, in `assets/fonts/`
+
+Noto Sans, Devanagari, Kannada, Tamil, Telugu — regular and bold each, plus `OFL.txt`.
+2.7MB. The spec names three; the two extra are Tamil and Telugu, because D59 added
+those as UI languages and a coach using a Tamil interface will have prospects with
+Tamil names. Shipping the app's own language list is the coherent line to draw.
+
+`assets/fonts/`, **not `public/`** — nothing in a browser needs these, and `public/`
+would serve 2.7MB to every visitor. They are read with `readFile` at render time and
+cached for the life of the process, and only the scripts actually present in the text
+are read: a Latin-only card pays for two files, not ten.
+
+Because the path is built at runtime there is no import for the tracer to follow, so
+`next.config.ts` names `assets/fonts/**` in `outputFileTracingIncludes` for all three
+image routes. Without it the fonts simply would not deploy and the render would fall
+straight back to Google — the failure would be invisible locally and total in
+production. Verified: 11 files traced into each of the three routes.
+
+### One family name per script — the obvious design is silently wrong
+
+The natural implementation is to register every face as `"Noto Sans"` and let satori
+pick per glyph. **It does not work.** satori keeps one face per
+(family, weight, style), so the Indic faces are discarded on load and the Devanagari
+name goes to Google exactly as before — with no error, and with a font array that
+looks correct in a debugger.
+
+What works is satori's cross-family fallback: name one family on the element and
+register the others under their own names. Measured across all five scripts — shared
+name: four of four Indic scripts still fetched; distinct names: none did.
+
+### `safe()`, and why coverage is read from the `cmap`
+
+Five scripts makes the fetch unlikely, not impossible: a Bengali name would still
+trigger it, silently. So each face's `cmap` is parsed once (formats 4 and 12) into a
+coverage set, and any character no loaded face can draw is replaced with U+FFFD before
+it reaches satori. That is what turns "no network font fetches" from a hope into a
+property — satori is never handed a character it has to go looking for.
+
+Coverage is read from the font rather than declared as Unicode ranges because the
+declared version would be wrong in both directions: it would substitute `₹`, `·`, `–`
+and the accented letters in transliterated names, all of which Noto Sans does carry.
+Zero-width characters are dropped rather than substituted — a replacement mark is a
+visible box where the writer intended nothing visible, and ZWJ/ZWNJ are ordinary parts
+of correctly typed Indic text.
+
+### The clause that cannot be met: "non-Latin names must render bold **and correct**"
+
+Bold: delivered, and asserted pixel-wise, including through the fallback into an
+Indic face.
+
+Correct: **not possible with satori, and not because of the fonts.** satori does no
+complex-script shaping. It forms no conjuncts (the virama renders as a standalone
+stroke) and does not reorder pre-base matras, so `नि` draws as na-then-hook instead of
+hook-then-na, and `प्रिया` draws as `प् र य ि ा`. Verified at 88px with the Devanagari
+face named directly, so the fallback path is not the cause. D59 said this about UI
+strings; it is equally true of names.
+
+**This does not make the change a trade-off.** Fetching from Google supplied glyphs,
+never a shaper — the rendering was equally broken before, and merely also leaked. So:
+same wrong glyphs, no leak, no latency, no egress dependency, and real bold. Strictly
+better on every axis.
+
+It does mean v2 §5.5 is only half closed, and the half that is left needs a different
+renderer, not a different font. The realistic options, none of them small: pre-shape
+with harfbuzzjs and hand resvg positioned glyph outlines; or render the card in
+headless Chromium, which shapes correctly and is already a devDependency but is a
+heavy thing to put on a request path. **Until one of those lands, an Indic name on the
+card PNG and PDF is wrong.** The HTML report page at `/r/[token]` is fine — the
+browser shapes it — so the damage is confined to the two image artefacts.
+
+### Consequences worth knowing
+
+Cards already sent will re-render with the new weights, because the PNG is drawn on
+demand from the stored snapshot. No number and no wording changes, so E3 is not in
+play: the report's *content* is still immutable, only its typography moved.
+
+Adding a script is one row in `SCRIPTS`, two files, and one line in the test table.
+The `console.warn` in `sanitise` is the signal that one is needed.
