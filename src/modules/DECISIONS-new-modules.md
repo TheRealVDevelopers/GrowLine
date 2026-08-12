@@ -617,3 +617,258 @@ a stored field: it is a display preference for one browser, it needs no write pa
 a coach who opens the app on a second phone getting the moment once more is a better
 failure than a server round trip to suppress it. Pink diamond, under 1.2s, skippable by
 tap, and skipped entirely under `prefers-reduced-motion` (G5).
+
+---
+
+# Session 3 — F20, the duplication score
+
+## N26 — The formula, its inputs, and what it deliberately does not measure
+
+One number answering one question: **is the work happening only at the top, or
+genuinely three levels deep?**
+
+For each depth `d` below a coach (`d` = 1, 2, 3), over a rolling window:
+
+```
+n_d = people at that depth who have been in the line long enough to count
+k_d = how many of those are ACTIVE
+m   = (Σ k_d) / (Σ n_d)                        the line's own pooled rate
+â_d = (k_d + α·m) / (n_d + α)                  α = 2, the shrinkage pseudo-count
+
+score = 100 · (Σ d·â_d) / (Σ d)                over every d where n_d > 0
+```
+
+**Inputs, and only these:**
+
+| Input | Where it comes from | Constant |
+|---|---|---|
+| Who is in the line, at what depth | `users.uplinePath`, first 3 entries (D36) | `MEASURED_DEPTH = 3` |
+| Days a person logged | `dailyLogs.dayKey` inside the window | — |
+| The window | 28 local days ending today (E1) | `WINDOW_DAYS = 28` |
+| The active bar | days logged, pro-rated by presence | `ACTIVE_DAYS = 4` |
+| Who is old enough to count | `users.createdAt` | `MIN_TENURE_DAYS = 7` |
+| How much a small level is trusted | — | `SHRINKAGE = 2` |
+
+**What it does NOT measure, on purpose:**
+
+- **How hard anybody works.** Four logged days and twenty-eight count identically.
+  Intensity is what the boards rank (N1); this counts how many people are moving at
+  all. A line cannot lift this number by having one person at the top do more.
+- **The coach's own activity.** Not a parameter of `scoreLine`, and a depth of 0
+  passed in by mistake is discarded. If a coach's own diligence could lift their own
+  duplication score, the one question the number answers would stop being answerable
+  and the hardest-working coach in a dead line would read as the healthiest. Their own
+  days are shown beside the number, labelled as not part of it — which is the
+  misreading everybody has first, so the screen answers it rather than waiting.
+- **Money, in any form.** No rupee figure, no conversion, no rate of change, no "at
+  this rate" (L4). A duplication score beside a trajectory is an income projection
+  with the arithmetic left to the reader, and the unit tests fail on the vocabulary.
+
+28 days rather than 30 because 28 holds exactly four of every weekday. Clubs run on a
+weekly rhythm, and a 30-day window holds five Mondays and four Tuesdays, so the score
+would rise and fall with which day the job happened to run.
+
+## N27 — The weight is the depth itself, and a one-level line can score 100
+
+Activity at level 1 can be explained by a coach personally ringing every one of their
+direct downlines. Activity at level 3 cannot — those are people the coach has very
+likely never met. So the deeper the level, the more it counts, in the simplest ratio
+that says so: **`w_d = d`**, level 3 worth three times level 1.
+
+That asymmetry is the feature. Two lines with identical overall activity, one
+top-heavy and one bottom-heavy, score 39 and 61 — and a number that scored them the
+same would answer no question worth asking.
+
+**A line one level deep is scored on the level it has.** Four direct downlines, all
+logging, scores 100. The alternative — capping the score by depth reached, so one
+level can never exceed 33 — was considered and rejected outright: it tells a coach in
+their first month that they have failed at something they have not had the chance to
+start, which is the one reading this number must never produce. The depth a line
+actually reaches is reported **separately and prominently**, and framed as what
+happens next ("Level 2 appears when somebody at level 1 brings in their own first
+person"), never as a level they are missing.
+
+## N28 — What makes 70 mean the same for a line of 6 and a line of 600 — and the limit
+
+Four things, in order of how much work they do:
+
+1. **Every input is a rate, never a count.** A line of 600 has more active loggers
+   than a line of 6 by construction, so a count-based score is a size ranking wearing
+   another name.
+2. **The divisor is the depths that exist, not the people.** `Σd` is 1, 3 or 6. Line
+   size never enters the arithmetic, so one enormous level 1 cannot drown out a small
+   level 3.
+3. **Shrinkage makes the middle of the scale reachable at small sizes.** Without it a
+   level of one person scores exactly 0 or exactly 100, so a small line's score is
+   assembled from extremes and "70" is a number only a big line could ever land on.
+   Each depth is pulled toward the line's **own** pooled rate — not toward an imagined
+   healthy average — so a quiet line is never flattered.
+4. **The exact invariant.** If every depth has the same rate `r`, then `m = r` and
+   every `â_d = r` identically, so **the score is exactly `100r`, at any line size and
+   any number of depths.** A uniformly half-active line scores 50 whether it holds 6
+   people or 600. That is the guarantee, and it is tested at both sizes.
+
+**The limit, stated rather than hidden.** When depths *differ*, two lines with the
+same per-depth rates do **not** score identically at different sizes — they converge
+as the line grows. Rates of (100%, 0%) score 39 over four people per level and 33 over
+four hundred, approaching the unshrunk 33.3. That is deliberate: promising exact
+equality would mean trusting one person out of one as much as four hundred out of four
+hundred, which is how a score of 100 gets awarded because a single coach logged once.
+The small line's number sits closer to its own overall activity because that is what
+the evidence supports.
+
+Consequence worth knowing: **one quiet person on a thin deep level cannot crater a
+score.** A line at 10/10, 4/4 and 0/1 scores 80, where the unshrunk formula gives 50.
+
+## N29 — Three levels, not the whole ancestry
+
+`uplinePath` carries every ancestor, so measuring ten levels down would cost nothing
+extra. We read **the first three entries only**, and the slice is where that decision
+physically lives (`line.ts`).
+
+- v1 §11 caps the team tree at three levels, so level 4 is people the coach cannot
+  look up on any screen in this app. A number that moves because of people a coach
+  cannot see is a number they cannot act on.
+- The question is literally "is it three levels deep".
+- Nobody is discarded: a person at level 4 is counted at levels 1, 2 and 3 of the
+  coaches above them. **Every line is measured once, by the coach who owns it.**
+
+## N30 — A week in the line before you are counted, and a bar pro-rated to your time here
+
+**Nobody is counted until they have been in the line 7 days.** Judging somebody on
+their third day measures our onboarding, not their duplication. The larger reason is
+structural: without this rule every new joiner arrives as an inactive body in a
+denominator and lowers their upline's score, so **growth would depress the number that
+exists to reward it** and the screen would be actively harmful to open after a good
+week. Waiting people are reported in the breakdown ("2 more people here joined in the
+last week — not counted yet"), never silently dropped, or the level would look smaller
+than the team actually is.
+
+**The active bar is pro-rated by presence**, floored at one day: 4 days in a full
+28-day window, 1 day for somebody who joined eight days ago. A flat bar asks the
+newest people in a line for twice the rate it asks of the oldest.
+
+Fairness runs both ways — a brand-new coach who is *already* logging is still not
+counted early. The rule is about how much evidence exists, not about generosity.
+
+## N31 — Null is not zero, and the three empty states are three different sentences
+
+`score` is `number | null`, and null is **never** rendered as 0. A zero is a verdict on
+a line ("nobody below you logged"), which is a real and useful thing to say — and
+saying it to somebody who has no line, or whose line all joined on Tuesday, is a lie
+that reads as failure.
+
+Three states, worded as the three different things they are:
+
+| State | What the coach is told |
+|---|---|
+| No line at all (`noLine`) | Their line has not started; share the invite link, the first level appears when somebody joins and logs. |
+| Everyone joined this week (`allTooNew`) | Nobody is judged in their first 7 days; this fills in on its own. The levels still render, showing who is waiting. |
+| No reading computed yet | Worked out on a schedule, not on open, because counting a whole line per page load would make the app slow on the phones it has to run on. |
+
+The unit tests assert none of the copy contains failure vocabulary.
+
+## N32 — One document per coach, written on a schedule, and no trend
+
+`duplicationScores/dup_<uid>`. Deterministic (D35, N7): a rerun must overwrite the
+reading it wrote this morning, not leave a second copy beside it — two readings for one
+coach shows up only as a number flickering between two values. The uid is used raw
+because Auth already guarantees a safe id, unlike the free-text scope keys N7 had to
+hash.
+
+A coach with **no** line has their reading **deleted**, not skipped — N6a's correction
+in a second place, for the same reason. The usual cause of an emptied line is a
+downline being reparented, and skipping would leave the coach they left reading a
+breakdown of a team that is no longer theirs for as long as nobody looked. One write
+per lineless coach per run is the accepted cost; if it ever needs cutting, cut it by
+reading which readings exist, never by returning to a silent skip.
+
+**No trend is stored, deliberately.** A 28-day window rolls one day at a time, so a
+day-on-day delta is mostly noise; a meaningful "up 12 since last month" needs a stored
+series and a sampling interval chosen on purpose, and inventing one to put an arrow on
+the card is decoration without behaviour (G6). It is the obvious next thing to build —
+a second `kind` of document in this collection holding monthly samples.
+
+Nothing written by this job identifies a person. Levels are counts, and a count is the
+shape P1 lets flow up a line at all.
+
+## N33 — Readable by its subject, and the upline grant that was deliberately withheld
+
+Security Rules: `allow read: if signedIn() && resource.data.userId == uid()`, and
+`allow write: if false`.
+
+An **upline cannot** read a downline's reading. That is a narrowing, not an oversight,
+and it is worth the paragraph. Activity counts genuinely do flow upward under P1, and
+a coaching screen showing an upline how their downlines' lines are duplicating would
+be legitimate. But it does not exist, and a grant written for a screen nobody has
+designed is a grant nobody has thought about. Two things follow the moment it is
+written: the ancestry test has to resolve **live** against the subject's current user
+document (**D64** — every reading here carries counts frozen at whenever the job last
+ran, and a reader moved to another line must lose access on their next read), and it
+costs a `get()` on somebody else's user document per request. When that screen is
+built it is server-rendered like the team tree, with the Admin SDK reading, and this
+rule stays as it is (D48's discipline).
+
+The rules test plants `uplinePath` and `sharedWith` arrays naming the reader **on a
+reading document** and confirms the reader is still refused. That makes D64 a property
+of the database here: no field a future session adds to these documents can quietly
+become the thing that grants access to them.
+
+The collection is not enumerable — an unfiltered list is denied, a list filtered to
+your own uid is allowed.
+
+Writes are shut to everybody, including the coach a reading is about. It is the one
+figure in these modules that a person has both an obvious motive and, without that
+line, the means to fabricate; and a reading somebody dislikes must not be deletable by
+them either.
+
+## N34 — No ring, no celebration, one accent
+
+The obvious move was to reuse `TargetRing`, and it would have been wrong. That ring
+lights the **remaining** arc on purpose (v2 §4, Zeigarnik) because a target is a thing
+a coach is chasing to 100. A duplication score is a **reading**, not a goal: a coach
+whose single level is fully active is honestly at 100, while a coach at 60 across three
+levels may have the better team. A permanent unfilled arc would tell everybody, every
+month, that they are short of something.
+
+So the number is a number, the gold goes on the level bars where the action is, and the
+screen keeps to one accent (G3). No green gem on a fully-active level either — `.gem`
+is for money, gains and completed conditions, and a level at 100% this fortnight is a
+reading that will differ next fortnight, not something anybody completed.
+
+No celebration: crossing a band would need a stored previous reading, and none is
+stored (N32). A celebration fired on every page load is decoration without behaviour
+(G6). The only motion is a count-up under 400ms that collapses to an instant number
+under `prefers-reduced-motion` (G5). Nothing on the screen is operable, which is how it
+passes the 30-second rule (S1) — there is nothing to operate.
+
+## N35 — The scheduled function exists but is NOT deployed
+
+`functions/src/duplication.ts` holds `rebuildDuplicationScores`, a thin caller of
+`/api/duplication/rebuild` — `morningReminder`'s shape, and N10's and N23's for the
+same reason: the aggregation keeps one home in the app, runnable by hand against the
+emulator, and `functions/` is a separate build that cannot import from `src/`.
+
+A Cloud Function is deployed only if it is exported from `functions/src/index.ts`,
+which this branch may not edit. **One line turns it on:**
+
+```ts
+export { rebuildDuplicationScores } from "./duplication";
+```
+
+Until then a reading is produced only when something POSTs the route with
+`CRON_SECRET`, and the screen says plainly that nothing has been counted yet rather
+than showing a zero.
+
+**Daily at 04:00 Asia/Kolkata**, not every three hours like the boards. A 28-day window
+rolling one day at a time cannot move enough between breakfast and lunch to justify
+eight whole-organisation reads a day, and 04:00 is after the last evening logs are in
+and before anybody opens the app.
+
+## N36 — No composite index, and two collection reads per run
+
+The job runs one range query on a single field (`dailyLogs.dayKey`) and one unfiltered
+`users` read, so `firestore.indexes.json` needed no entry — the same outcome as N9. The
+whole organisation is shaped into every coach's line in **one pass** over the users,
+because `uplinePath` is ordered nearest-ancestor-first: no tree walk, no query per
+node, and the cost does not grow with how deep the tree is.
