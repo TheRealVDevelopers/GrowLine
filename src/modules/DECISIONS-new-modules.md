@@ -963,3 +963,267 @@ copy test like every other sentence in the module.
 
 Also noted, not changed: `deepestActiveLevel` is computed, stored and typed all the way
 through to `DuplicationView`, and no screen renders it.
+
+---
+
+# Session 4 — voice-note log, call list, silence alert
+
+## N40 — A voice note is a CAPTURE, not a log, and the screen says so before you speak
+
+The brief asks for a ten-second recording instead of six tapped fields, and then asks
+the right question about it: what happens to a note that is never transcribed.
+
+The answer had to start from what the daily log is FOR. F6's five counts are what rolls
+up to an upline, drives the streak, ranks the boards and feeds the duplication score.
+Audio is none of those. So a design where speaking is logging has a silent failure built
+into it: a coach records for ten days, believes they have logged, and their upline sees
+ten days of silence — while the silence alert built in this same session accuses them of
+having gone quiet.
+
+**So the recorder always ends on a confirm step, and `NOT_A_LOG_YET` is shown before the
+first tap, not after the recording.** Speech recognition pre-fills the five steppers, the
+coach glances and taps once. The confirm step is not friction that survived a review; it
+is what makes the 30-second rule true rather than nominally true, because the interaction
+is a glance and one tap rather than five.
+
+Six ways this can fail — no microphone, permission refused, no speech recognition on this
+phone, a recogniser that heard nothing, one that heard words but no numbers, and a failed
+upload — all land on that same confirm screen with steppers the coach can tap. The one
+outcome the component cannot produce is a coach who thinks they logged and did not.
+
+## N41 — The numbers go through `PUT /api/logs`, the writer that already exists
+
+This module never writes a `dailyLogs` document. It cannot — that collection belongs to
+the other branch — but it would not have anyway. Two doors, one pipe is the rule this
+codebase was rebuilt around, and a second writer would validate slightly differently,
+stamp `uplinePath` slightly differently, and drift.
+
+The e2e test asserts the consequence directly: after saving from the voice screen it
+reads `dailyLogs/{uid}__{today}` out of Firestore and checks the number is there. Without
+that assertion every visible thing on the screen could pass while the team saw nothing.
+
+## N42 — What happens to a note that is never counted, decided rather than defaulted
+
+Three states, and all three are stated on the screen:
+
+- **Counted.** The numbers are in the daily log, the transcript became the log's one-line
+  note, and the audio is **deleted immediately**. Its job is done, and audio of somebody's
+  working day kept for no stated purpose is exactly the thing v2 §5.3 already decided
+  about prospect health data.
+- **Uncounted.** It counts for nothing — not the streak, not the team's view — and is
+  **deleted whole after 30 days**. Not half-deleted: an uncounted note's transcript is a
+  record of the same day by another name.
+- **Recorded today but never confirmed.** The page says so at the top, in as many words:
+  nothing has gone to your team and your streak has not moved. This is the case the whole
+  design exists for — the coach spoke, the signal died — and saying it out loud is what
+  stops "I logged it" and "your team saw nothing" from both being true.
+
+The uncounted TTL is a config constant and the purge is a scheduled function, landing in
+the same change as the recorder: a retention rule that arrives after the data does has
+already been broken once.
+
+## N43 — The audio is NOT in Firebase Storage, and no Storage rule was appended
+
+The session brief says to store the audio in Firebase Storage and that `storage.rules`
+already has per-user paths. Neither is true of this repository.
+
+`storage.rules` is a deliberate **deny-all**. There is no `storageBucket` in
+`src/lib/firebase.ts`, no bucket on the Admin app, no `firebase/storage` import anywhere
+in `src`, and the emulator set does not start Storage. The header of `storage.rules`
+explains at length why it was reverted to deny-all and states that the bucket, the
+uploader and the rules must land in ONE change — a permissive placeholder is the kind of
+thing that survives to production.
+
+Wiring it needs edits to `src/lib/firebase.ts` and `firebase.json`, and this branch may
+not touch either. **So nothing was appended to `storage.rules`** — appending a grant for
+an uploader that cannot exist is precisely what that header warns against.
+
+The audio rides on the note document as base64 instead, which is the precedent already
+set for proof media (D3, D33). Bounded hard: 15 seconds, 24 kbps Opus, a 200 KB raw
+ceiling that becomes ~273 KB encoded — a quarter of Firestore's 1 MiB document limit, so
+a long note lands with room rather than failing at save time. Both caps are enforced
+client-side AND in the route, because a client-side cap is a courtesy and a server-side
+cap is the limit.
+
+When Storage is wired, `saveNote` is the only function that changes.
+
+## N44 — The parser refuses rather than guesses
+
+A parser that guesses is worse than no parser. These counts reach an upline's screen, and
+a fabricated "3 sessions" is a number the coach will not recognise and cannot trace —
+after which they believe no number in the app.
+
+- Only digits and explicit English number words. **"a couple" and "a few" are ignored** —
+  guesses wearing a number's clothes.
+- **Four-digit runs are discarded, not clamped.** Recognisers render years and phone
+  numbers as digit runs, and clamping 2026 to 999 is a fabricated number with a straight
+  face. Dropping it leaves a blank the coach can see.
+- A number cannot be spent on two fields; the second keyword finds its own or goes
+  uncounted.
+- A keyword with no number is reported as **mentioned-without-number**, so the screen can
+  say "I heard you mention shakes but not a number" instead of showing a silent zero.
+- **The last mention of a field wins.** In ten seconds of speech a repeat is a repair, not
+  arithmetic: "five — sorry, six" must be six, never eleven.
+
+English number words only. This audience thinks in Kannada, Hindi and Marathi and v1 §8
+parks localisation in Phase 2, so the honest position is that the parser understands one
+language, the screen claims no more, and anything it cannot parse falls through to
+tap-in steppers with the audio kept. Half-verified Hindi digits would produce confident
+wrong numbers, which is the one outcome the rule above forbids.
+
+## N45 — A voice note is the most restricted document in these modules
+
+`voiceLogs` is readable by its author and by nobody else — not an upline at any depth,
+**and not an upline whose downline has `shareProspects` ON.** That is a deliberate
+narrowing beyond P1, and the rules test asserts it against a fixture where the toggle is
+on.
+
+Every other collection here holds counts. This one holds unstructured speech. A coach
+dictating on a road says whatever is in their head — "met Ramesh on the walk, he's coming
+Tuesday, his number is…" — and no product decision can stop that. The privacy toggle was
+presented to a coach as sharing their prospect RECORDS; nobody offered them a switch that
+shares the raw material those records were extracted from. So the raw material is
+protected harder than the structured data the toggle governs.
+
+Writes are denied to every client, and `status` is the reason it matters most: that field
+is the server's statement that a `dailyLogs` document exists, and the purge job reads it
+to decide what to delete. A client that could set it could keep recordings past their
+retention or drop somebody else's audio.
+
+## N46 — The call list derives on read and writes nothing
+
+"Who to call today" reads `prospects` filtered to one coach and writes nothing anywhere —
+no cached score, no `lastRankedAt`, no touch. That is what lets the ranking be a pure
+function with unit tests rather than a pipeline with state to get out of step.
+
+P1 is structural rather than remembered: no function in the module accepts a coach id
+other than the session's, so an upline cannot ask this question about a downline at all.
+
+The whole set is read rather than a narrowed query, because the three bands — overdue,
+due today, and no date at all — cannot be one Firestore query: null sorts before every
+timestamp, so an inequality catching the overdue also catches everyone with no date (the
+trap `followup-queries.ts` documents). One coach's prospects is a personal address book,
+not an organisation-wide read.
+
+## N47 — Three ordering properties, each one a way the list could look right and be wrong
+
+- **A missed promise outranks everything.** The person already let down must not be let
+  down twice. Stage weights break ties WITHIN a band and can never lift a cold contact
+  above a promise, or the top of the list stops meaning anything.
+- **Lateness escalates but CAPS at 30 days.** Uncapped, two forgotten names pin themselves
+  to the top forever and the list never moves — which is how a coach learns to ignore it.
+- **Nobody from the future.** A follow-up set for next Tuesday is not today's work; a list
+  that includes it is the pipeline with a different heading. The timezone test covers the
+  case that has bitten this codebase before: 9am IST tomorrow is an instant a UTC
+  comparison reads as already past this evening (E1).
+
+There is no "last contacted" field in the data model and this module does not invent one,
+so the silence signal says what it actually knows: days since the coach saved them.
+
+The cap of 12 is stated on the screen — a list you cannot finish is a list you do not
+start, and a cap that hides itself is a list that lies about being complete.
+
+**The reason on each row and its position come from one calculation.** A row reading
+"3 days late" while sorted as though it were two makes the whole screen untrustworthy,
+and nothing else on it could recover that.
+
+## N48 — The silence alert is written to survive being wrong
+
+Assume it misfires. The coach was on honeymoon, in hospital, or had their phone stolen —
+all three look identical to "nobody logged". The upline reads it and rings them anyway.
+Everything in `copy.ts` exists so that conversation starts well, and four restraints are
+implemented rather than intended:
+
+1. **The copy states a fact about the app's own records and the limit of what it knows.**
+   No fault language, no imperative, no exclamation marks, no income framing. A test greps
+   every generated body for all four, because the growth-minded rewrite of this
+   notification is one sentence away and would read as a summons.
+2. **A leg too young to have been quiet is not assessable.** A team that has existed four
+   days cannot have been silent for seven, and the newest relationship an upline has is
+   the one a misfire damages most.
+3. **One alert per episode, then a fortnight of silence.** Even a wrong alert is a single
+   remark rather than a drumbeat — and the drumbeat is what gets Growline muted, which
+   costs the follow-up reminder too, since a coach cannot mute one and keep the other.
+4. **Only the DIRECT upline hears it.** A quiet fortnight becoming a grandparent-upline's
+   business is how an alert turns into a report card, and the person who should ring them
+   is the person who knows them.
+
+"A call, not a chase" is the clause the feature turns on. Without it this is a
+productivity dashboard telling a manager who is behind — a different product for a
+different relationship.
+
+## N49 — Episode identity, and why a dormant leg is mentioned once
+
+The stored row keeps `quietSinceKey` — the first day of the silence — rather than only the
+alert date. Comparing episodes is what lets a leg that logged, stopped, and stayed stopped
+be raised immediately while a continuing silence waits out the cooldown. Comparing dates
+alone could not tell those apart.
+
+A **dormant** leg — nothing in the whole 60-day lookback — is told once and then left
+alone entirely, cooldown or not, until it comes back to life. A team quiet for months does
+not become news again every fortnight. Its state is visible on the team tree whenever the
+upline chooses to look, which is where the notification sends them.
+
+Dormant is also kept separate from quiet in the COPY: a precise day count is useful at
+nine days and false precision at four months, so past the lookback the number is dropped
+rather than stretched.
+
+## N50 — At most two legs per upline per morning, shortest silence first
+
+An upline with twelve direct downlines and six quiet legs would get six notifications in
+one morning. Two names is somebody to ring; six is a report delivered as six buzzes, and
+the whole channel gets muted.
+
+The two chosen are quiet for the SHORTEST time, which is the opposite of what a dashboard
+would rank. Eight days is a conversation that can still be picked up; fifty is a different
+problem a call this morning will not solve. The rest are not recorded as alerted, so they
+surface on later runs — a natural drip rather than a swallowed backlog.
+
+## N51 — Two queries for the whole organisation, and ancestry rebuilt live (D64)
+
+The naive shape — per upline, per leg, query that leg's logs — grows with the square of
+the organisation, which is the shape the team tree was rewritten to avoid (D36). Instead:
+all users once, all logs in the lookback once, and every subtree assembled in a single
+pass by pushing each person into each of their ancestors' buckets.
+
+Legs are rebuilt from the CURRENT user documents on every run. Nothing is trusted off the
+stored alert row except what was already said and when, so a coach moved to another line
+leaves their old upline's legs on the next run with nothing to migrate — D64 as a property
+of the job, matching how the rules treat every other collection here.
+
+## N52 — `silenceAlerts` is readable by nobody, including the upline it was written for
+
+Root received the notification about Asha's leg; the record of it is not his to query.
+
+The plain reason is that nothing in the browser reads it — the notification opens the team
+tree, which is server-rendered (D48's discipline). The stronger reason is that this is the
+one artifact in these modules whose subject is not its reader: a durable, queryable log of
+when the app reported a named coach as quiet. Asha discovering she can read it is the
+exact failure the copy was written to avoid, made inspectable. Deletes are denied too —
+deleting the row would reset the cooldown, which is a way to make the app mention a
+downline every single morning.
+
+## N53 — Two more collections than these branches were scoped to
+
+The branch brief named four new collections, all from sessions 1–3. Session 4 needs two
+more and both are load-bearing:
+
+- **`voiceLogs`** — the session brief asks for it in as many words, because the daily log
+  collection may not be written to from here.
+- **`silenceAlerts`** — a scheduled alert with no memory of what it has already said sends
+  the same notification every morning, which is the failure the whole module is designed
+  around. The memory is not optional.
+
+Recorded here rather than assumed, because a fifth and sixth collection appearing without
+a reason is how a schema stops being a schema.
+
+## N54 — Neither scheduled function is deployed
+
+`functions/src/silence.ts` and `functions/src/voice-logs.ts` exist and are NOT deployed: a
+function ships only if it is exported from `functions/src/index.ts`, and this branch may
+not edit that file. Each header names the one line that turns it on.
+
+**The purge is the one that matters.** A leaderboard that stops rebuilding shows a stale
+date and says so on screen. A retention rule that never runs is invisible: the app tells
+every coach their recording is deleted after thirty days, and nothing deletes it. Whoever
+wires the first of these should wire that one.
