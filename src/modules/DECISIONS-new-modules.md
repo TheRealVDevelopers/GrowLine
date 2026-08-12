@@ -698,11 +698,14 @@ Four things, in order of how much work they do:
 2. **The divisor is the depths that exist, not the people.** `Σd` is 1, 3 or 6. Line
    size never enters the arithmetic, so one enormous level 1 cannot drown out a small
    level 3.
-3. **Shrinkage makes the middle of the scale reachable at small sizes.** Without it a
-   level of one person scores exactly 0 or exactly 100, so a small line's score is
-   assembled from extremes and "70" is a number only a big line could ever land on.
-   Each depth is pulled toward the line's **own** pooled rate — not toward an imagined
-   healthy average — so a quiet line is never flattered.
+3. **Shrinkage stops one thin level swinging the score — between depths, and only
+   between depths.** Each depth is pulled toward the line's **own** pooled rate — not
+   toward an imagined healthy average — so a quiet line is never flattered.
+   ~~Without it a level of one person scores exactly 0 or exactly 100, so a small
+   line's score is assembled from extremes and "70" is a number only a big line could
+   ever land on.~~ **That sentence was wrong; see N37.** The prior is estimated from
+   the same data, so on a line with only ONE populated depth the shrinkage cancels
+   exactly and the score is the raw rate.
 4. **The exact invariant.** If every depth has the same rate `r`, then `m = r` and
    every `â_d = r` identically, so **the score is exactly `100r`, at any line size and
    any number of depths.** A uniformly half-active line scores 50 whether it holds 6
@@ -713,9 +716,13 @@ same per-depth rates do **not** score identically at different sizes — they co
 as the line grows. Rates of (100%, 0%) score 39 over four people per level and 33 over
 four hundred, approaching the unshrunk 33.3. That is deliberate: promising exact
 equality would mean trusting one person out of one as much as four hundred out of four
-hundred, which is how a score of 100 gets awarded because a single coach logged once.
-The small line's number sits closer to its own overall activity because that is what
-the evidence supports.
+hundred. The small line's number sits closer to its own overall activity because that
+is what the evidence supports.
+
+What that does **not** buy — the two are easy to confuse, and N26–N28 originally
+conflated them: it damps a thin level against the *other levels of the same line*. It
+does nothing at all to the overall level of a line that has only one depth, so a
+single coach who logged once still hands their upline a 100. See N37.
 
 Consequence worth knowing: **one quiet person on a thin deep level cannot crater a
 score.** A line at 10/10, 4/4 and 0/1 scores 80, where the unshrunk formula gives 50.
@@ -872,3 +879,87 @@ The job runs one range query on a single field (`dailyLogs.dayKey`) and one unfi
 whole organisation is shaped into every coach's line in **one pass** over the users,
 because `uplinePath` is ordered nearest-ancestor-first: no tree walk, no query per
 node, and the cost does not grow with how deep the tree is.
+
+## N37 — Shrinkage toward a self-estimated prior is a no-op on a one-level line (audit)
+
+Found auditing N26–N28, which claimed the opposite twice.
+
+Because the prior `m` is estimated from the same data as the observation, a line with
+only **one** populated depth cancels exactly, for every `α`, `n` and `k`:
+
+```
+m  = k₁/n₁
+â₁ = (k₁ + α·k₁/n₁)/(n₁ + α) = k₁(n₁ + α) / (n₁(n₁ + α)) = k₁/n₁
+```
+
+The score of a one-level line is therefore its **raw** rate. Consequences:
+
+- A coach with a single downline can only ever score **0 or 100** — there is no middle
+  of the scale for them, which is precisely what N28 point 3 claimed shrinkage bought.
+- A downline in the line the minimum seven days who logged **one single day** clears
+  the pro-rated bar and hands their upline **100**, with the reading "The work is
+  happening right through your line." N28's own warning names this as the failure it
+  was avoiding. It does not avoid it.
+- Most coaches in a pilot club are one level deep, so this is the common case.
+
+**Left as it is, deliberately.** Shrinking toward a fixed constant or toward the whole
+organisation's rate would fix it and would destroy the exact size-invariance of N28
+point 4, which the entire scale rests on, and would judge a small line against other
+people's numbers. Between depths the shrinkage does real work and is worth keeping
+(10/10, 4/4, 0/1 → 80 rather than 50).
+
+Fixed in the **words**, not the formula: the false claims in `score.ts` and in N28 are
+corrected, the identity is pinned by an exhaustive unit test over seven line sizes so a
+future change to `α` or to the prior fails loudly, and the card already states how many
+people a reading covers — a 100 over one person is visibly a 100 over one person.
+
+**Still open for the owner:** whether `readingOf`'s top band should say "The work is
+happening right through your line" about a line of one. That is a product call, not an
+audit one, so it is reported rather than changed.
+
+## N38 — The "nobody logged" headline is a fact about the levels, not a rounded zero (audit)
+
+`readingOf` chose its `none` band on `score <= 0`. The score is rounded to a whole
+number, so it reaches 0 whenever the shrunk depth-weighted mean lands under 0.5 — which
+a large, nearly-dormant line does **with people still logging**. One active person in a
+line of 300 scores 0, and the screen printed:
+
+> **Nobody in your line logged their work in this window.**
+> Level 1 — your direct line ······ 1 of 300 people logged.
+> Where to look: Level 1 is the thinnest — 299 people there have not logged.
+
+Three sentences, on one card, disagreeing with each other, the loudest of them simply
+untrue about somebody's team. Reachable at any overall active share below 0.5%.
+
+`readingOf(score, anyActive)` now takes the fact. `anyoneActive(levels)` reads it off
+the same `levels` array the bars are rendered from, so the headline and the breakdown
+underneath it answer from one source and cannot contradict each other — deliberately
+**not** off `deepestActiveLevel`, because a reading written by an older run may not
+carry that field and a missing field must not be able to call a working line dead. A
+rounded-down 0 with somebody still working now reads `topHeavy` — "A few people in your
+line are working. Most are not." — which is exactly what 1-of-300 is.
+
+The second argument defaults to `score > 0`, which is safe: nobody active always scores
+exactly 0 (every shrunk rate is `(0 + α·0)/(n+α)`), so the default can only ever agree
+with the fact. Tested both ways.
+
+## N39 — The bars cannot be reconciled with the number, so the card says why (audit)
+
+`LevelBars` renders `rate` (the plain share); the score is built from `weighted` (the
+shrunk share). Both come from one `scoreLine` call in one document, so they can never
+disagree about *data* — but they disagree *numerically*, and the card invited the
+arithmetic by saying "Deeper levels count for more":
+
+| line | bars | that arithmetic gives | the card shows |
+|---|---|---|---|
+| L1 1/1, L2 2/10 | 100% & 20% | 47 | **31** |
+| the same shape ×100 | 100% & 20% | 47 | **46** |
+
+Sixteen points apart on the small line, with nothing on the screen accounting for it.
+An unexplained gap between the number and the picture directly beneath it is how a
+coach decides the screen is wrong and stops opening it. `WHY_THE_BARS_DIFFER` now sits
+under the bars and says it in the terms a coach already has, and is covered by the L4
+copy test like every other sentence in the module.
+
+Also noted, not changed: `deepestActiveLevel` is computed, stored and typed all the way
+through to `DuplicationView`, and no screen renders it.

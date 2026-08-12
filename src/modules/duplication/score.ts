@@ -66,12 +66,32 @@
  *    cannot drown out a small level 3, and a small line is not scored against a
  *    denominator built for a big one.
  *
- * 3. **Shrinkage makes the middle of the range reachable at small sizes.** Without
- *    it a level of one person has a rate of exactly 0 or exactly 100 and nothing in
- *    between, so a small line's score would be assembled from extremes and "70"
- *    would be a number only a big line could ever land on. Pulling each depth toward
- *    the line's OWN pooled rate says the honest thing: one person having a bad month
- *    is not evidence that a level has stopped duplicating.
+ * 3. **Shrinkage stops one thin level from swinging the score — BETWEEN depths only.**
+ *    Pulling each depth toward the line's OWN pooled rate says the honest thing: one
+ *    person having a bad month is not evidence that a level has stopped duplicating.
+ *    A line that is 10-of-10, 4-of-4 and 0-of-1 scores 80 rather than the 50 the raw
+ *    depth-weighted mean would give it, and that is the whole reason α exists.
+ *
+ *    **Its exact limit, because it is not obvious and was once written down wrong
+ *    here:** when only ONE depth is populated, the shrinkage is an algebraic no-op.
+ *    The prior is estimated from the same data as the observation, so with a single
+ *    depth m = k₁/n₁ and
+ *
+ *        â₁ = (k₁ + α·k₁/n₁)/(n₁ + α) = k₁(n₁ + α) / (n₁(n₁ + α)) = k₁/n₁
+ *
+ *    — the raw rate, exactly, for every α, every n₁ and every k₁. So a one-level line
+ *    is scored on its unshrunk rate, and a coach with a single downline can only ever
+ *    score 0 or 100. A downline in the line seven days who logged one single day
+ *    scores their upline 100.
+ *
+ *    That is a real consequence and most coaches in a pilot club are one level deep,
+ *    so it is the common case, not a corner. It is left as it is rather than papered
+ *    over: the alternative — shrinking toward a fixed constant, or toward the whole
+ *    ORGANISATION's rate — would destroy the exact size-invariance in point 4 below,
+ *    which is the property the whole scale is built on, and would judge a small line
+ *    against other people's numbers. The honest fix is in the words, not the formula:
+ *    the screen states how many people the reading covers, and a 100 over one person
+ *    is a 100 over one person.
  *
  * 4. **The exact invariant.** If every depth has the same rate r, then m = r and
  *    every â_d = r identically — so the score is exactly 100r, at any line size and
@@ -83,8 +103,13 @@
  * rates but different sizes score identically when those rates DIFFER between
  * depths. They converge as the line grows — a big line's structure is trusted, a
  * small one's is pulled toward its own average. Promising exact equality there would
- * mean trusting one person out of one as much as two hundred out of two hundred,
- * which is how a score of 100 gets handed to a line where a single coach logged once.
+ * mean trusting one person out of one as much as two hundred out of two hundred.
+ *
+ * Note what that does NOT buy, since the two are easy to confuse: it damps a thin
+ * level against the OTHER levels of the same line, and it does nothing whatever to
+ * the overall level of a line that has only one depth. See point 3 above — a single
+ * coach who logged once still hands their upline a 100. Shrinking toward a
+ * self-estimated prior cannot prevent that, and this file used to claim it did.
  *
  * ----------------------------------------------------------------------------
  * A line that is only one level deep

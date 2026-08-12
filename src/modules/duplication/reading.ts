@@ -37,6 +37,27 @@ export const WHAT_IT_MEANS =
 export const WHAT_IT_IS_NOT =
   "It counts people, not points. Nothing here is about money.";
 
+/**
+ * Why the bars do not add up to the number — said on the screen, before a coach
+ * notices it themselves and stops trusting the number.
+ *
+ * The bars render the plain share (`rate`); the score is built from the SHRUNK share
+ * (`weighted`), which pulls a level with few people in it toward the line's own
+ * overall rate. On a small line the two genuinely disagree: a line with 1 of 1 at
+ * level 1 and 2 of 10 at level 2 shows bars of 100% and 20% and scores 31, where the
+ * "deeper levels count for more" arithmetic those bars invite gives 47. The same
+ * shape a hundred times larger scores 46, because a big level is trusted as it
+ * stands.
+ *
+ * That gap is the shrinkage doing its job (score.ts), not an error — but an
+ * unexplained gap between the number and the picture directly under it is how a coach
+ * decides the screen is wrong. So it is stated, in the terms a coach already has.
+ */
+export const WHY_THE_BARS_DIFFER =
+  "A level with only a few people in it is read together with the rest of your " +
+  "line, so one or two people cannot swing the number on their own. On a small " +
+  "line that is why the bars and the number above do not match exactly.";
+
 export type Band = "none" | "topHeavy" | "spreading" | "through";
 
 export type Reading = {
@@ -46,15 +67,44 @@ export type Reading = {
 };
 
 /**
+ * Did ANYBODY below this coach log, at any level?
+ *
+ * Read off the same `levels` the bars are rendered from, so the headline and the
+ * breakdown underneath it are answering from one source and cannot contradict each
+ * other. Deliberately not read off `deepestActiveLevel`: a reading written by an
+ * older run may not carry that field, and a missing field must not be able to turn
+ * a working line's headline into "nobody logged".
+ */
+export function anyoneActive(levels: LevelResult[]): boolean {
+  return levels.some((l) => l.active > 0);
+}
+
+/**
  * Four bands.
  *
  * Zero gets its own band because it is a genuinely different statement: not "the
  * work is thin down there" but "nobody below you logged at all", which is the exact
  * condition this feature is named after and the only one where the top is provably
  * carrying everything.
+ *
+ * ## Why "nobody logged" is a FACT passed in, not inferred from the score
+ *
+ * The score is rounded to a whole number, so it reaches 0 whenever the shrunk
+ * depth-weighted mean lands under 0.5 — which a large, nearly-dormant line does with
+ * people still logging. One person logging in a line of 300 scores 0. Inferring the
+ * band from `score <= 0` therefore printed "Nobody in your line logged their work in
+ * this window." directly above a bar reading "1 of 300 people logged." and a "where
+ * to look" line saying 299 had not — the screen contradicting itself, and the
+ * headline simply untrue about somebody's team.
+ *
+ * So the caller passes the fact. `anyActive` false is the only route into the "none"
+ * band; a rounded-down 0 with somebody still working is `topHeavy`, which is exactly
+ * what "a few people are working, most are not" describes. The default keeps the old
+ * behaviour for callers that only have a number (nobody active always scores 0, so
+ * the default is right whenever it is all that is available).
  */
-export function readingOf(score: number): Reading {
-  if (score <= 0) {
+export function readingOf(score: number, anyActive: boolean = score > 0): Reading {
+  if (!anyActive) {
     return {
       band: "none",
       headline: "Nobody in your line logged their work in this window.",
@@ -137,7 +187,10 @@ export function whereItStops(levels: LevelResult[]): Stop | null {
     depth: thinnest.depth,
     sentence:
       `Level ${thinnest.depth} is the thinnest — ${missing} ${peopleWord(missing)} ` +
-      `there have not logged.`,
+      // The verb has to agree with the count, or a line with exactly one quiet person
+      // reads "1 person there have not logged" on the screen that is meant to be the
+      // clearest sentence in the app.
+      `there ${missing === 1 ? "has" : "have"} not logged.`,
   };
 }
 

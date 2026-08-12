@@ -15,6 +15,8 @@ import {
 import {
   WHAT_IT_IS_NOT,
   WHAT_IT_MEANS,
+  WHY_THE_BARS_DIFFER,
+  anyoneActive,
   levelLabel,
   levelSentence,
   nextLevelCopy,
@@ -213,9 +215,52 @@ describe("scale — what makes 70 mean the same for a line of 6 and a line of 60
   });
 
   /**
+   * The shrinkage's EXACT LIMIT, pinned because score.ts once claimed the opposite.
+   *
+   * The prior is estimated from the same data as the observation, so with only one
+   * populated depth m = k/n and â = (k + α·k/n)/(n + α) = k(n+α)/(n(n+α)) = k/n — the
+   * raw rate, exactly, for every n and k. A one-level line is therefore scored
+   * unshrunk, and a coach with a single downline can only ever score 0 or 100.
+   *
+   * This is a real property of the formula, not a defect to fix here: shrinking
+   * toward anything other than the line's own pooled rate would break the exact
+   * size-invariance above, which the whole scale rests on. It is pinned so that a
+   * future change to α or to the prior fails loudly instead of quietly moving every
+   * small line's number.
+   */
+  test("with only one populated depth the shrinkage is an exact no-op", () => {
+    for (const n of [1, 2, 3, 5, 10, 37, 100]) {
+      for (let k = 0; k <= n; k++) {
+        const [only] = scoreLine(level(1, n, k)).levels;
+        // The identity is exact in algebra; IEEE-754 evaluates the two sides by
+        // different routes, so they can differ in the last bit (n=5, k=1 gives
+        // 0.19999999999999998 against 0.2). A tolerance of one part in 10^12 is
+        // twelve orders of magnitude tighter than the rounding to a whole score, so
+        // it still fails loudly if a real prior is ever introduced.
+        assert.ok(
+          Math.abs(only.weighted - only.rate) < 1e-12,
+          `n=${n} k=${k}: shrunk ${only.weighted} against raw ${only.rate}`
+        );
+      }
+    }
+  });
+
+  test("so a single-downline line is all-or-nothing, and that is the common case", () => {
+    assert.equal(scoreLine(level(1, 1, 0)).score, 0);
+    assert.equal(scoreLine(level(1, 1, 1)).score, 100);
+    // In the line the minimum tenure and no more, logging the one day the pro-rated
+    // bar asks for: their upline reads 100.
+    const barelyThere = scoreLine([
+      { userId: "one", depth: 1, availableDays: MIN_TENURE_DAYS, daysLogged: 1 },
+    ]);
+    assert.equal(barelyThere.score, 100);
+    assert.equal(barelyThere.lineSize, 1);
+  });
+
+  /**
    * Without shrinkage a single unlucky person at a small deep level would halve the
    * score of a line that is otherwise working everywhere. 50 → 80 is the whole
-   * reason the pseudo-count exists.
+   * reason the pseudo-count exists — BETWEEN depths, which is the only place it acts.
    */
   test("one quiet person at a thin deep level cannot crater the score", () => {
     const result = scoreLine([
@@ -356,6 +401,59 @@ describe("what the coach is told", () => {
     assert.equal(readingOf(100).band, "through");
   });
 
+  /**
+   * REGRESSION. The score is rounded to a whole number, so it reaches 0 whenever the
+   * shrunk depth-weighted mean lands under 0.5 — which a large, nearly-dormant line
+   * does with people still logging. Reading the "nobody logged" band off `score <= 0`
+   * printed that sentence directly above a bar saying "1 of 300 people logged.", and
+   * above a "where to look" line saying 299 of them had not. The band is a fact about
+   * the levels now, not an inference from a rounded number.
+   */
+  test("a line that rounds to zero with somebody still logging is NOT told nobody logged", () => {
+    const result = scoreLine(level(1, 300, 1));
+    assert.equal(result.score, 0, "1 of 300 rounds to zero — that part is correct");
+    assert.equal(result.deepestActiveLevel, 1, "somebody IS active");
+
+    const reading = readingOf(result.score!, anyoneActive(result.levels));
+    assert.equal(reading.band, "topHeavy");
+    assert.doesNotMatch(reading.headline, /nobody/i);
+
+    // ...and the breakdown printed underneath agrees with it rather than contradicting.
+    assert.equal(levelSentence(result.levels[0]), "1 of 300 people logged.");
+  });
+
+  test("the same holds several levels down, where only a deep level is alive", () => {
+    const result = scoreLine([
+      ...level(1, 400, 0),
+      ...level(2, 400, 3),
+      ...level(3, 400, 0),
+    ]);
+    assert.equal(result.score, 0);
+    assert.equal(anyoneActive(result.levels), true);
+    assert.notEqual(readingOf(result.score!, anyoneActive(result.levels)).band, "none");
+  });
+
+  test("a genuinely dead line still gets the sentence that band exists for", () => {
+    const result = scoreLine([...level(1, 4, 0), ...level(2, 4, 0)]);
+    assert.equal(result.score, 0);
+    assert.equal(anyoneActive(result.levels), false);
+    const reading = readingOf(result.score!, anyoneActive(result.levels));
+    assert.equal(reading.band, "none");
+    assert.match(reading.headline, /Nobody in your line logged/);
+  });
+
+  /**
+   * Nobody active always scores exactly 0 — every shrunk rate is (0 + α·0)/(n+α) — so
+   * the one-argument default can never disagree with the fact. That is what makes it
+   * safe for a caller that only has the number.
+   */
+  test("the default agrees with the fact whenever the fact is unavailable", () => {
+    for (const [n, k] of [[1, 0], [4, 0], [30, 0], [300, 0]] as const) {
+      const s = scoreLine(level(1, n, k)).score!;
+      assert.equal(readingOf(s).band, "none");
+    }
+  });
+
   test("the shallowest level where nobody logged is the one named", () => {
     const result = scoreLine([...level(1, 3, 0), ...level(2, 3, 0)]);
     const stop = whereItStops(result.levels)!;
@@ -370,6 +468,14 @@ describe("what the coach is told", () => {
     const stop = whereItStops(result.levels)!;
     assert.equal(stop.depth, 2);
     assert.match(stop.sentence, /7 people/);
+  });
+
+  /** REGRESSION: this read "1 person there have not logged." */
+  test("the shortfall sentence is grammatical at exactly one person", () => {
+    const result = scoreLine([...level(1, 4, 4), ...level(2, 3, 2)]);
+    const stop = whereItStops(result.levels)!;
+    assert.match(stop.sentence, /1 person there has not logged\./);
+    assert.doesNotMatch(stop.sentence, /person there have/);
   });
 
   test("a fully active line is told there is nothing to fix, not given a worry", () => {
@@ -421,7 +527,9 @@ describe("what the coach is told", () => {
     const sentences = [
       WHAT_IT_MEANS,
       WHAT_IT_IS_NOT,
+      WHY_THE_BARS_DIFFER,
       ...[0, 20, 50, 90].map((s) => readingOf(s).headline),
+      readingOf(0, true).headline,
       noScoreCopy("noLine").headline,
       noScoreCopy("noLine").body,
       noScoreCopy("allTooNew").headline,

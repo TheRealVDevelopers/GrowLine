@@ -8,6 +8,8 @@ import { getDuplicationFor, hasLine } from "@/modules/duplication/queries";
 import {
   WHAT_IT_IS_NOT,
   WHAT_IT_MEANS,
+  WHY_THE_BARS_DIFFER,
+  anyoneActive,
   nextLevelCopy,
   noScoreCopy,
   readingOf,
@@ -115,7 +117,10 @@ export default async function DuplicationPage() {
     );
   }
 
-  const reading = readingOf(view.score);
+  // The headline's "nobody logged" band is driven by the LEVELS, not by the rounded
+  // score — a big, nearly-dormant line rounds to 0 with people still logging, and the
+  // headline would then contradict the bars printed directly beneath it.
+  const reading = readingOf(view.score, anyoneActive(view.levels));
   const stop = whereItStops(view.levels);
   const next = nextLevelCopy(view.deepestLevel);
 
@@ -143,6 +148,13 @@ export default async function DuplicationPage() {
           doing yourself.
         </p>
         <LevelBars levels={view.levels} />
+        {/* The bars show each level's plain share; the number above is built from the
+            shrunk share. On a small line those differ, and an unexplained gap between
+            the number and the picture under it is how a coach decides the screen is
+            wrong — so it is stated rather than left to be discovered. */}
+        <p className="mt-4 text-sm text-text-dim" data-testid="duplication-why-bars">
+          {WHY_THE_BARS_DIFFER}
+        </p>
       </section>
 
       {stop && (
