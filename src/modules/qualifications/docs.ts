@@ -1,4 +1,3 @@
-import { createHash } from "crypto";
 import type { Timestamp } from "firebase-admin/firestore";
 import { db } from "@/lib/firebase-admin";
 import type { Criterion, CriterionType } from "./criteria";
@@ -31,45 +30,12 @@ import type { Audience } from "./model";
  * branch may create `qualificationProgress` and nothing else, so the roll-up lives
  * beside the rows it rolls up.
  *
- * ## Ids
- *
- * Deterministic, for D35's reason: the evaluator runs repeatedly and must overwrite
- * the row it wrote last time rather than accumulate copies of it.
- *
- * The qualification's own id is a hash of (creator, title, deadline) rather than an
- * auto-id, which buys one thing worth having: a double-tapped Create button produces
- * ONE qualification instead of identical twins on everybody's screen with no way to
- * tell which is real and no delete. The route refuses an id that already exists, so
- * this is never a silent overwrite of a live qualification's criteria — see
- * `createQualification`.
+ * Document ids are deterministic and live in `ids.ts` — kept out of this file so a
+ * unit test can import them without booting firebase-admin.
  */
 
 export const QUALIFICATIONS = "qualifications";
 export const QUALIFICATION_PROGRESS = "qualificationProgress";
-
-const SEPARATOR = "__";
-
-export function qualificationDocId(
-  creatorId: string,
-  title: string,
-  deadlineKey: string
-): string {
-  // The title is free text — any length, any character, possibly a "/" which
-  // Firestore forbids in an id — so identity goes through a hash and the title is
-  // stored in full on the document. Normalised for case and surrounding space only,
-  // the same two operations everything else in these modules normalises with, so
-  // "Summer Push" and "summer push " on one day are one qualification.
-  const key = `${creatorId}${SEPARATOR}${title.trim().toLowerCase()}${SEPARATOR}${deadlineKey}`;
-  return `qual_${createHash("sha256").update(key).digest("hex").slice(0, 24)}`;
-}
-
-export function progressDocId(qualificationId: string, userId: string): string {
-  return `qp_${qualificationId}${SEPARATOR}${userId}`;
-}
-
-export function summaryDocId(qualificationId: string): string {
-  return `qs_${qualificationId}`;
-}
 
 /** Numbers keyed by criterion type. Absent means zero — see `readCounts`. */
 export type CriterionCounts = Partial<Record<CriterionType, number>>;
