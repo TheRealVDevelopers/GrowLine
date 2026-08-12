@@ -6,8 +6,9 @@ import { test, expect, type Page } from "@playwright/test";
  * ## What this covers that no other test can
  *
  * The seeded organisation has four coaches, which is BELOW the floor at which a
- * board is published (five — see ranking.ts, where the reason is privacy rather than
- * performance). So this is the zero-data case, and every list, board and alert has to
+ * board is published (`MIN_PARTICIPANTS` in ranking.ts — derived from the podium and
+ * window sizes, and privacy rather than performance). So this is the zero-data case,
+ * and every list, board and alert has to
  * teach rather than render an empty box. That state is the one a real pilot club sees
  * on day one, and it is the easiest one to ship broken because it looks fine in a
  * fixture full of data.

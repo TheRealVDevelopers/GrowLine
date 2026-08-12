@@ -48,9 +48,41 @@ Two consequences, both load-bearing:
 The podium is the deliberate exception: three names whatever the size of the field,
 so it carries no information about where the field ends.
 
-**A board is not published below five participants** (`MIN_PARTICIPANTS`). Not a
-performance threshold — on a field of three the podium is the whole field and third
-place is last place, in public. Below the floor the screen teaches instead.
+**A board is not published below `MIN_PARTICIPANTS` participants.** Not a performance
+threshold. Below the floor the screen teaches instead.
+
+### N2a — The floor was 5 and that was not enough (audit correction)
+
+The floor was originally a hand-picked 5, reasoned from the podium alone: on a field
+of three the podium is the whole field, so third place is last place in public, and
+five looked like clear air. It was not. The podium and the window are two sets, and
+below a certain size they **meet**.
+
+A coach at rank R is shown ranks `1..PODIUM_SIZE`, plus the `WINDOW_ABOVE` coaches
+immediately ahead, plus themselves. When `R <= PODIUM_SIZE + WINDOW_ABOVE + 1` those
+sets join up and the coach is handed an unbroken `1..R` ending on their own name.
+With 3 and 4 that is every board of 5, 6, 7 or 8 participants — measured against the
+emulator, a real five-person line board rendered **5 of 5 entries** to the coach in
+last place.
+
+"The window never contains anybody behind you" was true the whole time and is not
+sufficient. Nothing shown was behind the reader; the reveal is that there was nothing
+*between* them either, on a group whose membership a coach already knows from the team
+tree. And 5–8 is not an edge case at pilot scale — it is most boards.
+
+So the floor is now **derived**: `PODIUM_SIZE + WINDOW_ABOVE + 2`, the smallest field
+that always hides at least one rank between the podium and the window. With the
+current 3 and 4 that is **9**.
+
+The cost is honest and belongs to the owner: fewer boards publish at pilot scale, and
+more cards show the teaching state. The dial is `WINDOW_ABOVE`, not the floor —
+showing fewer coaches ahead lowers the floor one for one (2 gives 7, 1 gives 6).
+Lowering the floor on its own is not available; it re-opens the leak.
+
+The unit suite could not see any of this because every window case ran against a
+twelve-coach board, and the floor assertion was `MIN_PARTICIPANTS > PODIUM_SIZE + 1`
+— true of 5, and silent about the window. It now sweeps every publishable field size
+and demands a visible break in the ranks shown to the last-placed coach.
 
 ## N3 — Weekly and monthly, and the streak board measures a run inside the window
 
@@ -143,6 +175,25 @@ create rather than an update to a field that might not exist.
 **Opted-out coaches still see every board.** They are removed from the rows before
 ranking, not hidden at render — filtering later would leave holes in the ranks, and a
 hole is an observation about the person missing from it.
+
+### N6a — Falling below the floor must UNPUBLISH, not just skip (audit correction)
+
+The job originally `continue`d past a board that had dropped below
+`MIN_PARTICIPANTS`. Skipping a write leaves the previous run's documents in place,
+still readable by everyone in the scope — and the thing that most often pushes a board
+under the floor is precisely a coach opting out of it.
+
+Reproduced against the emulator: a five-person line board, one coach opts out, full
+rebuild runs, and the board is still there with that coach's name and numbers on it.
+Opting out changed nothing for the rest of the period. An opt-out that silently fails
+in exactly the case it caused is worse than no opt-out, because the screen says it
+worked.
+
+The skip branch now **deletes** both documents. Deleting what is not there is a no-op,
+so no read is needed to find out. It costs two writes per skipped board per run and
+that is now the dominant term in this job's write budget, since most scope-metric pairs
+sit below the floor at pilot scale. If that ever needs cutting, cut it by reading which
+boards exist — never by going back to a silent skip.
 
 ## N7 — Three document kinds in one collection
 

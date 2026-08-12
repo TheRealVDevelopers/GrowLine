@@ -21,6 +21,7 @@ import {
   rankEntries,
   MIN_PARTICIPANTS,
   PODIUM_SIZE,
+  WINDOW_ABOVE,
   type RankRow,
 } from "@/modules/leaderboards/ranking";
 import { METRIC_SPECS, METRICS, formatValue } from "@/modules/leaderboards/metrics";
@@ -358,11 +359,56 @@ describe("the viewer's window", () => {
     assert.equal(view.podium.length, PODIUM_SIZE);
   });
 
-  test("a board below the publishing floor could not hide its own bottom", () => {
-    // Why MIN_PARTICIPANTS exists: with three coaches the podium IS everybody, so
-    // third place is last place, published. Five is the smallest field where a
-    // podium plus an upward-only window still hides the bottom.
-    assert.ok(MIN_PARTICIPANTS > PODIUM_SIZE + 1);
+  /**
+   * MANDATORY, and the one that caught a live leak.
+   *
+   * "The window never contains anybody below you" is necessary and NOT sufficient.
+   * The podium and the window are two sets, and when they touch, the coach is handed
+   * ranks 1..R unbroken, ending on their own name — the whole board, for anybody in
+   * last place. No entry in it is behind them; the reveal is that there is nothing
+   * between them either.
+   *
+   * The earlier version of this suite could not see it: every case ran against a
+   * twelve-coach board, and the leak lives at 5..8 — which, at a pilot club, is the
+   * size of nearly every real board. The floor was 5 and the assertion below was
+   * `MIN_PARTICIPANTS > PODIUM_SIZE + 1`, which is true of 5 and says nothing about
+   * the window.
+   *
+   * So this sweeps every field size a board can be published at and demands a hidden
+   * rank for the reader who has the most to lose by there not being one.
+   */
+  test("MANDATORY: the last-placed coach is never shown the complete board", () => {
+    for (let n = MIN_PARTICIPANTS; n <= MIN_PARTICIPANTS + 12; n++) {
+      const ranked = rankEntries(
+        Array.from({ length: n }, (_, i) => ({
+          userId: `u${i}`,
+          name: `Coach ${i}`,
+          value: (n - i) * 10,
+        }))
+      );
+      const view = buildViewerBoard(ranked, `u${n - 1}`);
+      const shown = new Set(
+        [...view.podium, ...view.above, view.me!].map((e) => e.rank)
+      );
+
+      assert.ok(
+        shown.size < n,
+        `a field of ${n} shows all ${n} ranks to the coach in last place`
+      );
+      // Not merely fewer — there must be a VISIBLE break, or an unbroken 1..R read
+      // against a group whose membership the coach knows is the same reveal.
+      const ordered = [...shown].sort((a, b) => a - b);
+      assert.ok(
+        ordered.some((rank, i) => rank !== i + 1),
+        `a field of ${n} shows an unbroken 1..${n} to the coach in last place`
+      );
+    }
+  });
+
+  test("the floor is derived from the podium and the window, not chosen", () => {
+    // Pinned as an equation so that moving PODIUM_SIZE or WINDOW_ABOVE cannot leave
+    // the floor behind at a number that used to be safe.
+    assert.equal(MIN_PARTICIPANTS, PODIUM_SIZE + WINDOW_ABOVE + 2);
   });
 });
 

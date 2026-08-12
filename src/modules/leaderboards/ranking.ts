@@ -134,11 +134,37 @@ export function buildViewerBoard(
 /**
  * A board is published only once this many coaches are on it.
  *
- * Not a performance threshold — a privacy one. On a board of three, the podium IS
- * the whole field and third place is last place, published. Five is the smallest
- * group where a podium plus an upward-only window still hides the bottom.
+ * Not a performance threshold — a privacy one, and it is DERIVED rather than chosen
+ * because the number that makes it work depends on the two constants above.
+ *
+ * ## Why it cannot be a hand-picked constant
+ *
+ * A coach at rank R is shown the podium (ranks 1..PODIUM_SIZE) and the window
+ * (the WINDOW_ABOVE coaches immediately ahead of them), plus themselves. When
+ * R <= PODIUM_SIZE + WINDOW_ABOVE + 1 those sets meet, and the coach is shown ranks
+ * 1..R with no gap in them — the complete board, ending on their own name.
+ *
+ * The upward-only window alone does not save it. The window never contains anybody
+ * behind the reader and never will; what leaks is CONTIGUITY. A coach who is shown
+ * an unbroken 1..R, on a group whose membership they already know (their own team is
+ * on the team tree), can see that the board has run out. That is the reveal this
+ * feature exists to prevent, and it was live at every board size from
+ * MIN_PARTICIPANTS up to PODIUM_SIZE + WINDOW_ABOVE — which at a pilot club is most
+ * of them.
+ *
+ * So the floor is the smallest field in which at least one rank is always hidden
+ * between the podium and the window, for every reader including the last-placed one.
+ * Verified by sweep in tests/leaderboards.test.ts rather than by this comment.
+ *
+ * ## The dial, if 9 is too many
+ *
+ * This is now a consequence of WINDOW_ABOVE, not an independent product number.
+ * Showing fewer coaches ahead lowers the floor one for one: WINDOW_ABOVE = 2 gives a
+ * floor of 7, WINDOW_ABOVE = 1 gives 6. Lowering the FLOOR on its own is not
+ * available — it re-opens the leak. Whoever wants more boards published at pilot
+ * scale trades window depth for it, deliberately.
  */
-export const MIN_PARTICIPANTS = 5;
+export const MIN_PARTICIPANTS = PODIUM_SIZE + WINDOW_ABOVE + 2;
 
 /** Roster cap: enough for any pilot-scale scope, small enough to stay a document. */
 export const MAX_ROSTER_ENTRIES = 2000;

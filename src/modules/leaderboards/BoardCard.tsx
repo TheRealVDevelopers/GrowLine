@@ -1,5 +1,5 @@
 import { formatValue, type MetricSpec } from "./metrics";
-import type { RankedEntry, ViewerBoard } from "./ranking";
+import { MIN_PARTICIPANTS, type RankedEntry, type ViewerBoard } from "./ranking";
 
 /**
  * One board (F13). Four of these stack on the screen — see metrics.ts for why there
@@ -99,8 +99,11 @@ export default function BoardCard({
         <div className="mt-4 rounded-xl border border-hairline px-4 py-4">
           <p className="text-sm font-medium">Nothing here yet.</p>
           <p className="mt-1 text-sm text-text-dim">
-            This board appears once five coaches in this group have something on it.{" "}
-            {spec.howToJoin}
+            {/* The number comes from the constant, never from prose. It is derived
+                from the podium and window sizes (see ranking.ts), so a copy string
+                spelling it out in words goes stale the moment either one moves. */}
+            This board appears once {MIN_PARTICIPANTS} coaches in this group have
+            something on it. {spec.howToJoin}
           </p>
         </div>
       ) : (
