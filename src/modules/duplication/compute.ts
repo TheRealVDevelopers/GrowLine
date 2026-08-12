@@ -1,17 +1,11 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { db } from "@/lib/firebase-admin";
 import { dailyLogs, users } from "@/lib/collections";
-import { APP_TIMEZONE, dayKey } from "@/lib/day";
-import { daysBetweenKeys, shiftKey } from "@/lib/daily-log";
-import { makeWindow, type DayWindow } from "@/modules/shared-new/window";
+import { dayKey } from "@/lib/day";
+import type { DayWindow } from "@/modules/shared-new/window";
 import { DUPLICATION_SCORES, duplicationScoreDocId, type DuplicationScoreDoc } from "./docs";
-import {
-  MEASURED_DEPTH,
-  WINDOW_DAYS,
-  isActive,
-  scoreLine,
-  type Member,
-} from "./score";
+import { availableDaysFor, currentWindow, membersByCoach, type Person } from "./line";
+import { WINDOW_DAYS, isActive, scoreLine } from "./score";
 
 /**
  * Building every coach's duplication reading. Runs on a schedule, on the server.
@@ -29,16 +23,13 @@ import {
  * list. A reading presented as this minute's, that is actually Tuesday's, is worse
  * than a reading labelled Tuesday.
  *
- * ## The whole tree in one pass
+ * ## What is here and what is in line.ts
  *
- * `uplinePath` (D36) is ordered nearest-ancestor-first, so a user whose path begins
- * `[asha, root]` is at depth 1 below Asha and depth 2 below Root. Every membership
- * in the organisation therefore falls out of ONE loop over the users: for each
- * person, their first three ancestors each gain a member at the matching depth.
- *
- * That slice of three is also the answer to "which depth are we measuring" — the
- * ancestry runs the whole way up (a line can be 100 deep), and we deliberately read
- * only the first three entries. See score.ts for why.
+ * This file reads documents and writes documents. Everything that decides what they
+ * MEAN — the window's two ends, how much of it a person has been present for, and
+ * which coach's line each person belongs to at which depth — lives in `line.ts`,
+ * which imports no database and is therefore testable against hand-worked examples.
+ * Two collection reads happen here, whatever the size of the organisation.
  *
  * ## No names, no money
  *
@@ -46,14 +37,6 @@ import {
  * a count is what P1 lets flow up a line. Not one figure here is money, a rate of
  * change, or a projection (L4).
  */
-
-type Person = {
-  id: string;
-  uplinePath: string[];
-  /** Days of the window this person has been in the line, capped at the window. */
-  availableDays: number;
-  daysLogged: number;
-};
 
 export type ComputeResult = {
   /** Coaches who had a line and got a reading. */
@@ -63,26 +46,6 @@ export type ComputeResult = {
   window: DayWindow;
   generatedAt: Date;
 };
-
-/** The rolling window ending today, in the coach's own zone (E1). */
-export function currentWindow(now = new Date(), timeZone = APP_TIMEZONE): DayWindow {
-  const toKey = dayKey(now, timeZone);
-  return makeWindow(shiftKey(toKey, -(WINDOW_DAYS - 1)), toKey, timeZone);
-}
-
-/**
- * How much of the window a person has actually been here for.
- *
- * Someone who joined a fortnight ago has had a fortnight, not four weeks — which is
- * what both the tenure rule and the pro-rated activity bar are computed from. Day
- * keys are compared as strings because they sort chronologically (D26), so no
- * timezone arithmetic happens here at all.
- */
-export function availableDaysFor(joinKey: string, window: DayWindow): number {
-  const startKey = joinKey > window.fromKey ? joinKey : window.fromKey;
-  const days = daysBetweenKeys(startKey, window.toKey) + 1;
-  return Math.min(WINDOW_DAYS, Math.max(0, days));
-}
 
 async function loadPeople(window: DayWindow): Promise<Person[]> {
   const [userSnap, logSnap] = await Promise.all([
@@ -115,23 +78,6 @@ async function loadPeople(window: DayWindow): Promise<Person[]> {
       daysLogged: daysBy.get(doc.id)?.size ?? 0,
     };
   });
-}
-
-/** Every coach's line, keyed by the coach, from one pass over the organisation. */
-export function membersByCoach(people: Person[]): Map<string, Member[]> {
-  const out = new Map<string, Member[]>();
-  for (const person of people) {
-    person.uplinePath.slice(0, MEASURED_DEPTH).forEach((ancestorId, index) => {
-      const member: Member = {
-        userId: person.id,
-        depth: index + 1,
-        availableDays: person.availableDays,
-        daysLogged: person.daysLogged,
-      };
-      out.set(ancestorId, [...(out.get(ancestorId) ?? []), member]);
-    });
-  }
-  return out;
 }
 
 export async function computeAllDuplicationScores(now = new Date()): Promise<ComputeResult> {

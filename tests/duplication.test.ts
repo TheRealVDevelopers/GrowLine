@@ -24,6 +24,12 @@ import {
   whereItStops,
 } from "@/modules/duplication/reading";
 import { duplicationScoreDocId } from "@/modules/duplication/docs";
+import {
+  availableDaysFor,
+  currentWindow,
+  membersByCoach,
+  type Person,
+} from "@/modules/duplication/line";
 
 /**
  * Unit tests for the duplication score (F20).
@@ -429,6 +435,106 @@ describe("what the coach is told", () => {
     for (const text of sentences) {
       assert.ok(!banned.test(text), `"${text}" reads as money or a projection`);
     }
+  });
+});
+
+describe("the window, and who is inside it", () => {
+  /**
+   * E1. India is UTC+5:30, so from 18:30 UTC it is already tomorrow in Bengaluru.
+   * A window ending on the UTC day would drop the evening logs of the very day the
+   * job is reporting on — every night it ran.
+   */
+  test("the window ends on the coach's today, not on UTC's", () => {
+    const morning = currentWindow(new Date("2026-08-12T00:30:00Z")); // 06:00 IST
+    const lateEvening = currentWindow(new Date("2026-08-11T19:00:00Z")); // 00:30 IST, 12th
+
+    assert.equal(morning.toKey, "2026-08-12");
+    assert.equal(lateEvening.toKey, "2026-08-12");
+    assert.equal(morning.timeZone, "Asia/Kolkata");
+  });
+
+  test("the window is 28 days counting today, so both ends are included", () => {
+    const w = currentWindow(new Date("2026-08-12T06:00:00Z"));
+    assert.equal(w.fromKey, "2026-07-16");
+    assert.equal(w.toKey, "2026-08-12");
+    assert.equal(availableDaysFor(w.fromKey, w), WINDOW_DAYS);
+  });
+
+  test("somebody who joined before the window gets the whole window, never more", () => {
+    const w = currentWindow(new Date("2026-08-12T06:00:00Z"));
+    assert.equal(availableDaysFor("2024-01-01", w), WINDOW_DAYS);
+  });
+
+  test("somebody who joined inside it gets the days they were actually here", () => {
+    const w = currentWindow(new Date("2026-08-12T06:00:00Z"));
+    assert.equal(availableDaysFor("2026-08-05", w), 8);
+    assert.equal(availableDaysFor("2026-08-12", w), 1);
+  });
+
+  test("a join date after the window closes counts as no days at all", () => {
+    // Clock skew rather than a real case, but zero must fall out rather than a
+    // negative day count quietly making somebody eligible.
+    const w = currentWindow(new Date("2026-08-12T06:00:00Z"));
+    assert.equal(availableDaysFor("2026-09-01", w), 0);
+  });
+});
+
+describe("turning an organisation into one line per coach", () => {
+  const person = (id: string, uplinePath: string[]): Person => ({
+    id,
+    uplinePath,
+    availableDays: WINDOW_DAYS,
+    daysLogged: ACTIVE_DAYS,
+  });
+
+  /**
+   * `uplinePath` is nearest-ancestor-first (D36), so one person contributes to
+   * several coaches' lines at once, at a different depth in each. One pass over the
+   * organisation fills every line — no tree walk, no query per node.
+   */
+  test("one person lands in every ancestor's line at the right depth", () => {
+    const lines = membersByCoach([person("chan", ["asha", "root"])]);
+
+    assert.deepEqual(lines.get("asha")?.map((m) => m.depth), [1]);
+    assert.deepEqual(lines.get("root")?.map((m) => m.depth), [2]);
+  });
+
+  test("only the first three ancestors are measured", () => {
+    const lines = membersByCoach([person("deep", ["l1", "l2", "l3", "l4", "l5"])]);
+
+    assert.equal(lines.get("l3")?.[0].depth, 3);
+    // l4 and l5 are further up than the team tree ever renders. This person is
+    // already counted — in l1's, l2's and l3's readings.
+    assert.equal(lines.has("l4"), false);
+    assert.equal(lines.has("l5"), false);
+  });
+
+  test("a coach with nobody below them has no line at all, not an empty one", () => {
+    // `compute.ts` turns the absence into a DELETE, so a coach whose line moved away
+    // stops reading a breakdown of a team that is no longer theirs.
+    const lines = membersByCoach([person("root", []), person("asha", ["root"])]);
+    assert.equal(lines.has("asha"), false);
+    assert.equal(lines.get("root")?.length, 1);
+  });
+
+  test("the whole shape of a three-level tree comes out of one pass", () => {
+    const lines = membersByCoach([
+      person("asha", ["root"]),
+      person("bhav", ["root"]),
+      person("chan", ["asha", "root"]),
+      person("dev", ["chan", "asha", "root"]),
+    ]);
+
+    assert.deepEqual(
+      lines.get("root")!.map((m) => [m.userId, m.depth]),
+      [["asha", 1], ["bhav", 1], ["chan", 2], ["dev", 3]]
+    );
+    assert.deepEqual(
+      lines.get("asha")!.map((m) => [m.userId, m.depth]),
+      [["chan", 1], ["dev", 2]]
+    );
+    // And the score that shape produces is a full house — everybody is logging.
+    assert.equal(scoreLine(lines.get("root")!).score, 100);
   });
 });
 
