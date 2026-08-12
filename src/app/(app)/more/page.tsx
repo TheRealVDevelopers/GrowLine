@@ -22,6 +22,11 @@ const LINKS = [
     title: "Boards",
     body: "Four boards — volume, people met, follow-ups and your logging streak. Weekly and monthly.",
   },
+  {
+    href: "/qualifications",
+    title: "Qualifications",
+    body: "Conditions and a closing date. Track what is left, see who is already in, and set one for your own line.",
+  },
 ];
 
 export default async function MorePage() {

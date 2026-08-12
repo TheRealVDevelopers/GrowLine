@@ -256,6 +256,8 @@ export type ParticipantView = QualificationView & {
   role: "participant";
   standing: Standing;
   nudge: Nudge;
+  /** When the reader themselves got in. Read off their own row, never matched by name. */
+  qualifiedAt: Date | null;
   qualified: Qualifier[];
   qualifiedCount: number;
   /** A COUNT, never names — see the header. */
@@ -341,6 +343,7 @@ export async function getQualificationFor(
       role: "participant",
       standing,
       nudge: nudgeFor(standing, view.daysLeft),
+      qualifiedAt: toDate(own?.qualifiedAt),
       qualified: qualified.slice(0, MAX_LISTED),
       qualifiedCount: summary?.qualifiedCount ?? qualified.length,
       oneStepCount:
