@@ -314,5 +314,72 @@ service cloud.firestore {
     match /{document=**} {
       allow read, write: if false;
     }
+
+    /**
+     * Leaderboard snapshots (F13). APPENDED after the catch-all deliberately: rules are
+     * OR-ed across match blocks, so a later `allow` grants what the recursive wildcard
+     * above denies, and no existing block had to be touched to add this one.
+     *
+     * ## Three kinds of document, and only one of them is readable
+     *
+     *   podium  the top 3 of one board. Readable by a coach who BELONGS to that board's
+     *           scope, and nobody else.
+     *   roster  the full ordering, bottom included, plus the participant count. Denied
+     *           to every client, always. This is the rule that makes "nobody can see
+     *           who is last" a property of the database rather than of the markup: the
+     *           screen slices each coach's upward-only window out of this document with
+     *           the Admin SDK, and the browser is handed the slice. If this collection
+     *           ever needs a client-side board, it reads the podium — never this.
+     *   optOut  one document per coach who asked not to be listed. Readable only by the
+     *           coach it names, because "who has opted out" is a list of people who
+     *           wanted less visibility and is nobody else's to enumerate.
+     *
+     * ## Membership is resolved LIVE, never from a snapshot
+     *
+     * `inScope()` reads the CURRENT user document (D64's rule: authorization must not
+     * trust a `uplinePath` frozen at write time). The board documents do carry the
+     * ranking as it stood when the job ran — that is what a snapshot is — but who is
+     * allowed to open one is decided against the tree as it is now. A coach moved to a
+     * different line loses the old line's boards on their next read, which is the
+     * behaviour D64 was written to guarantee.
+     *
+     * `scopeKey` for a level group or a city is `trim().lower()` of the free text a
+     * coach typed (RULES L8 — this app ships no rank names). Rules can restate exactly
+     * that, which is why the normalisation is deliberately no cleverer than two calls:
+     * a membership test the rules cannot express is a membership test nobody enforces.
+     *
+     * One `get()` per request, on the reader's own document — the same budget the
+     * prospects rule established (D48).
+     */
+    match /leaderboardSnapshots/{snapshotId} {
+      function inScope(scopeType, scopeKey) {
+        let m = me();
+        return scopeType == 'org'
+          ? (m.uplinePath.size() == 0
+              ? uid() == scopeKey
+              : m.uplinePath[m.uplinePath.size() - 1] == scopeKey)
+          : scopeType == 'line'
+            ? (uid() == scopeKey || scopeKey in m.uplinePath)
+            : scopeType == 'level'
+              ? (m.levelName is string && m.levelName.trim().lower() == scopeKey)
+              : scopeType == 'club'
+                ? (m.city is string && m.city.trim().lower() == scopeKey)
+                : false;
+      }
+
+      allow read: if signedIn() && (
+        (resource.data.kind == 'podium'
+          && inScope(resource.data.scopeType, resource.data.scopeKey))
+        || (resource.data.kind == 'optOut' && resource.data.userId == uid())
+      );
+
+      /**
+       * Written only by the scheduled job through the Admin SDK, and by the opt-out
+       * route on the signed-in coach's own document. A client write would let anyone
+       * publish a board naming themselves first, or delete somebody else's opt-out and
+       * put them back on the listings they left.
+       */
+      allow write: if false;
+    }
   }
 }
