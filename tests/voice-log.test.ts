@@ -213,7 +213,9 @@ describe("document ids and caps", () => {
 });
 
 describe("copy", () => {
-  const sentences = Object.values(copy).filter((v): v is string => typeof v === "string");
+  const sentences = (Object.values(copy) as unknown[]).filter(
+    (v): v is string => typeof v === "string"
+  );
 
   test("no income or earnings language anywhere (L4)", () => {
     // The easiest rule to break on a celebration screen. A saved log is a habit kept,

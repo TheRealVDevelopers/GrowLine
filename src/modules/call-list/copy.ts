@@ -49,5 +49,10 @@ export function cappedNote(shown: number, total: number): string {
 export const YOURS_ONLY =
   "These are your people only. Nobody in your line sees this list, and you never see theirs.";
 
+/**
+ * The hub line. It said "the six people worth a call" until the L4 test caught it:
+ * "worth" beside a ranked list of people reads as an estimate of what each one is
+ * worth, which is the exact thing a ranking of prospects must never be mistaken for.
+ */
 export const HUB_BLURB =
-  "The six people worth a call this evening, ranked, with the reason next to each name.";
+  "The people who need a call this evening, in order, with the reason next to each name.";
