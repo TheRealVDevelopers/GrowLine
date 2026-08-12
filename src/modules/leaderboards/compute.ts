@@ -309,10 +309,31 @@ export async function computeAllBoards(now = new Date()): Promise<ComputeResult>
           scopeKey: scope.key,
         };
 
-        // Below the floor there is no board to publish: on a field of three the
-        // podium is everybody, and third place is last place in public.
+        /**
+         * Below the floor there is no board to publish (ranking.ts).
+         *
+         * The documents are DELETED rather than merely not written. Skipping the
+         * write leaves whatever the last run published sitting in Firestore, still
+         * readable by everyone in the scope — and the case that puts a board below
+         * the floor is most often a coach opting out of it. A board of five that
+         * loses one to the opt-out drops to four, is skipped, and the previous
+         * document keeps that coach's name and numbers on a listing they have just
+         * left, for the rest of the period. Opting out has to remove you from the
+         * boards even when removing you is what unpublishes them.
+         *
+         * Deleting a document that is not there is a no-op, so this is correct
+         * without a read to find out. It costs two writes per skipped board per run
+         * — the dominant term in this job's write budget, since most scope-metric
+         * pairs are below the floor at pilot scale. That is the price of the opt-out
+         * being honoured; if it ever needs cutting, cut it by reading which boards
+         * exist, never by going back to a silent skip.
+         */
         if (rows.length < MIN_PARTICIPANTS) {
+          batch.delete(db.collection(LEADERBOARD_COLLECTION).doc(podiumDocId(identity)));
+          batch.delete(db.collection(LEADERBOARD_COLLECTION).doc(rosterDocId(identity)));
+          pending += 2;
           boardsSkipped++;
+          await flush();
           continue;
         }
 
