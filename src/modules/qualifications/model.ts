@@ -51,6 +51,37 @@ export const AUDIENCE_HELP: Record<Audience, string> = {
   all: "Everyone in your line, however deep it goes.",
 };
 
+/** Everything the audience rule needs off a coach, and nothing else. */
+export type LinePosition = { uplineId: string | null; uplinePath: string[] };
+
+/**
+ * Is this coach inside a qualification's audience?
+ *
+ * THE single app-side answer. The evaluator asks it to decide whose progress row to
+ * write, and the read side asks it to decide who may open the screen — and before an
+ * audit those were two separate expressions of the same rule, in two files that both
+ * import firebase-admin and therefore neither of which a unit test could reach. One
+ * of them drifting would mean a coach with a tracker who cannot open it, or a page
+ * served to somebody the evaluator never counted.
+ *
+ * `firestore.rules` states the same rule a third time, independently and in its own
+ * language. That copy is not duplication to remove: it is what stops a hand-written
+ * query, and it is covered by e2e/qualifications-rules.test.ts.
+ *
+ * Resolved from the coach's CURRENT position (D64) — `uplineId` for the direct line,
+ * `uplinePath` for the whole line. Nothing is read off the qualification but the
+ * creator and the scope.
+ */
+export function inAudience(
+  audience: Audience,
+  creatorId: string,
+  coach: LinePosition
+): boolean {
+  return audience === "direct"
+    ? coach.uplineId === creatorId
+    : coach.uplinePath.includes(creatorId);
+}
+
 /**
  * Long enough to name an event, short enough to read on a card at a glance.
  *

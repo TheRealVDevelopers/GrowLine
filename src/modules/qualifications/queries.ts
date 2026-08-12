@@ -13,7 +13,12 @@ import {
   type SummaryDoc,
 } from "./docs";
 import { progressDocId, qualificationDocId, summaryDocId } from "./ids";
-import { windowOf, type Audience, type QualificationDefinition } from "./model";
+import {
+  inAudience,
+  windowOf,
+  type Audience,
+  type QualificationDefinition,
+} from "./model";
 import { ensureFresh, evaluateQualification } from "./evaluate";
 import {
   dropOff,
@@ -56,10 +61,9 @@ export const MAX_LISTED = 12;
 
 export type Viewer = "creator" | "participant";
 
+/** The evaluator's own predicate (model.ts), so the two seats cannot disagree. */
 export function isParticipant(q: QualificationDoc, user: AppUser): boolean {
-  return q.audience === "direct"
-    ? user.uplineId === q.creatorId
-    : user.uplinePath.includes(q.creatorId);
+  return inAudience(q.audience, q.creatorId, user);
 }
 
 function toStanding(q: QualificationDoc, row: ProgressDoc | null): Standing {
@@ -193,6 +197,16 @@ export type ListedQualification = QualificationView & {
   /** Present only for a participant — a creator is never in their own audience. */
   standing: Standing | null;
   nudge: Nudge | null;
+  /**
+   * When the standing on this card was last computed, or null if it never has been.
+   *
+   * The list does NOT refresh stale rows the way the detail page does, and it must
+   * not: `ensureFresh` reads a whole slice of the organisation, and doing that once
+   * per card would turn opening a list into N of them. So the honest move is to say
+   * how old the number is rather than to present it as this minute's — see N21a. It
+   * costs nothing: `updatedAt` is already on the row the card reads.
+   */
+  countedAt: Date | null;
 };
 
 /**
@@ -225,16 +239,24 @@ export async function listForCoach(
 
     const view = toView(id, q, now);
     if (creator) {
-      mine.push({ ...view, role: "creator", standing: null, nudge: null });
+      mine.push({
+        ...view,
+        role: "creator",
+        standing: null,
+        nudge: null,
+        countedAt: null,
+      });
       continue;
     }
     const snap = await qualificationProgress().doc(progressDocId(id, user.id)).get();
-    const standing = toStanding(q, snap.exists ? (snap.data() as ProgressDoc) : null);
+    const row = snap.exists ? (snap.data() as ProgressDoc) : null;
+    const standing = toStanding(q, row);
     mine.push({
       ...view,
       role: "participant",
       standing,
       nudge: nudgeFor(standing, view.daysLeft),
+      countedAt: toDate(row?.updatedAt),
     });
   }
 
