@@ -103,14 +103,25 @@ export function buildViewerBoard(
   }
 
   const me = entries[index];
-  const above = entries
-    .slice(Math.max(0, index - WINDOW_ABOVE), index)
+
+  /**
+   * Strictly ahead, not merely earlier in the array.
+   *
+   * Ties are ordered inside a shared rank by a tiebreak the coach cannot see, so
+   * slicing by POSITION would put people level with the reader under a heading that
+   * says "just ahead of you" — a small lie, and one that quietly publishes an
+   * ordering that is not a ranking. Filtering by value means the window contains
+   * only coaches the reader can actually pass, and `rank < me.rank` holds for every
+   * entry in it.
+   */
+  const strictlyAhead = entries.filter((e) => e.value > me.value);
+  const above = strictlyAhead
+    .slice(-WINDOW_ABOVE)
     .filter((e) => !podium.some((p) => p.userId === e.userId));
 
-  // The person immediately above by POSITION, not by rank: on a tie the coach
-  // directly ahead of you shares your rank, and "0 behind #3" is a true and useless
-  // sentence. The gap that means something is to the next person you can pass.
-  const ahead = entries.slice(0, index).reverse().find((e) => e.value > me.value) ?? null;
+  // The nearest coach who is genuinely ahead. On a tie, "0 behind #3" is a true and
+  // useless sentence; the gap that means something is to the next real step up.
+  const ahead = strictlyAhead[strictlyAhead.length - 1] ?? null;
 
   return {
     podium,

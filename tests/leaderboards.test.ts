@@ -311,6 +311,27 @@ describe("the viewer's window", () => {
     assert.deepEqual(nearTop.above.map((e) => e.userId), ["u3"]);
   });
 
+  /**
+   * Found against the emulator, on the volume board, where a whole field can sit on
+   * zero validated points. Slicing the window by POSITION put coaches with the SAME
+   * value under the heading "just ahead of you" — they are not ahead, they are level,
+   * and the order between them comes from a tiebreak nobody is shown. The window now
+   * filters by value, which also makes `rank < me.rank` true of every entry in it.
+   */
+  test("the window holds only coaches who are genuinely ahead, never equals", () => {
+    const tied = rankEntries([
+      { userId: "a", name: "A", value: 0, tiebreak: 30 },
+      { userId: "b", name: "B", value: 0, tiebreak: 20 },
+      { userId: "c", name: "C", value: 0, tiebreak: 10 },
+      { userId: "d", name: "D", value: 0, tiebreak: 5 },
+      { userId: "e", name: "E", value: 0, tiebreak: 1 },
+    ]);
+    const view = buildViewerBoard(tied, "d");
+    assert.deepEqual(view.above, []);
+    assert.equal(view.gap, null);
+    assert.equal(view.me!.rank, 1);
+  });
+
   test("the gap is to the next coach who can actually be passed", () => {
     const view = buildViewerBoard(board, "u8");
     assert.deepEqual(view.gap, { points: 10, rank: 8 });
