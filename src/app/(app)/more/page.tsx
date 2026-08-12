@@ -27,6 +27,11 @@ const LINKS = [
     title: "Qualifications",
     body: "Conditions and a closing date. Track what is left, see who is already in, and set one for your own line.",
   },
+  {
+    href: "/duplication",
+    title: "Duplication",
+    body: "One number: is the work happening only at the top, or all the way down your line? With the level-by-level count behind it.",
+  },
 ];
 
 export default async function MorePage() {
