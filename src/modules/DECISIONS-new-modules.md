@@ -250,3 +250,258 @@ presenting last week's ranking as today's.
 `src/components/AppNav.tsx` hardcodes a five-column grid; a sixth tab is a layout
 change and the owner's decision. `src/app/(app)/more/page.tsx` is the hub for
 everything not on the bar, and sessions 2 and 3 add their entries to its one list.
+
+---
+
+# Session 2 — F14, event qualifications
+
+## N12 — A qualification's conditions are a LIST of typed pairs, not five columns
+
+The brief says the data model is the real work and names what it has to make cheap:
+a sixth criterion type, later. So a qualification stores
+`criteria: [{ type, target }, …]` against a registry (`criteria.ts`), and every
+consumer — the tracker, the nudge, the qualifier list, the drop-off table, the
+reminder copy — is written as a loop over that array with a lookup in the registry.
+
+The alternative was five nullable fields on the document (`volumeTarget`,
+`membersTarget`, …). Priced against the same change:
+
+| | five fields | a list of pairs |
+|---|---|---|
+| sixth criterion | schema change, migration, a branch in the evaluator, a branch in every renderer, a key in the summary map | one entry in `CRITERION_SPECS`, one `if (want(…))` block in the collector |
+| what else edits | every file that names a criterion | nothing |
+
+Two unit tests hold the property rather than a comment: one proves a type cannot be
+listed with a half-written spec, the other runs every type through scoring, nudging
+and drop-off generically, so a `switch` appearing downstream fails for the sixth
+type instead of shipping.
+
+## N13 — Two ways to measure, declared in the registry
+
+`measure: "windowed" | "cumulative"`.
+
+Four criteria are countable inside the window because their rows carry a time:
+prospects captured, members logged, coaches recruited, days logged. Volume is not —
+it is one cumulative monthly figure per coach with no per-day history, which N4
+already recorded on the boards.
+
+Counting the whole month's figure would credit a coach for points earned before the
+qualification was announced. So a cumulative criterion is measured against a
+**baseline** captured when the coach enters, and progress is the difference. The
+create route evaluates synchronously, so for the audience that exists at
+announcement the baseline is taken at that instant; a coach who joins the line later
+is baselined on the run that first sees them, which errs towards under-counting
+rather than crediting work done under a different upline.
+
+A validated total can go DOWN (an upline asking for fresh proof), so the difference
+is clamped at zero. "-40 points" is not a number anybody can act on.
+
+## N14 — Volume counts only CHECKED points, and the unchecked figure is carried
+
+Same rule as N4, and here it matters more. `progressPoints` is typed in by the coach
+it belongs to (F7), so a qualification gated on the raw figure is one a coach awards
+themselves by typing a bigger number. Only points on a target whose most recent proof
+is approved count; any newer proof — pending, submitted or rejected — puts the whole
+target back in the unchecked column.
+
+The known approximation is N4's: validation is per TARGET, not per point, because
+nothing records how many points stood when the upline approved. The proper fix is
+`progressPointsAtReview` on the proof, which means editing `src/lib/targets-queries.ts`
+— an existing file this branch may not touch. **Still reported, still not done.**
+
+The unchecked amount is carried alongside and rendered dimmed, because it changes the
+instruction. A coach sitting on 400 unapproved points is not behind on the work, they
+are behind on the checking, and "go and meet more people" would be the wrong nudge
+(G6). That is the one hint in this feature that names a job somebody else has to do.
+
+## N15 — The audience is "direct" or "whole line", not the four board scopes
+
+The brief says "which part of their line it applies to", and a line has two honest
+answers: the coaches you brought in yourself, or everyone beneath you at any depth.
+Both are the words F8 already put in front of these coaches for the same choice.
+
+The leaderboards' four scopes are deliberately NOT reused. A city board crosses
+organisations on purpose (N5), and "everyone in Bengaluru qualifies for my event" is
+not something an upline can offer. A level group is free text somebody typed; gating a
+prize on it would make the text a claim.
+
+Membership is resolved LIVE on every evaluation and in the Security Rule (D64). No
+participant list is stored. A coach who joins the line mid-qualification is in it from
+that moment; a coach who moves out has their row DELETED, for N6a's reason — leaving
+it behind keeps their name and numbers on a qualifier list belonging to a line they
+have left.
+
+## N16 — Qualified by name, one-step-away by count
+
+The brief asks for a live qualifier list — "who is already in, who is one step away" —
+and that second half is where the leaderboard leak N2 reappears in different clothes.
+
+- **Qualified: names, to everyone in the qualification.** Being in is good news, and an
+  event list is public by nature; a qualification whose qualifiers were secret could
+  not be run at all.
+- **One condition away: a COUNT to participants, NAMES to the creator only.** A peer
+  does not need to know whose shortfall is whose. The creator does — they are the
+  person who makes the phone call, every one of those people is already on their team
+  tree, and activity counts flow up the line anyway (P1).
+
+Neither audience ever sees a prospect: names met are counted, never named, and the
+evaluator reads nothing off a prospect document but its owning coach's id.
+
+## N17 — "One step away" is exactly one unmet condition, and the label never travels alone
+
+`stepsAway` is the count of unmet criteria. One means one. Not "close on all of them",
+not a tuned percentage.
+
+That definition has an honest hole: a coach with four conditions met and zero of two
+thousand points IS one step away and is nowhere near. The fix is not a threshold —
+picking 60% or 80% would be inventing a business rule to make a label feel right.
+The fix is that **the number always travels with the phrase**. Every place this module
+says one step away, it prints the gap in that criterion's own units: on the tracker,
+in the nudge, in the reminder, and beside every name in the creator's list. A
+MANDATORY unit test asserts it.
+
+The "closest" condition is chosen by FRACTION, not by the raw gap. 600 points and 2
+members are not comparable numbers, and picking the smaller would send a coach who is
+95% of the way to a volume target off to start the thing they have not touched.
+
+## N18 — Qualifying latches
+
+Once a coach has been told they are in, they stay in for that qualification, and
+`qualifiedAt` records when. The only way a met condition can un-meet itself is an
+upline requesting fresh proof on an already-approved target — somebody else's action,
+after the fact — and taking a badge back off a person who has already shared it is not
+something this app is going to do.
+
+The per-criterion rows keep telling the truth, so a tracker can show "You are in"
+beside a condition that has since slipped. Rare, honest, and better than a bouncing
+badge.
+
+## N19 — Two collections; the numbers are readable by nobody
+
+`qualifications` holds the DEFINITION and is readable by its creator and the line it
+addresses — a condition nobody can read is not a condition, and the document contains
+no numbers about any person.
+
+`qualificationProgress` holds every participant's row and the roll-up (two `kind`s in
+one collection, N7's arrangement, because this branch may create one collection for
+this feature). It is denied to **every** client — including the coach a row is about
+and the creator. Between them the rows carry the audience size, everybody's shortfall
+and who is nowhere near; N16's asymmetry is only a guarantee if they cannot be
+fetched. Denied to the creator too, because a grant with an exception is a grant
+somebody widens, and their dashboard is server-rendered anyway (D48's discipline).
+
+The definition's rule is split into the same two branches F8 uses, for the same
+reason: a list request is evaluated once against the query, so each branch must be
+decidable from fields the query pins. A grandchild is refused a direct-line
+qualification — "my direct line only" means exactly that.
+
+## N20 — A deterministic id, no edit and no delete
+
+The qualification id is a hash of (creator, normalised title, deadline). A
+double-tapped Create button therefore lands on the same document instead of putting
+identical twins on a whole line's screen with no way to tell which is real.
+
+The route REFUSES an id that already exists rather than overwriting it, and there is
+no edit screen and no delete route. A qualification people are already being measured
+against must not have its conditions moved — a moving target is not a target — and the
+Security Rule says the same thing to a client that tries.
+
+The cost, written down: a genuine mistake cannot be withdrawn, only left to close. If
+that becomes a support burden, the answer is a CANCELLED state that stops evaluation
+and says so on the card — never a silent delete, which would remove a qualifier list
+people were told they were on.
+
+## N21 — Evaluate on create, refresh on open after fifteen minutes
+
+A qualification's numbers are an aggregation across a whole line, so they are stored
+rather than computed per screen open — leaderboards' reasoning exactly.
+
+Three things write them:
+
+1. **Creation**, synchronously. A coach tapping through from their upline's message
+   sees their own numbers, not an empty frame promising a job will run later. It also
+   fixes the cumulative baseline at the moment of announcement (N13).
+2. **The scheduled evaluator**, every three hours — which is NOT deployed (N23).
+3. **The page itself**, if the stored summary is older than `STALE_AFTER_MS` (15
+   minutes) and the qualification has not settled.
+
+(3) exists because of (2)'s deployment problem: without it a tracker would show
+whatever creation wrote and nothing after. It is bounded the other way too — however
+many coaches open the screen, one qualification is evaluated at most four times an
+hour. Racing refreshes are harmless: every write is an upsert on a deterministic id
+with the same computed values.
+
+A **settled** qualification is never recomputed. Settling is the deadline plus
+`LATE_CHECK_DAYS` (7), and that grace exists for proof approval: a coach whose last
+piece of work lands on the deadline needs an upline to approve it, and that happens
+when the upline next opens the app. Only the CHECKING is allowed to arrive late — the
+work itself still has to fall inside the window, which the day-key bounds enforce.
+
+## N22 — Deadlines are days in the coach's zone, and the zone travels with them
+
+E1. A deadline of "31 August" evaluated in UTC closes at 05:30 on the 31st for the
+person holding the phone: it takes the last evening away from everybody who works in
+the evening, which is when this audience works.
+
+So a qualification stores `fromKey`, `deadlineKey` and `timeZone`, the deadline is
+INCLUSIVE, and the exclusive instant a Firestore range query needs is derived rather
+than stored so the two cannot disagree. The zone is `APP_TIMEZONE` today and is taken
+from the server, never from the request body — a client-supplied zone would let a
+coach push their own closing date forward by picking one.
+
+`daysLeft` counts today, so the last day is 1 and never 0: zero reads as "it is over"
+while a coach can still act.
+
+## N23 — Two scheduled functions, and neither is deployed
+
+`functions/src/qualifications.ts` holds `evaluateQualifications` (every three hours)
+and `qualificationReminders` (09:00 Asia/Kolkata daily), both thin callers of app
+routes — `morningReminder`'s shape, and N10's for the same reason.
+
+A Cloud Function is only deployed if it is exported from `functions/src/index.ts`,
+which this branch may not edit. **One line turns both on:**
+
+```ts
+export { evaluateQualifications, qualificationReminders } from "./qualifications";
+```
+
+Until then the trackers still work (N21), but nothing is PUSHED. The escalating
+reminders are the piece that genuinely does not happen without a scheduler, because
+they are the only part that has to reach a coach who is not looking at the app.
+
+## N24 — Escalation shortens the gaps; it does not raise the voice
+
+Bands at 14, 7, 3 and 1 days left. A band fires the first time `daysLeft` drops to or
+below it, so the gaps close — seven days, then four, then two. Because days only
+decrease, a passed band can never become due again and no bookkeeping is needed beyond
+"have we sent this one", which lives on the coach's own progress row (N6's reasoning
+about where a flag can live on this branch).
+
+**The band is a schedule, never a label.** The three-day band covers everything at or
+under three, so a message worded from the band would say "3 days left" on a day when
+two remain. The lead line comes from the real day count and is therefore always true.
+
+There is no countdown timer and no "running out of time" copy. G2 bans fake scarcity
+and this is the easiest screen in the app on which to manufacture some; the urgency is
+carried by two true things, the day count and the gap. Nobody who has already
+qualified is reminded — a notification that arrives after the good news reads as the
+app not knowing.
+
+The band is marked as sent even when the coach turned out to have no working device.
+Otherwise a coach who never enabled notifications is due on every run for the rest of
+the qualification, and the job spends its budget rediscovering that.
+
+## N25 — One route for two seats, and the celebration is local
+
+`/qualifications/[id]` renders the tracker or the creator's dashboard depending on who
+is asking. A creator is never in their own audience — a qualification runs DOWN a line
+— so the two seats never overlap and a second route would only be a second thing to
+remember. Anybody else gets `notFound()`, the same answer as a qualification that does
+not exist, so the route cannot be used to discover what an upline in another line is
+running (targets-queries.ts's discipline).
+
+The qualified celebration fires once per device, tracked in `localStorage` rather than
+a stored field: it is a display preference for one browser, it needs no write path, and
+a coach who opens the app on a second phone getting the moment once more is a better
+failure than a server round trip to suppress it. Pink diamond, under 1.2s, skippable by
+tap, and skipped entirely under `prefers-reduced-motion` (G5).
