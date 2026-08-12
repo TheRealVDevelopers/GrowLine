@@ -296,6 +296,32 @@ rather than crediting work done under a different upline.
 A validated total can go DOWN (an upline asking for fresh proof), so the difference
 is clamped at zero. "-40 points" is not a number anybody can act on.
 
+### N13a — `measure` was documentation, not machinery (audit correction)
+
+N12 claims that adding a sixth criterion costs one entry in `CRITERION_SPECS` and one
+collector. N13 claims the evaluator reads `measure` to decide what needs a baseline.
+The first was true. The second was not: the evaluator chose baselines with
+`c.type === "volume"`, and `measure` was read by nothing but a test asserting it was
+one of two strings.
+
+Indistinguishable from correct today, because volume is the only cumulative criterion.
+Wrong the moment there are two: a sixth cumulative criterion would get no baseline
+entry, `base` would fall back to 0, and `done = raw - 0` would credit the coach's
+entire lifetime total to a qualification announced last week. That is precisely the
+padding the baseline exists to prevent, arriving silently, on the screen a whole line
+is reading.
+
+Fixed: `needsBaseline()` and `baselineTypes()` in `criteria.ts`, driven by `measure`,
+and the evaluator asks them. Behaviourally identical today by construction.
+
+The interesting part is why nothing caught it. Every scoring test runs against
+`progress.ts`, which is pure and takes the baseline as an ARGUMENT — so the tests
+proved the arithmetic and never touched the choice. The choice lived one file further
+in, in `evaluate.ts`, which imports firebase-admin and therefore cannot be imported by
+a unit test at all. So there are now two guards: the contract on the pure function,
+and a source assertion that nothing in `evaluate.ts` compares a criterion's type to a
+literal. The second one is the one that would actually have failed.
+
 ## N14 — Volume counts only CHECKED points, and the unchecked figure is carried
 
 Same rule as N4, and here it matters more. `progressPoints` is typed in by the coach
@@ -314,6 +340,29 @@ instruction. A coach sitting on 400 unapproved points is not behind on the work,
 are behind on the checking, and "go and meet more people" would be the wrong nudge
 (G6). That is the one hint in this feature that names a job somebody else has to do.
 
+### N14a — The window bounds volume's MONTHS, not its timing (audit correction)
+
+`LATE_CHECK_DAYS` carried the claim that "only the CHECKING is allowed to arrive late;
+the work itself still has to fall inside the window, which the day-key bounds enforce."
+For the four windowed criteria that is exactly true — every underlying row carries a
+time. For volume it is false, and the comment has been corrected.
+
+`progressPoints` is one self-typed running total per month with no per-point history
+(N4, N14). The day-key bounds therefore select which MONTHS are read; they say nothing
+about when a point inside one was entered. Two consequences:
+
+- **Late entry.** Points typed into a window month after the deadline count, for the
+  seven days late-checking runs. Usually this is a coach catching up on paperwork,
+  which is the behaviour we want — and an upline still has to approve it.
+- **Back-fill.** The baseline records what a coach had TYPED when they entered, not
+  what they had EARNED. A coach who logs the whole month's points in one go afterwards
+  has the whole month credited to a qualification announced mid-month.
+
+Neither is fixable from this branch, and both are the same root cause as N14's known
+approximation: `progressPointsAtReview` on the proof, in `src/lib/targets-queries.ts`,
+an existing file this branch may not touch. **Reported, still not done — and the count
+of things blocked on that one field is now three (N4, N14, N14a).**
+
 ## N15 — The audience is "direct" or "whole line", not the four board scopes
 
 The brief says "which part of their line it applies to", and a line has two honest
@@ -331,6 +380,26 @@ that moment; a coach who moves out has their row DELETED, for N6a's reason — l
 it behind keeps their name and numbers on a qualifier list belonging to a line they
 have left.
 
+### N15a — One predicate, not two copies of one rule (audit correction)
+
+That membership rule decides two different things: whose progress row the evaluator
+WRITES, and who may OPEN the screen. It was written out twice — `audienceOf` in
+`evaluate.ts` and `isParticipant` in `queries.ts` — and both files import
+firebase-admin, so no unit test could reach either. A drift between them would produce
+a coach with a tracker who cannot open it, or a page served to somebody the evaluator
+never counted.
+
+It is now one pure function, `inAudience()` in `model.ts`, and both call it. Being pure
+also means it is finally testable: `tests/qualifications.test.ts` now pins the app-side
+half of what `e2e/qualifications-rules.test.ts` pins at the database — a coach outside
+the creator's line is in NEITHER audience, a grandchild is not in "direct", and a
+creator is never a participant in their own qualification.
+
+The Security Rule states the rule a third time, in its own language. That copy is not
+duplication to remove: the app's copy decides what we render, the rules' copy is what
+stops a hand-written query, and neither substitutes for the other (the argument
+`threads-queries.ts` already makes).
+
 ## N16 — Qualified by name, one-step-away by count
 
 The brief asks for a live qualifier list — "who is already in, who is one step away" —
@@ -346,6 +415,26 @@ and that second half is where the leaderboard leak N2 reappears in different clo
 
 Neither audience ever sees a prospect: names met are counted, never named, and the
 evaluator reads nothing off a prospect document but its owning coach's id.
+
+### N16a — What the qualifier list newly discloses (audit note)
+
+Recorded because it was not, and it is a real widening rather than a restatement.
+
+On a WHOLE-LINE qualification, the qualifier list shows every qualified coach's name to
+every participant — including coaches in a SIBLING branch, whom the reader cannot see
+anywhere else in the app. The team tree only ever looks downward, so before this feature
+a level-1 coach had no way to learn the name of somebody under a different level-1 coach.
+Now they can, if that person qualifies.
+
+Accepted, and it is the point: a qualification is an announcement to a group and its
+qualifier list is the announcement's result — a list that could not be published could
+not be run at all, which is N16's first bullet. What is deliberately NOT widened is the
+other direction: the one-condition-away group stays a COUNT to participants, so nobody
+learns a name attached to a shortfall. A coach's own numbers reach nobody at all (N19).
+
+If this is ever judged too wide, the dial is the qualifier list's scope, not the count:
+show names only within the reader's own branch. That is a product decision and it
+belongs to the owner, so it is written here rather than taken.
 
 ## N17 — "One step away" is exactly one unmet condition, and the label never travels alone
 
@@ -434,8 +523,31 @@ with the same computed values.
 A **settled** qualification is never recomputed. Settling is the deadline plus
 `LATE_CHECK_DAYS` (7), and that grace exists for proof approval: a coach whose last
 piece of work lands on the deadline needs an upline to approve it, and that happens
-when the upline next opens the app. Only the CHECKING is allowed to arrive late — the
-work itself still has to fall inside the window, which the day-key bounds enforce.
+when the upline next opens the app. Only the checking is meant to arrive late; for
+volume that intent is approximate — see N14a.
+
+### N21a — The LIST does not refresh, so it says how old it is (audit correction)
+
+(3) above is the DETAIL page only. `listForCoach` reads the stored row and renders the
+standing straight onto the card — and with the scheduled evaluator undeployed (N23),
+that row can be the one creation wrote and nothing since. So a coach who only ever
+looks at the list could be shown "0 of 3 conditions met · 3 conditions left" while
+they have in fact qualified, until somebody opens the card.
+
+Refreshing per card is not the fix. `ensureFresh` reads a whole slice of the
+organisation; doing that once per row would make opening a list cost N of them, which
+is the exact expense the stored rows exist to avoid — and a list is the cheapest,
+most-opened screen in the feature.
+
+So the card states its age instead. `updatedAt` is already on the row the card reads,
+so it costs nothing: silent inside `STALE_AFTER_MS`, and outside it "Counted 2 h ago —
+open to refresh", or "Not counted yet" if no row exists. The threshold is imported
+from `evaluate.ts` rather than retyped, so the number that decides whether the detail
+page recomputes is the same number that decides whether the card admits it has not.
+
+This is the same standard N17 sets for "one step away": the app does not present a
+figure as more certain than it is, and the honest fix is to print the qualifier rather
+than to hide the number.
 
 ## N22 — Deadlines are days in the coach's zone, and the zone travels with them
 

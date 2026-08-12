@@ -160,6 +160,31 @@ export const CRITERION_LIST: CriterionSpec[] = CRITERION_TYPES.map(
   (t) => CRITERION_SPECS[t]
 );
 
+/**
+ * Does this criterion have to be measured against a baseline?
+ *
+ * The answer is `measure`, and it is asked THROUGH THIS FUNCTION rather than by
+ * comparing a type to a literal. An audit found the evaluator filtering on
+ * `c.type === "volume"` instead — behaviourally identical while volume is the only
+ * cumulative criterion, and silently wrong the moment a sixth one is added: with no
+ * baseline the difference collapses to the raw lifetime total, which is exactly the
+ * padding a baseline exists to prevent, and nothing would fail. See N13a.
+ */
+export function needsBaseline(type: CriterionType): boolean {
+  return CRITERION_SPECS[type].measure === "cumulative";
+}
+
+/**
+ * The criteria in a set that a baseline has to be captured for, in registry order.
+ *
+ * The evaluator's single source for that question — so adding a sixth cumulative
+ * criterion is still one entry in CRITERION_SPECS plus one collector, as the header
+ * of this file claims.
+ */
+export function baselineTypes(criteria: Criterion[]): CriterionType[] {
+  return criteria.map((c) => c.type).filter(needsBaseline);
+}
+
 /** "3 members", "1 point". Counts only — never a currency, never a projection (L4). */
 export function formatAmount(spec: CriterionSpec, n: number): string {
   const shown = n.toLocaleString("en-IN");

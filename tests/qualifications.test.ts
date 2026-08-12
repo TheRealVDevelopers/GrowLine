@@ -1,5 +1,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   closesAt,
@@ -14,11 +16,17 @@ import { checkText, hasVisibleText } from "@/modules/shared-new/text";
 import {
   CRITERION_SPECS,
   CRITERION_TYPES,
+  baselineTypes,
   checkCriteria,
   formatAmount,
   isValidTarget,
+  needsBaseline,
 } from "@/modules/qualifications/criteria";
-import { MAX_DEADLINE_DAYS, checkDefinition } from "@/modules/qualifications/model";
+import {
+  MAX_DEADLINE_DAYS,
+  checkDefinition,
+  inAudience,
+} from "@/modules/qualifications/model";
 import {
   closestUnmet,
   dropOff,
@@ -224,6 +232,132 @@ describe("validating a set of conditions", () => {
     ]);
     assert.ok(checked.ok);
     assert.deepEqual(checked.criteria, [{ type: "volume", target: 400 }]);
+  });
+
+  /**
+   * AUDIT CORRECTION (N13a). The third leg of "adding a sixth criterion is cheap",
+   * and the one that was missing.
+   *
+   * The evaluator used to pick which criteria need a baseline with
+   * `c.type === "volume"` — indistinguishable from correct while volume is the only
+   * cumulative criterion, and silently wrong the moment a second one is added: with
+   * no baseline the difference collapses to the raw lifetime total, which is the
+   * exact padding a baseline exists to prevent. Nothing failed, because every test
+   * above exercises the PURE scoring path and the baseline is chosen in the
+   * database-backed evaluator that no unit test can import.
+   *
+   * So the choice now lives in a pure function, driven by `measure`, and these
+   * assertions run over the whole registry rather than over volume.
+   */
+  test("N13a: a baseline is decided by `measure`, never by a type name", () => {
+    for (const type of CRITERION_TYPES) {
+      assert.equal(
+        needsBaseline(type),
+        CRITERION_SPECS[type].measure === "cumulative",
+        `${type} disagrees with its own spec`
+      );
+    }
+    // Every cumulative type in a set is selected, and no windowed one is — stated
+    // over the registry so a sixth entry is covered the day it is added.
+    const all = CRITERION_TYPES.map((type) => ({ type, target: 1 }));
+    assert.deepEqual(
+      baselineTypes(all),
+      CRITERION_TYPES.filter((t) => CRITERION_SPECS[t].measure === "cumulative")
+    );
+    assert.deepEqual(baselineTypes([]), []);
+  });
+
+  /**
+   * The guard that would actually have caught it.
+   *
+   * The two assertions above are contracts on a pure function; the bug was one file
+   * further in, in the database-backed evaluator, which no unit test can import (it
+   * pulls firebase-admin, which is why `ids.ts` was split out in the first place). So
+   * the anti-pattern is asserted against the source: nothing in the evaluator decides
+   * anything by comparing a criterion's TYPE to a literal.
+   *
+   * Naming a type is fine where a collector genuinely has to — `want("volume")` reads
+   * targets and proofs and nothing else can — but `c.type === "…"` over `q.criteria`
+   * is always a branch that should have been a lookup in the registry.
+   *
+   * A source assertion is the house style for a rule no runtime check can reach:
+   * report-fonts.test.ts reads the committed TTFs, and the design suite scans the
+   * rendered CSS for `backdrop-filter`.
+   */
+  test("N13a: the evaluator branches on no criterion type", () => {
+    const source = readFileSync(
+      join(process.cwd(), "src/modules/qualifications/evaluate.ts"),
+      "utf8"
+    );
+    // Comments explain the correction and are allowed to quote the old expression.
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    for (const type of CRITERION_TYPES) {
+      assert.ok(
+        !new RegExp(`\\.type\\s*===\\s*["']${type}["']`).test(code),
+        `evaluate.ts branches on the literal "${type}" — use the registry (N13a)`
+      );
+    }
+    assert.match(code, /baselineTypes\(/, "the baseline is no longer registry-driven");
+  });
+
+  /**
+   * The companion claim on the same field: only a cumulative criterion can carry an
+   * unchecked figure. A windowed one is counted from rows that already happened, so
+   * there is nothing pending about it, and a spec claiming otherwise would render a
+   * "waiting to be checked" line the evaluator can never populate.
+   */
+  test("only a cumulative criterion may claim an unchecked figure", () => {
+    for (const type of CRITERION_TYPES) {
+      const spec = CRITERION_SPECS[type];
+      if (spec.hasUnchecked) assert.equal(spec.measure, "cumulative", type);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Who a qualification applies to
+// ---------------------------------------------------------------------------
+
+/**
+ * AUDIT ADDITION. The audience predicate decides two separate things — whose progress
+ * row the evaluator writes, and who may open the screen — and until an audit those
+ * were two copies of one rule in two files that both import firebase-admin, so
+ * neither could be reached by a unit test. They are one pure function now, and this
+ * is the app-side proof of the property `e2e/qualifications-rules.test.ts` proves at
+ * the database: a coach outside the creator's line is never in the audience.
+ */
+describe("the audience", () => {
+  const ROOT = "usr_root";
+  const asha = { uplineId: ROOT, uplinePath: [ROOT] }; // ROOT's direct downline
+  const chandan = { uplineId: "usr_asha", uplinePath: ["usr_asha", ROOT] }; // grandchild
+  const outsider = { uplineId: null, uplinePath: [] };
+  const otherLine = { uplineId: "usr_x", uplinePath: ["usr_x"] };
+
+  test("MANDATORY: a coach outside the line is in neither audience", () => {
+    for (const audience of ["direct", "all"] as const) {
+      assert.equal(inAudience(audience, ROOT, outsider), false);
+      assert.equal(inAudience(audience, ROOT, otherLine), false);
+    }
+  });
+
+  test("'my direct line' means exactly that — a grandchild is not in it", () => {
+    assert.equal(inAudience("direct", ROOT, asha), true);
+    assert.equal(inAudience("direct", ROOT, chandan), false);
+  });
+
+  test("'my whole line' reaches any depth", () => {
+    assert.equal(inAudience("all", ROOT, asha), true);
+    assert.equal(inAudience("all", ROOT, chandan), true);
+  });
+
+  /**
+   * A creator is never in their own audience, so the two seats on the detail page
+   * cannot both apply to one person and the roles never have to be tie-broken.
+   */
+  test("a creator is not a participant in their own qualification", () => {
+    const root = { uplineId: null, uplinePath: [] };
+    assert.equal(inAudience("direct", ROOT, root), false);
+    assert.equal(inAudience("all", ROOT, root), false);
   });
 });
 

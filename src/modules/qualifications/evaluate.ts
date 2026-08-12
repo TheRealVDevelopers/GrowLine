@@ -6,7 +6,7 @@ import {
   windowInstants,
   type DayWindow,
 } from "@/modules/shared-new/window";
-import type { CriterionType } from "./criteria";
+import { baselineTypes, type CriterionType } from "./criteria";
 import {
   qualificationProgress,
   qualifications,
@@ -15,7 +15,7 @@ import {
   type QualificationDoc,
 } from "./docs";
 import { progressDocId, summaryDocId } from "./ids";
-import { windowOf } from "./model";
+import { inAudience, windowOf } from "./model";
 import { dropOff, standingOf, type Standing } from "./progress";
 
 /**
@@ -73,13 +73,18 @@ async function loadUsers(): Promise<UserRow[]> {
   });
 }
 
-/** Who a qualification applies to, decided against the tree as it is right now. */
+/**
+ * Who a qualification applies to, decided against the tree as it is right now.
+ *
+ * The predicate itself lives in `model.ts` and is shared with the read side, so the
+ * set of people who GET a progress row and the set who may OPEN the screen cannot
+ * drift apart. It is pure, and `tests/qualifications.test.ts` pins it — including the
+ * property this filter is the only guard on: a coach outside the creator's line is
+ * never in the audience, so no row about them is ever written and the creator's
+ * dashboard cannot show them.
+ */
 export function audienceOf(q: QualificationDoc, people: UserRow[]): UserRow[] {
-  return people.filter((p) =>
-    q.audience === "direct"
-      ? p.uplineId === q.creatorId
-      : p.uplinePath.includes(q.creatorId)
-  );
+  return people.filter((p) => inAudience(q.audience, q.creatorId, p));
 }
 
 type Collected = {
@@ -242,8 +247,29 @@ export type EvaluationResult = {
  * on the deadline needs an upline to approve it, and that happens when the upline
  * next opens the app — often the following week. Stopping the moment the window
  * closes would mean the work counted for nothing because somebody else was slow.
- * Only the CHECKING is allowed to arrive late; the work itself still has to fall
- * inside the window, which the day-key bounds enforce.
+ *
+ * For the four WINDOWED criteria the intent holds exactly: only the checking arrives
+ * late, because every underlying row carries a time and the day-key bounds refuse
+ * anything outside the window.
+ *
+ * For VOLUME it does not, and an audit corrected an earlier claim here that said it
+ * did. `progressPoints` is one self-typed running total per month with no per-point
+ * history (N4, N14), so what the bounds select is which MONTHS are read, never when
+ * a point inside one was entered. Two consequences, both real and neither fixable
+ * from this module:
+ *
+ *   late entry    points typed into a window month AFTER the deadline count, for as
+ *                 long as this late-checking period runs. Usually that is a coach
+ *                 catching up on paperwork, which is the behaviour we want; it is
+ *                 also the one an upline would have to approve to make it pay.
+ *
+ *   back-fill     the baseline records what a coach had TYPED when they entered, not
+ *                 what they had EARNED. A coach who logs the month's points in one go
+ *                 afterwards has the whole month credited to the qualification.
+ *
+ * The fix for both is a per-point or per-approval record — `progressPointsAtReview`
+ * on the proof, in `src/lib/targets-queries.ts`, an existing file this branch may not
+ * touch. Reported, not done. See N14a.
  */
 export const LATE_CHECK_DAYS = 7;
 
@@ -300,9 +326,10 @@ export async function evaluateQualification(
     const baseline: CriterionCounts =
       prior?.baseline ??
       Object.fromEntries(
-        q.criteria
-          .filter((c) => c.type === "volume")
-          .map((c) => [c.type, raw[c.type] ?? 0])
+        // Driven by `measure` in the registry, never by a literal type name — a
+        // hardcoded "volume" here would give a sixth cumulative criterion no
+        // baseline at all, and it would count a lifetime total in silence (N13a).
+        baselineTypes(q.criteria).map((type) => [type, raw[type] ?? 0])
       );
 
     const standing = standingOf(q.criteria, raw, baseline, claimed);
