@@ -149,3 +149,39 @@ export const purgeStaleHealthData = onSchedule(
     console.log(`purgeStaleHealthData: purged ${purged} prospect(s)`);
   }
 );
+
+/**
+ * Scheduled functions defined in sibling files.
+ *
+ * A Cloud Function deploys only if it is exported from THIS file. Each of the six below
+ * was written complete, tested, and left unexported, because the sessions that wrote them
+ * recorded that they were not permitted to edit `index.ts` — so each file ends with a
+ * comment naming the exact line needed here. These are those lines.
+ *
+ * What was actually broken while they sat unexported, worst first:
+ *
+ *   - `purgeVoiceNotes` — the app's own UI tells a coach their recording is deleted after
+ *     30 days. Nothing deleted it. That is a retention promise made to a user and not
+ *     kept, which is the same class of failure RULES P5 exists to prevent, and it is why
+ *     this list could not wait on the authorisation question below.
+ *   - `silenceCheck` — an upline is never told a leg has gone quiet, which is the entire
+ *     point of the feature.
+ *   - `rebuildLeaderboards`, `evaluateQualifications`, `qualificationReminders`,
+ *     `rebuildDuplicationScores` — boards never refresh, day-14/7/3/1 reminders never
+ *     fire, and the duplication screen reads "nothing counted yet" forever with no lazy
+ *     fallback behind it.
+ *
+ * They still fail closed until `CRON_SECRET` is provisioned in the deployment environment
+ * — it is blank in `.env.example`. Exporting them is necessary, not sufficient.
+ *
+ * NOTE for whoever resolves it: four of these six belong to features that STATUS.md
+ * records as an open conflict against RULES S7 (Phase 2 built before the 200-paying-user
+ * bar, which is not met). Exporting them is a correctness fix to code that already exists
+ * — it does not settle whether that code should ship. If the answer is that it should not,
+ * the four lines come back out; the two retention/alert ones stay.
+ */
+export { rebuildLeaderboards } from "./leaderboards";
+export { evaluateQualifications, qualificationReminders } from "./qualifications";
+export { rebuildDuplicationScores } from "./duplication";
+export { silenceCheck } from "./silence";
+export { purgeVoiceNotes } from "./voice-logs";
