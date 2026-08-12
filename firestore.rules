@@ -381,5 +381,74 @@ service cloud.firestore {
        */
       allow write: if false;
     }
+
+    /**
+     * Event qualifications (F14). APPENDED after the catch-all for the same reason the
+     * leaderboards block above was: rules are OR-ed across match blocks, so a later
+     * `allow` grants what the recursive wildcard denies, and no existing block had to
+     * be touched.
+     *
+     * ## Two collections, and only one of them is readable
+     *
+     *   qualifications        the DEFINITION — who made it, what it is called, the
+     *                         conditions, the closing date. Readable by its creator and
+     *                         by the coaches it applies to. A condition nobody can read
+     *                         is not a condition, and this document holds no numbers
+     *                         about any person.
+     *
+     *   qualificationProgress everybody's NUMBERS, and the roll-up over them. Denied to
+     *                         every client, always — including the coach a row is about
+     *                         and the upline who created the qualification.
+     *
+     * That second denial is the load-bearing one, and it is the same reasoning as the
+     * roster document above. Between them the rows carry the audience size, every
+     * participant's shortfall, and who is nowhere near — and a qualifier list built by
+     * a component that chose not to render those is a courtesy, not a guarantee. The
+     * screens read them server-side with the Admin SDK and hand each reader only what
+     * their seat entitles them to: a participant gets the names of everyone who has
+     * QUALIFIED and a COUNT of who is one condition away, never that second list by
+     * name. Denied to the creator too, because a grant with an exception is a grant
+     * somebody widens, and their dashboard is server-rendered anyway (D48's discipline).
+     *
+     * ## Who a qualification is addressed to
+     *
+     * By WHO CREATED IT, exactly like a thread (F8), and the branches are split the
+     * same way for the same reason: a list request is evaluated once against the
+     * query rather than per document, so each branch has to be decidable from fields
+     * the query itself pins. A client listening for a direct-line qualification pins
+     * `creatorId`; one listening deeper must pin `audience == 'all'` as well, which is
+     * correct — a "direct line only" qualification from a grandparent is not addressed
+     * to you and the rule will not serve it.
+     *
+     * ## Membership is resolved LIVE (D64)
+     *
+     * `me()` reads the CURRENT user document. Nothing is trusted off the qualification
+     * itself: no participant list is stored on it, and no `uplinePath` is frozen onto
+     * it at write time. A coach moved to another line loses these on their next read,
+     * which is exactly what the evaluator does to their progress row.
+     */
+    match /qualifications/{qualificationId} {
+      allow read: if signedIn() && (
+        uid() == resource.data.creatorId
+        || resource.data.creatorId == me().uplineId
+        || (resource.data.audience == 'all'
+            && resource.data.creatorId in me().uplinePath)
+      );
+      /**
+       * Written only by the API route through the Admin SDK. A client write would let
+       * a coach announce a qualification in somebody else's name, to a line they are
+       * not in — and, worse, edit the conditions of one people are already being
+       * measured against.
+       */
+      allow write: if false;
+    }
+
+    match /qualificationProgress/{rowId} {
+      /**
+       * Denied to everybody, deliberately — see the header above. A client write would
+       * be a coach marking themselves qualified, which is the whole feature.
+       */
+      allow read, write: if false;
+    }
   }
 }

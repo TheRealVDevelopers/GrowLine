@@ -80,6 +80,14 @@
         { "fieldPath": "scope", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "qualificationProgress",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "qualificationId", "order": "ASCENDING" },
+        { "fieldPath": "kind", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
