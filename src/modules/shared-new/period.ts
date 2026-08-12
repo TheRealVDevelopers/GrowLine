@@ -128,6 +128,30 @@ export function daysInPeriod(period: Period): string[] {
   return out;
 }
 
+/**
+ * The longest consecutive run of logged days INSIDE a period.
+ *
+ * Not the coach's live streak. A live streak carried into the board would mean a
+ * 200-day streak wins every weekly board forever, which is the "same five people win"
+ * failure the four boards exist to avoid — and it would make the weekly reset a lie.
+ * The run is measured inside the window, so Monday starts everybody at nothing.
+ *
+ * The Streak Shield (D67) deliberately does NOT apply here. A shield is personal
+ * forgiveness for the flame on the coach's own screen; spending it to claim a day
+ * that was not logged, in a ranking against other people, is a different thing
+ * entirely. Missing a day breaks the run on a board and the flame still survives.
+ */
+export function longestRunWithin(loggedKeys: Iterable<string>, period: Period): number {
+  const logged = new Set(loggedKeys);
+  let best = 0;
+  let run = 0;
+  for (const key of daysInPeriod(period)) {
+    run = logged.has(key) ? run + 1 : 0;
+    if (run > best) best = run;
+  }
+  return best;
+}
+
 /** When this period ends, in words. Used to say "resets Monday" without a date. */
 export function resetsLabel(window: WindowId): string {
   return window === "weekly" ? "Resets every Monday" : "Resets on the 1st";

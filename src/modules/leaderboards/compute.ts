@@ -5,7 +5,7 @@ import { APP_TIMEZONE, startOfDayInZone } from "@/lib/day";
 import { shiftKey } from "@/lib/daily-log";
 import {
   currentPeriod,
-  daysInPeriod,
+  longestRunWithin,
   WINDOWS,
   type Period,
 } from "@/modules/shared-new/period";
@@ -103,18 +103,6 @@ function valueFor(metric: MetricId, v: Values): { value: number; unvalidated?: n
 /** Somebody belongs on a board when they have something to show on it. */
 function participates(row: { value: number; unvalidated?: number }): boolean {
   return row.value > 0 || (row.unvalidated ?? 0) > 0;
-}
-
-/** The longest consecutive run of logged days within the period. */
-export function longestRunWithin(loggedKeys: Iterable<string>, period: Period): number {
-  const logged = new Set(loggedKeys);
-  let best = 0;
-  let run = 0;
-  for (const key of daysInPeriod(period)) {
-    run = logged.has(key) ? run + 1 : 0;
-    if (run > best) best = run;
-  }
-  return best;
 }
 
 async function loadUsers(): Promise<UserRow[]> {
