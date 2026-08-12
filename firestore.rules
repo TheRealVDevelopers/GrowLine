@@ -496,5 +496,74 @@ service cloud.firestore {
       allow read: if signedIn() && resource.data.userId == uid();
       allow write: if false;
     }
+
+    /**
+     * Voice notes (session 4, feature 1). APPENDED after the catch-all, like the three
+     * blocks above: rules are OR-ed across match blocks, so a later `allow` grants what
+     * the recursive wildcard denies and no existing block had to be touched.
+     *
+     * ## Why this is the strictest read rule in the file
+     *
+     * Every other new collection here holds counts. This one holds a RECORDING of a
+     * coach speaking about their working day, plus whatever the phone transcribed. It
+     * is unstructured, and a coach dictating on a road says whatever is in their head:
+     * "met Ramesh on the walk, he's coming Tuesday, his number is…". Nothing can stop
+     * that and nothing should try.
+     *
+     * So it is treated as the most sensitive document these modules create. P1 lets
+     * activity COUNTS flow up a line, and a voice note is not a count — it is the raw
+     * material a count was extracted from, and it may carry exactly the prospect names
+     * and numbers P1 keeps from an upline whose downline has `shareProspects` off.
+     * There is no toggle that opens this: an upline cannot read one, at any depth, with
+     * any setting, ever. Only the coach who recorded it.
+     *
+     * `resource.data.userId` and not the document id, even though the id begins with
+     * the uid: an id is a naming convention and a field is data. A rule resting on the
+     * shape of a string is a rule that breaks silently the day the id format changes.
+     *
+     * ## Written only by the API route
+     *
+     * A client write would let a coach plant a recording — and, more to the point, set
+     * `status: "counted"` on one, which is the field the purge job reads to decide what
+     * to delete. Marking a note counted is the server's statement that a `dailyLogs`
+     * document exists; a client saying it would be a claim about a collection this one
+     * cannot see.
+     *
+     * Deletes are denied too, which is deliberate and slightly uncomfortable: a coach
+     * cannot delete their own recording from the client. They do not need to — an
+     * uncounted note is deleted whole after 30 days, and a counted one no longer holds
+     * audio at all — and a delete grant here is a grant that must then be reasoned
+     * about every time this collection gains a field.
+     */
+    match /voiceLogs/{noteId} {
+      allow read: if signedIn() && resource.data.userId == uid();
+      allow write: if false;
+    }
+
+    /**
+     * Silence alerts (session 4, feature 3) — the bookkeeping that stops a quiet leg
+     * being reported to its upline every single morning.
+     *
+     * ## Denied to everybody, including the upline it is about
+     *
+     * A row here says "this leg has been quiet since the 3rd, and we told Asha about it
+     * on the 10th". Two reasons it is not client-readable.
+     *
+     * The first is the plain one: nothing in the browser reads it. The alert is a push
+     * notification and the screen it lands on is the team tree, which is server-rendered
+     * with the Admin SDK. A grant for a screen nobody has built is a grant nobody has
+     * thought about (the argument `duplicationScores` makes directly above).
+     *
+     * The second matters more. This is a record about a DOWNLINE's inactivity, written
+     * for their upline. It is the one artifact in these modules whose subject is not its
+     * reader, and a coach discovering a queryable log of when the app reported them as
+     * quiet is the exact failure the copy was written to avoid — an alert that reads as
+     * an accusation, made durable and inspectable. The counts it holds flow upward under
+     * P1 quite legitimately; the RECORD of having been reported does not need to exist
+     * anywhere a client can reach.
+     */
+    match /silenceAlerts/{alertId} {
+      allow read, write: if false;
+    }
   }
 }

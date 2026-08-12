@@ -88,6 +88,14 @@
         { "fieldPath": "qualificationId", "order": "ASCENDING" },
         { "fieldPath": "kind", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "voiceLogs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "dayKey", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
