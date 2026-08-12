@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
+import { HUB_BLURB as CALL_LIST_BLURB } from "@/modules/call-list/copy";
+import { HUB_BLURB as VOICE_BLURB } from "@/modules/voice-log/copy";
 
 /**
  * "More" — the hub for screens that are not one of the five bottom-nav tabs.
@@ -14,9 +16,26 @@ import { getSessionUser } from "@/lib/session";
  *
  * Entries are added as each module lands. One line each, in plain words (S6) — a hub
  * whose descriptions need reading twice is a hub nobody uses.
+ *
+ * ## Order
+ *
+ * Daily work first, then the things a coach looks at rather than does. "Who to call
+ * today" and "Say today's work" are both part of an evening; boards, qualifications and
+ * duplication are all read-only screens somebody opens when they have a minute. A hub
+ * sorted by what it cost to build would put them the other way round.
  */
 
 const LINKS = [
+  {
+    href: "/who-to-call",
+    title: "Who to call today",
+    body: CALL_LIST_BLURB,
+  },
+  {
+    href: "/voice-log",
+    title: "Say today's work",
+    body: VOICE_BLURB,
+  },
   {
     href: "/leaderboards",
     title: "Boards",

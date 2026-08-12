@@ -19,7 +19,8 @@
     "test:rules": "tsx e2e/rules.test.ts",
     "test:rules:boards": "tsx e2e/leaderboards-rules.test.ts",
     "test:rules:quals": "tsx e2e/qualifications-rules.test.ts",
-    "test:rules:duplication": "tsx e2e/duplication-rules.test.ts"
+    "test:rules:duplication": "tsx e2e/duplication-rules.test.ts",
+    "test:rules:session4": "tsx e2e/session4-rules.test.ts"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
