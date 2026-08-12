@@ -450,5 +450,51 @@ service cloud.firestore {
        */
       allow read, write: if false;
     }
+
+    /**
+     * Duplication readings (F20). APPENDED after the catch-all for the same reason the
+     * two blocks above were: rules are OR-ed across match blocks, so a later `allow`
+     * grants what the recursive wildcard denies, and no existing block had to be
+     * touched to add this one.
+     *
+     * ## What one of these documents holds
+     *
+     * A score out of 100 for one coach's LINE, and the per-level counts that produced
+     * it: how many people sit at each of the three measured levels, how many of them
+     * logged, how many joined too recently to be counted. **No names, no phone
+     * numbers, no prospect data, and nothing about money.** A level is a count of
+     * people, which is the shape v1 §5.4 lets flow up a line at all.
+     *
+     * ## Readable by its subject, and by nobody else
+     *
+     * The coach a reading is about may read it: it is a summary of their own team,
+     * assembled from activity that already flows to them, and the screen that renders
+     * it is theirs.
+     *
+     * Their UPLINE may not, and that is a deliberate narrowing rather than an
+     * oversight. Activity counts do flow upward under P1, so a coaching screen showing
+     * an upline how their downlines' lines are duplicating would be legitimate — but
+     * it does not exist, and a grant written for a screen nobody has designed is a
+     * grant nobody has thought about. Two things also follow from D64 the moment such
+     * a grant is written: the ancestry test would have to be resolved LIVE against the
+     * subject's current user document, because every reading in this collection carries
+     * counts frozen at whenever the job last ran and a reader moved to another line
+     * must lose access on their next read; and it would cost a `get()` on somebody
+     * else's user document on every request. When that screen is built it is
+     * server-rendered like the team tree and the Admin SDK does the reading, so this
+     * rule stays exactly as it is (D48's discipline).
+     *
+     * ## Written only by the scheduled job
+     *
+     * A client write is a coach typing their own duplication score. The number is the
+     * output of a read across the entire organisation, and it is the one figure in
+     * these modules that an individual has both the motive and, without this line, the
+     * means to fabricate. Deletes are denied for the same reason: a reading a coach
+     * dislikes must not be removable by the coach it is about.
+     */
+    match /duplicationScores/{readingId} {
+      allow read: if signedIn() && resource.data.userId == uid();
+      allow write: if false;
+    }
   }
 }
