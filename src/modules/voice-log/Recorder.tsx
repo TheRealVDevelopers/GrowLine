@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import Link from "next/link";
 import {
   LOG_FIELDS,
@@ -119,8 +125,45 @@ function toBase64(blob: Blob): Promise<string> {
 
 type Phase = "checking" | "ready" | "recording" | "confirm" | "saved" | "nomic";
 
+/**
+ * Whether this browser can record is an EXTERNAL fact, not component state.
+ *
+ * It used to be mirrored in with `useEffect(() => setPhase(canRecord() ? ... ), [])`,
+ * which the React Compiler rejects (`set-state-in-effect`) and is right to: that is a
+ * synchronous setState on every mount, so the component renders "checking", throws it
+ * away, and renders again — a cascading render to read a value that was available all
+ * along.
+ *
+ * It cannot simply be a lazy `useState` initialiser either, because `canRecord()` touches
+ * `MediaRecorder` and `navigator.mediaDevices`, neither of which exists during the server
+ * render — that is a hydration mismatch rather than a fix.
+ *
+ * `useSyncExternalStore` is the shape built for exactly this: the server snapshot renders
+ * the skeleton, the client snapshot reports the real capability, and React reconciles the
+ * two without a warning and without an extra state write. Same fix as `ThemeToggle`, which
+ * had the same bug for the same reason.
+ *
+ * The subscribe callback is a no-op because microphone support does not change within a
+ * session. A store that never notifies is still a store.
+ */
+const subscribeToCapability = () => () => {};
+const capabilitySnapshot = (): Phase => (canRecord() ? "ready" : "nomic");
+const capabilityServerSnapshot = (): Phase => "checking";
+
 export default function Recorder({ dayKey }: { dayKey: string }) {
-  const [phase, setPhase] = useState<Phase>("checking");
+  /**
+   * `phase` is the capability until something transitions it, then the transition wins.
+   *
+   * Splitting it this way keeps all five real transitions below writing to `setPhase`
+   * exactly as before — only the initial value stops being a state write.
+   */
+  const capability = useSyncExternalStore(
+    subscribeToCapability,
+    capabilitySnapshot,
+    capabilityServerSnapshot
+  );
+  const [phaseOverride, setPhase] = useState<Phase | null>(null);
+  const phase = phaseOverride ?? capability;
   const [secondsLeft, setSecondsLeft] = useState(MAX_DURATION_MS / 1000);
   const [parse, setParse] = useState<ParseResult>(EMPTY_PARSE);
   const [values, setValues] = useState<DailyLogValues>({ ...EMPTY_PARSE.values });
@@ -139,10 +182,6 @@ export default function Recorder({ dayKey }: { dayKey: string }) {
   const startedAtRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    setPhase(canRecord() ? "ready" : "nomic");
-  }, []);
 
   const cleanup = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
