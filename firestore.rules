@@ -565,5 +565,56 @@ service cloud.firestore {
     match /silenceAlerts/{alertId} {
       allow read, write: if false;
     }
+
+    /**
+     * Organisation workspaces — the multi-tenant boundary.
+     *
+     * Appended after the catch-all like the modules above: rules OR across match blocks,
+     * so a later `allow` grants what the recursive wildcard denies, and no existing block
+     * was touched.
+     *
+     * ## Why these are readable at all, rather than denied like `users`
+     *
+     * The pattern in this file is to deny a collection until a feature genuinely needs a
+     * client read (D48, D64), and by that rule alone both of these would be closed today —
+     * the settings screen is server-rendered.
+     *
+     * They are open, scoped, on purpose. A deny-all would make the isolation TEST vacuous:
+     * "a coach in workspace A cannot read workspace B" would pass because nobody can read
+     * anything, and it would keep passing right up until the first client read is added,
+     * at which point the test that was supposed to be guarding the boundary has never
+     * actually exercised it. A rule that permits the in-workspace read and refuses the
+     * cross-workspace one is the only version whose green means something.
+     *
+     * ## The boundary itself
+     *
+     * `me().workspaceId` is read LIVE from the user document, never from a value stored on
+     * the document being read — D64's rule. A workspace id copied onto a row at write time
+     * would keep granting access after a coach moved, which is the same stale-grant bug
+     * that closed `dailyLogs` and `targets`.
+     *
+     * A coach with no `workspaceId` — a row the backfill has not reached — matches nothing:
+     * `null == null` is never reachable here because the comparison is against a field that
+     * must equal a non-empty id. Failing closed on a missing boundary is the only safe
+     * direction.
+     *
+     * Writes are denied to every client. Both collections are written by API routes on the
+     * Admin SDK, and a client-writable `workspaceId` would let anyone move themselves into
+     * another organisation — which is the whole boundary, handed over.
+     */
+    match /workspaces/{workspaceId} {
+      // The document id IS the workspace id, so a `get` pins it and this is decidable
+      // with one lookup. An unfiltered LIST cannot prove it and is therefore refused —
+      // there is no query that returns "every organisation".
+      allow read: if signedIn() && workspaceId == me().workspaceId;
+      allow write: if false;
+    }
+
+    match /workspaceMembers/{memberId} {
+      // A client listing members must filter on `workspaceId`, which pins the field the
+      // rule tests. Listing across organisations is not expressible, which is the point.
+      allow read: if signedIn() && resource.data.workspaceId == me().workspaceId;
+      allow write: if false;
+    }
   }
 }

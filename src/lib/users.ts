@@ -7,6 +7,11 @@ import {
   referralCodes,
   users,
 } from "./collections";
+import {
+  workspaces,
+  writeMembership,
+  writeWorkspace,
+} from "@/modules/workspaces/queries";
 
 /**
  * User reads and writes against Firestore.
@@ -26,6 +31,16 @@ export type AppUser = {
   uplineId: string | null;
   uplinePath: string[];
   directDownlineCount: number;
+  /**
+   * The organisation this coach belongs to. Exactly one, always.
+   *
+   * Empty string means NOT YET ASSIGNED, which is a broken row rather than a valid state:
+   * every workspace-scoped rule and query treats it as matching nothing, so such a user
+   * sees no workspace data at all. That is deliberate — failing closed on a missing
+   * boundary is the only safe direction — and `scripts/backfill-workspaces.ts` exists to
+   * make sure no row stays in it.
+   */
+  workspaceId: string;
   referralCode: string;
   levelName: string | null;
   plan: string;
@@ -50,6 +65,7 @@ export function toAppUser(snap: DocumentSnapshot): AppUser | null {
     city: d.city ?? null,
     uplineId: d.uplineId ?? null,
     uplinePath: d.uplinePath ?? [],
+    workspaceId: d.workspaceId ?? "",
     directDownlineCount: d.directDownlineCount ?? 0,
     referralCode: d.referralCode,
     levelName: d.levelName ?? null,
@@ -146,7 +162,44 @@ export async function createUser(params: {
   // the upline's own path (collections.ts buildUplinePath, same ordering).
   const uplinePath = upline ? [upline.id, ...upline.uplinePath] : [];
 
+  /**
+   * Which organisation this coach joins.
+   *
+   * Joining with a referral code puts them in the SPONSOR's workspace — that is what a
+   * referral means, and it is why the tree can never straddle two organisations.
+   *
+   * Signing up WITHOUT a code makes them the root of their own line, so they get a
+   * workspace of their own and own it. That is the honest reading of "a workspace is one
+   * organisation": an unsponsored coach is not a stray member of somebody else's group,
+   * they are the first member of theirs. It also means there is no shared default
+   * workspace for strangers to land in and see each other.
+   *
+   * The id is minted here rather than inside the transaction so the same value can be
+   * written to both the workspace and the user row.
+   *
+   * An upline with NO workspace — a row the backfill has not reached — does not hand down
+   * an empty one. Inheriting `""` would write a user who belongs to no organisation, and
+   * because the boundary fails closed that coach would see nothing workspace-scoped
+   * anywhere, with no error to explain it.
+   *
+   * So they start a workspace of their own instead. Be clear about the trade: this leaves
+   * their `uplineId` pointing at a sponsor in a DIFFERENT organisation, which is a tree
+   * straddling two workspaces — the one thing the referral rule exists to prevent. It is
+   * chosen because the alternative is a coach who is silently invisible to every scoped
+   * feature, and because the situation is only reachable on a database where
+   * `scripts/backfill-workspaces.ts` has not been run yet.
+   *
+   * The rule that follows from it: run the backfill after any migration or reset, BEFORE
+   * accepting signups. `--check` exits non-zero while any coach is unassigned, which is
+   * what makes that enforceable rather than remembered.
+   */
+  const startingOwnWorkspace = upline === null || !upline.workspaceId;
+  const workspaceId = startingOwnWorkspace
+    ? workspaces().doc().id
+    : upline.workspaceId;
+
   const base = {
+    workspaceId,
     phone,
     name,
     city,
@@ -185,6 +238,23 @@ export async function createUser(params: {
       }
       tx.create(claimRef, { uid, createdAt: Timestamp.now() });
       tx.set(users().doc(uid), { ...base, referralCode: code });
+
+      /**
+       * The workspace and the membership land in the SAME transaction as the user.
+       *
+       * A user row whose `workspaceId` points at a workspace that failed to write is
+       * invisible to every scoped query in the app — present in the database, absent from
+       * the product. Writing them together makes that state unreachable rather than rare.
+       */
+      if (startingOwnWorkspace) {
+        writeWorkspace(tx, { id: workspaceId, name, ownerId: uid });
+      }
+      writeMembership(tx, {
+        workspaceId,
+        userId: uid,
+        role: startingOwnWorkspace ? "owner" : "member",
+      });
+
       if (upline) {
         tx.update(users().doc(upline.id), {
           directDownlineCount: FieldValue.increment(1),

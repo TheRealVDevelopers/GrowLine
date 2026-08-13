@@ -20,7 +20,10 @@
     "test:rules:boards": "tsx e2e/leaderboards-rules.test.ts",
     "test:rules:quals": "tsx e2e/qualifications-rules.test.ts",
     "test:rules:duplication": "tsx e2e/duplication-rules.test.ts",
-    "test:rules:session4": "tsx e2e/session4-rules.test.ts"
+    "test:rules:session4": "tsx e2e/session4-rules.test.ts",
+    "test:rules:workspaces": "tsx scripts/verify-workspace-rules.ts",
+    "backfill:workspaces": "tsx scripts/backfill-workspaces.ts",
+    "verify:workspaces": "tsx scripts/verify-workspaces.ts"
   },
   "dependencies": {
     "dotenv": "^17.4.2",

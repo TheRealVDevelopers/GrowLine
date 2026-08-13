@@ -1,4 +1,4 @@
-# GROWLINE STATUS — last updated: 2026-08-12 · updated from: PC · branch: `feature/new-modules`
+# GROWLINE STATUS — last updated: 2026-08-13 · updated from: PC · branch: `feature/new-modules`
 
 > Single source of truth between mobile and PC. Produced by a read-only audit that read
 > code paths end to end — not commit messages, not filenames, not docs.
@@ -60,6 +60,17 @@ Uncommitted in the working tree: `eslint.config.mjs` only (see 🐛 #10).
       `shareProspects` as a strict boolean.
 - [x] **Phase 7 Threads** — compose, direct-vs-entire-line scope, acknowledge receipts with live
       counters, re-broadcast with attribution.
+- [x] **Organisation workspaces (Feature C)** — the multi-tenant foundation.
+      `users.workspaceId` is the single authority, written in the SAME transaction as the
+      user so a coach cannot exist without one. Referral signup joins the sponsor's
+      workspace; an unsponsored signup starts and owns its own — there is no shared default
+      for strangers to land in together. Owner-only settings at `/workspace`: name, an
+      accent restricted to the palette, and level names that start empty and are never
+      suggested (RULES L1/L8). Verified: **16 isolation checks**
+      (`npm run test:rules:workspaces`) which pair every denial with the permission it
+      mirrors, so the suite cannot pass against a deny-all; and **12 placement checks**
+      (`npm run verify:workspaces`). Server-side owner enforcement confirmed by hand — a
+      member's PATCH gets 404, not just a hidden form.
 
 **Not messy, worth stating:** three independent audit passes read `firestore.rules` for
 different reasons and described it identically — `users` deny-all, the `prospects`
@@ -150,6 +161,15 @@ check; three copies means three chances to get it wrong once.
        This is also the gate the whole business model depends on, and it does not exist.
 4. [ ] **Phase 10 — onboarding tour, Capacitor Android, Play Store prep** — depends on: Tiers,
        and on **FCM** (Web Push cannot reach a native app).
+5. [ ] **Feature A — Goal Sheet ("My Why")** — depends on: workspaces (done). Needs two of the
+       five approved files it has not yet touched: `src/app/(app)/targets/LineTargets.tsx`
+       (so target-setting cannot open without the sheet) and Firebase **Storage** for the
+       dream photo, which is currently deny-all and unused (D49) — that is a real dependency,
+       not a detail.
+6. [ ] **Feature B — Recognition Wall** — depends on: workspaces (done) for its scope, and on
+       `src/app/(app)/page.tsx` to sit below Today's Mission. Its card types read from F13
+       leaderboards and F14 qualifications, so it also inherits ⚠️ A. Any card-generating
+       Cloud Function must be exported in `functions/src/index.ts` or it is dead code.
 
 ---
 
@@ -230,6 +250,36 @@ check; three copies means three chances to get it wrong once.
       it had gone stale. It is now deliberate, with the trade recorded: seeded coaches have
       no live streak, which is the lesser problem.
 
+13. **HIGH — Playwright loads every `e2e/*.test.ts` and one of them can end the run early
+    while still exiting 0.** `playwright.config.ts` sets `testDir: "./e2e"` and **no
+    `testMatch`**, so the default pattern matches `*.test.ts` as well as `*.spec.ts`. The
+    six Security-Rules suites live there as plain `tsx` scripts that run `main()` at module
+    scope and finish with `process.exit()`. Playwright executes them while discovering
+    tests, and whichever `process.exit(0)` lands first truncates the run — **no summary, a
+    fraction of the tests executed, exit code 0.** Caught because adding a sixth suite
+    shifted the timing enough to make it happen every time; it has been latent, and a green
+    e2e on this branch has been partly luck. It was also masking a real failure: with the
+    truncation gone the suite immediately reported one.
+    → **Fix is one line:** `testMatch: "**/*.spec.ts"` in `playwright.config.ts`. NOT
+    applied — that file is outside the five approved for this session. Worked around for
+    now by keeping the new suite at `scripts/verify-workspace-rules.ts` instead, which is
+    structurally immune; the five older suites are still in `e2e/` and still hazardous.
+14. **MEDIUM — `/workspace` is not reachable from any navigation.** URL-only, same position
+    as `/voice-log` and `/who-to-call` (🐛 #5). The bottom bar is full at five tabs and a
+    sixth is the owner's call.
+15. **MEDIUM — the backfill must run after any migration or reset, before signups.**
+    `seed-sqlite.ts` and `migrate-to-firestore.ts` write no `workspaceId` (both are outside
+    the approved file set), so a fresh database has every coach unassigned until
+    `npm run backfill:workspaces` runs. `createUser` fails visibly rather than silently in
+    that window — an upline with no workspace does not hand down an empty one, the new coach
+    starts their own — but that leaves a tree straddling two workspaces, which is the one
+    thing the referral rule exists to prevent. `npm run backfill:workspaces -- --check`
+    exits non-zero while anyone is unassigned, which is what makes this enforceable.
+
+**Flaky, not broken:** `e2e/realtime.spec.ts` failed once in a full run and passed alone
+and on the very next full run (43/43). Shared emulator state and ordering, same family as
+D44. Watch it; do not "fix" it by weakening the assertion.
+
 **Previously-failing test, now passing:** `e2e/offline-capture.spec.ts` failed once on
 `claude/mobile-pc-workflow-test-alhnwl` right after the font commit (queued capture never
 synced). It passes on `feature/new-modules` — **43 of 43 e2e green**. Did not reproduce;
@@ -269,9 +319,14 @@ cause never confirmed. Worth watching rather than closing.
 
 ## 🧊 PARKED — awaiting spec
 
-- Goal-sheet conversations
-- Social recognition wall
-- Org workspaces
+- ~~Goal-sheet conversations~~ — **now specced.** Feature A: the sheet ("My Why"), direct-upline-only
+  visibility with personal-needs private by default, goal-first target setting, a
+  reverse-math suggestion the humans can override, "I accept this target", and blockers
+  that become trackable actions. **Not built** — see ❌ below.
+- ~~Social recognition wall~~ — **now specced.** Feature B: six auto-earned card types, nothing
+  manually posted, own-workspace scope only, one 👏 reaction, 14-day expiry, per-user
+  opt-out, shareable to WhatsApp Status. **Not built** — see ❌ below.
+- ~~Org workspaces~~ — **BUILT.** See ✅ above.
 - Pro Portfolio upsell mechanics (v1 §7) — beyond the basic feature flag
 - Phase 2 (CLAUDE.md §8): social feed, event manager, poster library, club-owner module,
   advanced analytics + PDF export
