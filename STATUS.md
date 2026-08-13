@@ -209,9 +209,19 @@ check; three copies means three chances to get it wrong once.
     Lint is now **0 errors** on this branch; 4 unused-variable warnings remain in
     `e2e/session4.spec.ts` and `src/modules/voice-log/queries.ts` (warnings do not block).
 
-**Known failing test:** `e2e/offline-capture.spec.ts` — the queued capture never syncs and the
-prospect never appears. Appeared after the font commit; saving a prospect generates a report,
-and the report renderer now loads fonts from disk. Suspected but **not confirmed**, and not fixed.
+12. **MEDIUM — `e2e/session4.spec.ts:71` fails, and gets worse every day.** It expects
+    *"1 day late"* and the app now says *"2 days late"*. **The app is right.** The cause is a
+    hardcoded absolute date in the seed — `scripts/seed-sqlite.ts:81` sets
+    `nextFollowupAt: new Date("2026-08-11T04:00:00Z")` — so the lateness the screen computes
+    drifts by one day every real day that passes. It was written on the 11th, passed on the
+    12th, and fails on the 13th. Fix is to seed the date RELATIVE to today (the repo already
+    has `shiftKey`/`todayKey` in `src/lib/daily-log.ts` for exactly this). Every other
+    date-sensitive fixture in the seed deserves the same check.
+
+**Previously-failing test, now passing:** `e2e/offline-capture.spec.ts` failed once on
+`claude/mobile-pc-workflow-test-alhnwl` right after the font commit (queued capture never
+synced). It passes on `feature/new-modules` — 42 of 43 e2e green. Did not reproduce; cause
+never confirmed. Worth watching rather than closing.
 
 ---
 
