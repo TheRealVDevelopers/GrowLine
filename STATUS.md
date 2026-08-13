@@ -196,13 +196,18 @@ check; three copies means three chances to get it wrong once.
     trips `no-require-imports` 15 times the moment anybody builds before deploying). Git
     already ignored both; these are the lint half of the same fact. The stray worktree at
     `.claude/worktrees/continue-previous-3413cb` still exists and is still nobody's.
-11. **HIGH — `feature/new-modules` does not pass lint, so CI fails on it.** One real error:
-    `src/modules/voice-log/Recorder.tsx:144` — *"Calling setState synchronously within an
-    effect can trigger cascading renders"*. Same React Compiler rule that produced three
-    errors on the main branch earlier and had to be fixed properly (D-series, `TargetRing`
-    and `ThemeToggle`). Pre-existing, not introduced by the export fix. Left unfixed because
-    it sits inside the Phase-2 code whose authorisation is ⚠️ A. Plus 4 unused-variable
-    warnings in `e2e/session4.spec.ts` and `src/modules/voice-log/queries.ts`.
+11. ~~**HIGH — `feature/new-modules` does not pass lint, so CI fails on it.**~~ **FIXED
+    2026-08-12.** `src/modules/voice-log/Recorder.tsx` mirrored a browser capability into
+    state with `useEffect(() => setPhase(canRecord() ? … ), [])` — a synchronous setState on
+    every mount, so the component rendered "checking", threw it away and rendered again. Now
+    read through `useSyncExternalStore`, the same fix `ThemeToggle` needed for the same
+    reason. A lazy `useState` initialiser would NOT have worked: `canRecord()` touches
+    `MediaRecorder` and `navigator.mediaDevices`, neither of which exists during the server
+    render, so it would have traded a lint error for a hydration mismatch. All five real
+    phase transitions are untouched. Verified in a browser: the server ships the skeleton,
+    the client hydrates to "Hold to record", and the console shows no hydration mismatch.
+    Lint is now **0 errors** on this branch; 4 unused-variable warnings remain in
+    `e2e/session4.spec.ts` and `src/modules/voice-log/queries.ts` (warnings do not block).
 
 **Known failing test:** `e2e/offline-capture.spec.ts` — the queued capture never syncs and the
 prospect never appears. Appeared after the font commit; saving a prospect generates a report,
