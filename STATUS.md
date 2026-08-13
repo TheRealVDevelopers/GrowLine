@@ -209,19 +209,31 @@ check; three copies means three chances to get it wrong once.
     Lint is now **0 errors** on this branch; 4 unused-variable warnings remain in
     `e2e/session4.spec.ts` and `src/modules/voice-log/queries.ts` (warnings do not block).
 
-12. **MEDIUM — `e2e/session4.spec.ts:71` fails, and gets worse every day.** It expects
-    *"1 day late"* and the app now says *"2 days late"*. **The app is right.** The cause is a
-    hardcoded absolute date in the seed — `scripts/seed-sqlite.ts:81` sets
-    `nextFollowupAt: new Date("2026-08-11T04:00:00Z")` — so the lateness the screen computes
-    drifts by one day every real day that passes. It was written on the 11th, passed on the
-    12th, and fails on the 13th. Fix is to seed the date RELATIVE to today (the repo already
-    has `shiftKey`/`todayKey` in `src/lib/daily-log.ts` for exactly this). Every other
-    date-sensitive fixture in the seed deserves the same check.
+12. ~~**MEDIUM — `e2e/session4.spec.ts:71` fails, and gets worse every day.**~~ **FIXED
+    2026-08-13.** The app was right ("2 days late"); the fixture was stale. Both
+    `scripts/seed-sqlite.ts` and `scripts/verify-migration.ts` had hardcoded absolute dates,
+    so a fixture meaning "yesterday" was only true for 24 hours. Everything is now derived
+    from the real clock through `day.ts` (RULES E1 — "yesterday" between midnight and 05:30
+    IST is a different day in UTC).
+
+    Three things this surfaced that were not obvious, all now written into the code:
+    - `memberships: key === "2026-08-09"` compared against the *old* fixed date, so going
+      relative would have silently seeded **zero** memberships everywhere.
+    - `verify-migration.ts` asserts Meera's follow-up is in the **future**, while
+      `session4.spec.ts` needs her **late**. Both are right: the verifier now passes an
+      explicit `as of three days ago` to `followupCounts`, which is exactly what that
+      parameter exists for.
+    - Logs must **not** be dated today. A qualification counts `daysActive` and
+      `newMembers` inside a window that opens when it is created, so a log dated today
+      lands inside every fresh qualification and `qualifications.spec.ts` — which asserts a
+      coach starting from zero — breaks. The old seed got this right *by accident*, because
+      it had gone stale. It is now deliberate, with the trade recorded: seeded coaches have
+      no live streak, which is the lesser problem.
 
 **Previously-failing test, now passing:** `e2e/offline-capture.spec.ts` failed once on
 `claude/mobile-pc-workflow-test-alhnwl` right after the font commit (queued capture never
-synced). It passes on `feature/new-modules` — 42 of 43 e2e green. Did not reproduce; cause
-never confirmed. Worth watching rather than closing.
+synced). It passes on `feature/new-modules` — **43 of 43 e2e green**. Did not reproduce;
+cause never confirmed. Worth watching rather than closing.
 
 ---
 

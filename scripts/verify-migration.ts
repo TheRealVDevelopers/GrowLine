@@ -10,6 +10,8 @@
 import "dotenv/config";
 import { auth, db } from "../src/lib/firebase-admin";
 import { COLLECTIONS, dailyLogDocId, reportDocId } from "../src/lib/collections";
+import { APP_TIMEZONE, dayKey, startOfDayInZone } from "../src/lib/day";
+import { shiftKey } from "../src/lib/daily-log";
 import { buildTeamTree, isInDownline } from "../src/lib/team";
 import { followupCounts } from "../src/lib/followup-queries";
 import {
@@ -19,6 +21,17 @@ import {
   setTarget,
   updateProgress,
 } from "../src/lib/targets-queries";
+
+/**
+ * The same relative anchors the seed uses. Both files describe the SAME fixtures, so
+ * both have to derive their dates the same way — this script broke the moment the seed
+ * went relative precisely because it was still asserting absolute dates the seed no
+ * longer wrote.
+ */
+const TODAY = dayKey(new Date(), APP_TIMEZONE);
+const YESTERDAY = shiftKey(TODAY, -1);
+const FIRST_OF_MONTH = `${TODAY.slice(0, 8)}01`;
+const LAST_OF_PREV_MONTH = shiftKey(FIRST_OF_MONTH, -1);
 
 const ROOT = "usr_root0000000000000000";
 const ASHA = "usr_asha0000000000000000";
@@ -58,27 +71,31 @@ async function main() {
   const augustLogs = await db
     .collection(COLLECTIONS.dailyLogs)
     .where("uplinePath", "array-contains", ROOT)
-    .where("dayKey", ">=", "2026-08-01")
+    .where("dayKey", ">=", FIRST_OF_MONTH)
     .count()
     .get();
   check("whole-line month roll-up via array-contains + count()",
     augustLogs.data().count === 6, `${augustLogs.data().count} logs (expected 6)`);
 
-  // The July log must be excluded — D26's month boundary, in IST not UTC.
-  const julyOnly = await db
+  // Last month's log must be excluded — D26's month boundary, in IST not UTC.
+  const previousMonthOnly = await db
     .collection(COLLECTIONS.dailyLogs)
     .where("uplinePath", "array-contains", ROOT)
-    .where("dayKey", "==", "2026-07-31")
+    .where("dayKey", "==", LAST_OF_PREV_MONTH)
     .count()
     .get();
-  check("month boundary respected (July logs not counted as August)",
-    julyOnly.data().count === 2, `${julyOnly.data().count} logs on 2026-07-31`);
+  check("month boundary respected (last month's logs not counted as this month's)",
+    previousMonthOnly.data().count === 2,
+    `${previousMonthOnly.data().count} logs on ${LAST_OF_PREV_MONTH}`);
 
   // --- D26: the composite id IS the uniqueness constraint ---------------------
-  const logId = dailyLogDocId(ASHA, "2026-08-09");
+  // Four days back, matching the seed. Deliberately not today: nothing is seeded there,
+  // because a log dated today lands inside every freshly created qualification window.
+  const SEEDED_DAY = shiftKey(TODAY, -4);
+  const logId = dailyLogDocId(ASHA, SEEDED_DAY);
   const log = await db.collection(COLLECTIONS.dailyLogs).doc(logId).get();
   check("daily log addressable by userId__dayKey", log.exists, logId);
-  check("stored dayKey is the coach's local day", log.data()?.dayKey === "2026-08-09");
+  check("stored dayKey is the coach's local day", log.data()?.dayKey === SEEDED_DAY);
 
   // --- D20: one report identity per set of inputs -----------------------------
   const reportSnap = await db.collection(COLLECTIONS.reports).limit(1).get();
@@ -146,17 +163,29 @@ async function main() {
   check("isInDownline treats a user as their own line", await isInDownline(ASHA, ASHA));
 
   // --- follow-up counts: null must not sort as "overdue" ----------------------
-  // Asha has Meera (follow-up 2026-08-11, future) and Ravi (no follow-up at all).
-  // In Firestore's type ordering null sorts BEFORE every timestamp, so a plain
-  // "< today" range would count Ravi as overdue. Zero is the proof it does not.
-  const counts = await followupCounts(ASHA, "Asia/Kolkata", new Date("2026-08-09T12:00:00Z"));
+  /**
+   * Asha has Meera (follow-up YESTERDAY) and Ravi (no follow-up at all).
+   *
+   * In Firestore's type ordering `null` sorts BEFORE every timestamp, so a naive
+   * "< today" range counts Ravi as overdue. Zero is the proof it does not — and Ravi is
+   * the only thing this check is about.
+   *
+   * The `now` passed in is therefore THREE DAYS AGO, not the real clock. That is not a
+   * fudge: `followupCounts` takes `now` as a parameter precisely so a caller can ask
+   * "what was due on a given day", and this assertion needs a day on which Meera's
+   * follow-up is still in the FUTURE, so that a non-zero count could only have come from
+   * Ravi's null. Against the real clock Meera is genuinely one day late — which is what
+   * `e2e/session4.spec.ts` asserts, from the other side of the same fixture.
+   */
+  const asOf = startOfDayInZone(shiftKey(TODAY, -3), APP_TIMEZONE);
+  const counts = await followupCounts(ASHA, "Asia/Kolkata", asOf);
   check("prospects with no follow-up date are not counted overdue",
     counts.overdue === 0, `overdue=${counts.overdue}`);
   check("a future follow-up is not counted as due today",
     counts.today === 0, `today=${counts.today}`);
 
   // --- targets and proofs: D32's matrix, on Firestore -------------------------
-  const month = new Date("2026-08-09T12:00:00Z").toISOString().slice(0, 7);
+  const month = TODAY.slice(0, 7);
   const myTarget = await getMyTarget(ASHA, month);
   check("target addressable by coachId__month", myTarget !== null, myTarget?.id);
   check("proofs hydrated without a join", myTarget?.proofs.length === 1);
