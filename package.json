@@ -23,7 +23,8 @@
     "test:rules:session4": "tsx e2e/session4-rules.test.ts",
     "test:rules:workspaces": "tsx e2e/workspace-rules.test.ts",
     "backfill:workspaces": "tsx scripts/backfill-workspaces.ts",
-    "verify:workspaces": "tsx scripts/verify-workspaces.ts"
+    "verify:workspaces": "tsx scripts/verify-workspaces.ts",
+    "test:rules:goals": "tsx e2e/goals-rules.test.ts"
   },
   "dependencies": {
     "dotenv": "^17.4.2",

@@ -610,6 +610,66 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    /**
+     * Goal sheets (Feature A) — two visibilities on what a coach thinks of as one sheet.
+     *
+     * ## Why it is two documents
+     *
+     * A2 wants the goals, blockers and hours visible to the direct upline — that is the
+     * coaching material the feature exists for — while the personal reason (school fees, a
+     * loan, leaving a job) stays private unless the coach turns it on.
+     *
+     * Rules have no field-level reads. Letting the upline read the sheet lets them read
+     * every field on it, so "private by default" is not expressible on one document without
+     * moving enforcement into app code — which A2 forbids in the same sentence that asks
+     * for it. Hence a parent for the shareable half and a `private/needs` child for the
+     * rest, with the child's rule reading the parent's switch.
+     *
+     * ## DIRECT upline, never the chain
+     *
+     * `uid() in me().uplinePath` would be the cheap check and it is the wrong one:
+     * `uplinePath` is every ancestor up to 100 hops (D36). A2 says the direct upline, so
+     * this compares `uplineId` on the SUBJECT's document. A goal sheet is a conversation
+     * between two people, not something a great-grandparent in the line reads.
+     *
+     * Resolved live from the subject's user document, never from a value copied onto the
+     * sheet — a stored uplineId would keep granting access after a re-parent, which is
+     * exactly the stale-grant bug D64 closed.
+     */
+    function subject(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
+    match /goalSheets/{userId} {
+      allow read: if signedIn() && (
+        uid() == userId
+        || uid() == subject(userId).uplineId
+      );
+      allow write: if false;
+
+      match /private/{docId} {
+        /**
+         * The personal reason. The owner always; the direct upline ONLY while the coach's
+         * own `shareNeeds` switch is true.
+         *
+         * Both halves of the upline branch matter. Without the switch check an upline reads
+         * everything; without the upline check anyone who turned sharing on is public. Same
+         * shape as the F11 prospect rule, and the same reason it is written as one `get()`
+         * on the parent — two lookups can drift apart under editing, and a switch check
+         * reading one document while the relationship check reads another is a privacy hole
+         * that still looks correct.
+         */
+        allow read: if signedIn() && (
+          uid() == userId
+          || (
+            get(/databases/$(database)/documents/goalSheets/$(userId)).data.shareNeeds == true
+            && uid() == subject(userId).uplineId
+          )
+        );
+        allow write: if false;
+      }
+    }
+
     match /workspaceMembers/{memberId} {
       // A client listing members must filter on `workspaceId`, which pins the field the
       // rule tests. Listing across organisations is not expressible, which is the point.

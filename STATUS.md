@@ -27,14 +27,13 @@ overturned and are recorded as PARTIAL below.
 
 | Branch | State |
 |---|---|
-| `claude/mobile-pc-workflow-test-alhnwl` @ `434e88e` | The working branch. Local == remote. |
-| `origin/feature/new-modules` | **Strictly contains** the working branch and adds **34** commits. Nothing has diverged; nothing needs merging. Actively being committed to. |
-| `origin/master` | 10 commits behind the working branch, 0 ahead. |
+| `feature/new-modules` | **The working branch.** Everything below is built here. |
+| `master` | Fast-forwarded to `78f2a99` on 2026-08-13, then `feature/new-modules` moved ahead again with workspaces and the Goal Sheet foundation. |
+| `claude/mobile-pc-workflow-test-alhnwl` | Fully contained in both. Nothing lives only there. |
 
-**No merge conflict exists.** `feature/new-modules` is a fast-forward from here. The question
-is not *how* to merge it but *whether* its contents should be merged at all — see ⚠️ A.
-
-Uncommitted in the working tree: `eslint.config.mjs` only (see 🐛 #10).
+**No merge conflict has ever existed between these** — every merge so far has been a clean
+fast-forward. Merging `master` forward settled ⚠️ A in practice (the Phase-2 work is on
+`master` now); it still wants a line in `DECISIONS.md` so the next session does not re-open it.
 
 ---
 
@@ -161,11 +160,17 @@ check; three copies means three chances to get it wrong once.
        This is also the gate the whole business model depends on, and it does not exist.
 4. [ ] **Phase 10 — onboarding tour, Capacitor Android, Play Store prep** — depends on: Tiers,
        and on **FCM** (Web Push cannot reach a native app).
-5. [ ] **Feature A — Goal Sheet ("My Why")** — depends on: workspaces (done). Needs two of the
-       five approved files it has not yet touched: `src/app/(app)/targets/LineTargets.tsx`
-       (so target-setting cannot open without the sheet) and Firebase **Storage** for the
-       dream photo, which is currently deny-all and unused (D49) — that is a real dependency,
-       not a detail.
+5. [ ] **Feature A — Goal Sheet ("My Why")** — **foundation built, UI and target flow are not.**
+       Done: the pure model (`src/modules/goals/model.ts`) including the reverse-math and the
+       completion meter; the split-document data layer (`queries.ts`); Security Rules for both
+       visibilities; **13 privacy checks** (`npm run test:rules:goals`) and 22 unit tests.
+       Still to build: the three-step sheet UI and its save route · the nudge after the first
+       prospect · the target-setting gate in `LineTargets.tsx` · the talking-points card ·
+       "I accept this target" and the proposed/accepted state (planned as a
+       `goalConversations` record keyed by target, so `targets` itself is never modified —
+       that collection is outside the approved file set) · blockers-become-actions · the
+       month-end review. **Dream photo is blocked** on Firebase Storage, which is deny-all
+       and unused by deliberate decision (D49); enabling it is its own call.
 6. [ ] **Feature B — Recognition Wall** — depends on: workspaces (done) for its scope, and on
        `src/app/(app)/page.tsx` to sit below Today's Mission. Its card types read from F13
        leaderboards and F14 qualifications, so it also inherits ⚠️ A. Any card-generating
@@ -260,7 +265,7 @@ check; three copies means three chances to get it wrong once.
     shifted the timing enough to make it happen every time; it has been latent, and a green
     e2e on this branch has been partly luck. It was also masking a real failure: with the
     truncation gone the suite immediately reported one.
-    → **Fix is one line:** `testMatch: "**/*.spec.ts"` in `playwright.config.ts`. NOT
+    → ~~Fix is one line~~ **FIXED 2026-08-13**: `testMatch: "**/*.spec.ts"` in `playwright.config.ts`. Was NOT
     applied — that file is outside the five approved for this session. Worked around for
     now by keeping the new suite at `scripts/verify-workspace-rules.ts` instead, which is
     structurally immune; the five older suites are still in `e2e/` and still hazardous.
