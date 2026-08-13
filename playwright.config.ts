@@ -55,6 +55,22 @@ const browserBinding = resolvedPath
  */
 export default defineConfig({
   testDir: "./e2e",
+  /**
+   * Only `*.spec.ts`. Without this, Playwright's default pattern also matches `*.test.ts`,
+   * and `e2e/` holds five Security-Rules suites that are plain `tsx` scripts: they run
+   * `main()` at module scope and finish with `process.exit()`.
+   *
+   * Playwright EXECUTES a file to discover its tests, so those scripts ran during every
+   * e2e run and whichever `process.exit(0)` landed first killed the process mid-suite —
+   * no summary, a fraction of the tests executed, and **exit code 0**. A green e2e was
+   * partly luck about which async script finished first, and it was masking a real
+   * failure: the run that first completed properly reported one immediately.
+   *
+   * The rules suites are still run, deliberately and on purpose, by their own npm scripts
+   * (`test:rules`, `test:rules:boards`, …). They are not Playwright tests and should never
+   * have been collected as them.
+   */
+  testMatch: "**/*.spec.ts",
   fullyParallel: false, // one Firestore, shared state
   workers: 1,
   retries: 0,
