@@ -22,6 +22,96 @@
 > Phases 1–6 below are COMPLETE. Remaining work is sequenced by v2 §11, not v1 §14.
 > The v1 hard rules (§5) are untouched and still absolute.
 
+---
+
+## ▶ START HERE — what to do next (updated 2026-08-14, PC, `feature/new-modules`)
+
+**Read `STATUS.md` first** — it is the audited state of every feature, and this section is
+only the short version of it. Then `RULES.md`. Then come back here.
+
+### How to start a session on any device
+
+```bash
+git pull                       # other devices push to feature/new-modules too
+npm ci
+npm run typecheck && npm run lint && npm run test:unit
+```
+
+Anything touching the database also needs the emulators, in a second terminal:
+
+```bash
+npm run emulators
+```
+
+then `npm run e2e:reset` once, before the first suite. `npm run e2e` now starts its own
+web server, so it no longer needs `next start` in a third terminal.
+
+### The launch blockers, in the order they block each other
+
+Launch is one week out. These are the things that decide whether it can happen, not the
+feature backlog.
+
+1. **Nobody has ever run this against real Firebase.** Every test passes against the
+   emulator, and the emulator is *more permissive than production in two ways that matter*:
+   it creates missing composite indexes on demand, and it does not enforce billing or
+   quota. `npm run verify:indexes` exists for exactly the first one — point it at the real
+   project with the emulator host variables UNSET. A missing index is a `FAILED_PRECONDITION`
+   the first time a real coach opens the screen, and it is the most likely launch-day
+   outage.
+2. **Firebase project provisioning** — Blaze plan, Phone auth enabled, SMS delivery
+   confirmed for Indian numbers, service account in `.env`. Nothing below can be verified
+   until this exists. See the "Blocking cutover" list in `HANDOFF.md`.
+3. **`CRON_SECRET` is blank in `.env.example`**, so all eight scheduled Cloud Functions
+   fail closed in production — including the retention purge. Exporting them (done) was
+   necessary, not sufficient.
+4. **Phase 9 Tiers + Razorpay does not exist.** This is the entire business model. It
+   depends on Phase 8 Portfolio, because the Leader tier's stated unlock includes Pro
+   portfolio.
+5. **The privacy notice cannot be written** until the owner supplies legal entity name,
+   grievance-officer contact and postal address (RULES P-series, DPDP). Ships with the app
+   or the app does not ship.
+
+### What is next in the build queue
+
+Feature A (Goal Sheet) is COMPLETE as of 2026-08-14 — sheet UI, upline gate, accept /
+renegotiate, blockers-become-actions, month-end review, first-prospect nudge. Only the
+dream photo is outstanding, and it is blocked on Firebase Storage being deny-all (D49).
+
+In order:
+
+1. **Feature B — Recognition Wall.** Depends on workspaces (done). Inherits ⚠️ A in
+   `STATUS.md`: its card types read from F13 leaderboards and F14 qualifications, whose
+   authorisation is still an open owner decision.
+2. **v2.5 Phase 8 — Portfolio + Pro.** Blocked on Firebase Storage + a thumbnail function.
+   Building the gallery on data-URLs would repeat the D3/D49 mistake v2 exists to close.
+3. **v2.6 Phase 9 — Tiers + Razorpay + admin.** See blocker 4 above.
+4. **v2.7 Phase 10 — polish, Capacitor Android, Play Store.** Needs FCM; Web Push cannot
+   reach a native app (⚠️ B).
+
+### Decisions only the owner can make
+
+These are in `STATUS.md` under 🚫 BLOCKED and none of them is an engineering call:
+
+- Do F13 / F14 / F20 / the quick-wins ship, or stay unmerged? They map onto the Phase-2
+  list that RULES S7 parks until 200 paying users, and there are none.
+- Storage on now, or does Portfolio wait?
+- FCM now, or deferred to the Capacitor build?
+- Who produces the 8-item Jewel Asset Pack? It is not derivable from code.
+
+### House rules that bite hardest here
+
+`RULES.md` is the full list; these are the four that have already cost a session each:
+
+- **E1** — never `new Date()` for a day boundary. IST is UTC+5:30; go through `day.ts`.
+- **E2** — never import `./db` or `@/lib/collections` into anything a `"use client"` file
+  touches.
+- **E5** — one session per v2 §11 item. Name the files. Never refactor completed work
+  without asking.
+- **E7** — push after every discrete change, not once at the end. Including before asking
+  a question.
+
+---
+
 WHY: New app from scratch — plan deep once, then build feature-by-feature cheaply.
 
 How to use this document: This is the persistent project context. Build phases from Section 14 are sent ONE AT A TIME, verifying each phase works before the next. Never build the whole app in one prompt.

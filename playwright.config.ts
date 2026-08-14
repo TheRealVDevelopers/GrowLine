@@ -71,6 +71,30 @@ export default defineConfig({
    * have been collected as them.
    */
   testMatch: "**/*.spec.ts",
+  /**
+   * Start the production server if one is not already up.
+   *
+   * Without this, `npm run e2e` on a machine with no server running fails all 43 tests
+   * with ECONNREFUSED — 43 red lines that look exactly like the app being broken and are
+   * actually nothing but a missing process. That is not a hypothetical: it happened twice
+   * in one session here, and the second time it was briefly read as a real regression.
+   *
+   * `next start`, not `next dev`, because the production bundle is what ships and is what
+   * `.github/scripts/ci-integration.sh` has always used.
+   *
+   * `reuseExistingServer` is unconditional rather than `!process.env.CI`. CI starts its
+   * own server inside the emulator lifetime and traps the kill, and Playwright must attach
+   * to that one rather than race a second process for port 3000 — the usual `!CI` idiom is
+   * written for suites where Playwright owns the server, and here it does not.
+   */
+  webServer: {
+    command: "npx next start",
+    url: "http://127.0.0.1:3000/login",
+    reuseExistingServer: true,
+    timeout: 120_000,
+    stdout: "ignore",
+    stderr: "pipe",
+  },
   fullyParallel: false, // one Firestore, shared state
   workers: 1,
   retries: 0,
