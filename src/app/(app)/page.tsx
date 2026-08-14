@@ -15,6 +15,10 @@ import { TeamIcon } from "@/components/icons";
 import TodaysMission, { buildMissions } from "@/components/TodaysMission";
 import { getWeeklyRecap, recapShareText } from "@/lib/weekly-recap";
 import WeeklyRecap from "@/components/WeeklyRecap";
+import { getUserById } from "@/lib/users";
+import { getConversation } from "@/modules/goals/conversations";
+import { shouldNudgeGoalSheet } from "@/modules/goals/nudge";
+import TargetToAccept from "@/modules/goals/TargetToAccept";
 
 export default async function HomePage() {
   const user = await getSessionUser();
@@ -24,19 +28,39 @@ export default async function HomePage() {
   // same transaction as the signup that creates a downline — Firestore cannot
   // count children, and this page should not pay for a query to find out.
   const directCount = user.directDownlineCount;
-  const [followups, logState, myTarget, proofsToAnswer, proofsToReview] =
+  const [followups, logState, myTarget, proofsToAnswer, proofsToReview, nudgeGoals] =
     await Promise.all([
       followupCounts(user.id),
       getLogState(user.id),
       getMyTarget(user.id, currentMonth()),
       pendingProofCount(user.id),
       proofsAwaitingReview(user.id),
+      shouldNudgeGoalSheet(user.id),
     ]);
   const trialDaysLeft = daysUntil(user.trialEndsAt);
   const firstName = user.name.split(" ")[0];
   const today = todayHeading();
 
   const recap = await getWeeklyRecap(user.id, logState.streak);
+
+  /*
+   * The target conversation (A3), and the nudge for it.
+   *
+   * Fetched only when a target exists, and rendered only when there is something to do:
+   * a number to answer, or an agreed action still open. Accepted with everything ticked
+   * shows nothing — a card that never goes away is a card people stop reading.
+   *
+   * A target with no conversation is every target set before this feature existed. It
+   * reads as unproposed rather than as broken, and simply shows nothing here.
+   */
+  const conversation = myTarget ? await getConversation(myTarget.id) : null;
+  const conversationUpline =
+    conversation && conversation.uplineId ? await getUserById(conversation.uplineId) : null;
+  const openActions = conversation?.actions.some((a) => !a.done) ?? false;
+  const showConversation =
+    conversation !== null &&
+    conversationUpline !== null &&
+    (conversation.status !== "accepted" || openActions);
 
   // The recommendation engine of v2 (§4): what to do next, from their own data.
   const missions = buildMissions({
@@ -57,6 +81,17 @@ export default async function HomePage() {
       </div>
 
       <TodaysMission missions={missions} />
+
+      {showConversation && (
+        <TargetToAccept
+          targetId={conversation.targetId}
+          uplineName={conversationUpline.name}
+          status={conversation.status}
+          proposedPoints={conversation.proposedPoints}
+          changeNote={conversation.changeNote}
+          actions={conversation.actions}
+        />
+      )}
 
       {/* The brag loop (§4). Hidden on an empty week — there is nothing to be
           proud of yet, and a card of zeroes is the opposite of motivating. */}
@@ -136,6 +171,23 @@ export default async function HomePage() {
             <span className="text-sm text-text-dim">Your line is waiting on you</span>
           </span>
           <span className="shrink-0 text-sm font-medium text-gold-ink">Review</span>
+        </Link>
+      )}
+
+      {/* A1's nudge — after their first prospect, never at signup. Below the day's work
+          because it is an invitation, not a job that is waiting on them. */}
+      {nudgeGoals && (
+        <Link
+          href="/goals"
+          className="flex items-center justify-between gap-3 rounded-2xl bg-surface px-5 py-4"
+        >
+          <span>
+            <span className="block text-lg font-semibold">Why did you start this?</span>
+            <span className="text-sm text-text-dim">
+              Three short questions. Your upline uses it to set fair targets with you.
+            </span>
+          </span>
+          <span className="shrink-0 text-sm font-medium text-gold-ink">Write it</span>
         </Link>
       )}
 
@@ -246,8 +298,9 @@ export default async function HomePage() {
 
       <section className="rounded-2xl border border-hairline px-5 py-4">
         <h2 className="font-semibold">Coming next on Growline</h2>
+        {/* "Set targets with your upline" was here until A3 shipped it. A coming-soon
+            list that still promises a feature the user already has reads as a dead app. */}
         <ul className="mt-2 flex flex-col gap-1.5 text-sm text-text-dim">
-          <li>• Set targets with your upline</li>
           <li>• Get messages from your line</li>
         </ul>
       </section>
