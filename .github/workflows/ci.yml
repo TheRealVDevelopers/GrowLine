@@ -73,6 +73,15 @@ jobs:
       - run: npm run lint
       - run: npm run test:unit
 
+      # The Cloud Functions are their own package with their own tsconfig, so the root
+      # typecheck never sees them. Until this step existed, nothing would have caught a
+      # compile error in the retention purge before deploy (STATUS.md bug #6) — and that
+      # package contains the one job that irreversibly deletes user data.
+      - run: npm ci
+        working-directory: functions
+      - run: npm run typecheck
+        working-directory: functions
+
       - run: npm run build
 
       # --- Browser for the e2e suite

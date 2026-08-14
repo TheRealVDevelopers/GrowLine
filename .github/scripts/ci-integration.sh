@@ -28,6 +28,20 @@ npm run migrate:verify
 echo "--- Security Rules (BUILD_PROMPT_V2 §5.7 makes this one mandatory)"
 npm run test:rules
 
+# The other six rules suites were passing locally and wired into NOTHING — a regression
+# reopening any of those collections went green (STATUS.md bug #2). Each uses its own
+# emulator project id, so like test:rules they cannot disturb the seeded data. They are
+# one lifetime with the rest because they share the emulator instance, and every one
+# blocks the merge for the same reason test:rules does: a check nobody has to pass is a
+# check nobody reads.
+echo "--- Security Rules: the six previously-unwired suites"
+npm run test:rules:boards
+npm run test:rules:quals
+npm run test:rules:duplication
+npm run test:rules:session4
+npm run test:rules:workspaces
+npm run test:rules:goals
+
 # Re-parenting rewrites documents across four collections at once and its failure mode is
 # silent — the coach looks attached while their downlines' work quietly stops rolling up.
 # It needs Firestore, so it cannot be a unit test; it runs here. Its fixture is prefixed

@@ -296,14 +296,10 @@ export default async function HomePage() {
         <span className="text-sm font-medium text-gold-ink">My Team</span>
       </Link>
 
-      <section className="rounded-2xl border border-hairline px-5 py-4">
-        <h2 className="font-semibold">Coming next on Growline</h2>
-        {/* "Set targets with your upline" was here until A3 shipped it. A coming-soon
-            list that still promises a feature the user already has reads as a dead app. */}
-        <ul className="mt-2 flex flex-col gap-1.5 text-sm text-text-dim">
-          <li>• Get messages from your line</li>
-        </ul>
-      </section>
+      {/* The coming-soon card is gone, not trimmed. Both features it promised — targets
+          with your upline, messages from your line — now exist, and a card promising
+          what the user already has reads as a dead app (STATUS.md bug #7). It returns
+          only when there is a real next thing to promise. */}
     </div>
   );
 }
