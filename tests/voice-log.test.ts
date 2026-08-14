@@ -8,13 +8,14 @@ import {
   parseSpokenLog,
 } from "@/modules/voice-log/parse";
 import {
+  isSavableDayKey,
   MAX_AUDIO_BYTES,
   MAX_DURATION_MS,
   UNCOUNTED_TTL_DAYS,
   voiceLogDocId,
 } from "@/modules/voice-log/model";
 import * as copy from "@/modules/voice-log/copy";
-import { LOG_FIELDS, MAX_COUNT } from "@/lib/daily-log";
+import { LOG_FIELDS, MAX_COUNT, shiftKey } from "@/lib/daily-log";
 
 /**
  * Unit tests for the voice-note daily log (session 4, feature 1).
@@ -209,6 +210,78 @@ describe("document ids and caps", () => {
 
   test("an uncounted note does not live forever", () => {
     assert.ok(UNCOUNTED_TTL_DAYS > 0 && UNCOUNTED_TTL_DAYS <= 90);
+  });
+});
+
+/**
+ * The day a note is filed under (audit finding).
+ *
+ * The retention promise on the screen — "deleted after thirty days" — is enforced by
+ * one query: `dayKey < today - UNCOUNTED_TTL_DAYS`, compared as STRINGS. That query is
+ * only a retention control if `dayKey` is a real day at or before today. The writer
+ * used to check the shape alone, so a body naming "2099-01-01" produced a document that
+ * no cutoff this app will ever compute can be less than — audio kept forever, under a
+ * screen that says it is deleted. Reproduced against the emulator before the fix.
+ *
+ * These run against `isSavableDayKey` rather than `saveNote` because `saveNote` imports
+ * firebase-admin and no unit test can reach it — the same split N13a settled on, with
+ * the decision extracted into the pure half so it can be pinned here.
+ */
+describe("which day a note may be filed under", () => {
+  const TODAY = "2026-08-12";
+
+  test("today is savable, which is the only day an honest client sends", () => {
+    // `/voice-log` computes the key on the server and hands it to the recorder.
+    assert.equal(isSavableDayKey(TODAY, TODAY), true);
+  });
+
+  test("yesterday is savable — a note begun at 23:59:58 lands on the next day", () => {
+    assert.equal(isSavableDayKey("2026-08-11", TODAY), true);
+  });
+
+  test("MANDATORY: a future day is refused, or the purge can never reach it", () => {
+    // This is the whole bug. Every past key eventually falls behind the cutoff; no
+    // future key ever does, so a note filed ahead outlives the stated retention.
+    assert.equal(isSavableDayKey("2026-08-13", TODAY), false);
+    assert.equal(isSavableDayKey("2099-01-01", TODAY), false);
+  });
+
+  test("a day that is not a day is refused", () => {
+    // The old check was `\d{4}-\d{2}-\d{2}`, which called all of these valid.
+    assert.equal(isSavableDayKey("2026-99-99", TODAY), false);
+    assert.equal(isSavableDayKey("2026-00-00", TODAY), false);
+    assert.equal(isSavableDayKey("2026-13-01", TODAY), false);
+    assert.equal(isSavableDayKey("2026-08-32", TODAY), false);
+  });
+
+  test("anything that is not a day-key string at all is refused", () => {
+    for (const bad of ["", "today", "2026-8-12", "2026-08-12T00:00:00Z", null, 20260812, {}]) {
+      assert.equal(isSavableDayKey(bad, TODAY), false, `accepted ${JSON.stringify(bad)}`);
+    }
+  });
+
+  test("a note older than the retention window is refused rather than born expired", () => {
+    // Accepting it would mean writing a document the next purge deletes, which is a
+    // worse answer to the coach than refusing the save.
+    const justInside = shiftKey(TODAY, -UNCOUNTED_TTL_DAYS);
+    assert.equal(isSavableDayKey(justInside, TODAY), true);
+    assert.equal(isSavableDayKey(shiftKey(TODAY, -UNCOUNTED_TTL_DAYS - 1), TODAY), false);
+  });
+
+  test("the accepted window is exactly the window the purge can still reach", () => {
+    // The property, swept rather than sampled: every key this accepts must be one the
+    // purge query will eventually select, and today's cutoff must never select one of
+    // them early. A future change to either end that breaks the pairing fails here.
+    for (let back = 0; back <= UNCOUNTED_TTL_DAYS + 5; back++) {
+      const key = shiftKey(TODAY, -back);
+      const accepted = isSavableDayKey(key, TODAY);
+      assert.equal(accepted, back <= UNCOUNTED_TTL_DAYS, `at -${back} days`);
+      if (!accepted) continue;
+      // Purge condition, restated: `dayKey < today - TTL`, evaluated far enough on.
+      const laterCutoff = shiftKey(shiftKey(TODAY, UNCOUNTED_TTL_DAYS + 1), -UNCOUNTED_TTL_DAYS);
+      assert.ok(key < laterCutoff, `${key} would never be purged`);
+      assert.ok(!(key < shiftKey(TODAY, -UNCOUNTED_TTL_DAYS)), `${key} purged too early`);
+    }
   });
 });
 

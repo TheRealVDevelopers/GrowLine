@@ -1,4 +1,5 @@
-import type { LogFieldKey } from "@/lib/daily-log";
+import { shiftKey, type LogFieldKey } from "@/lib/daily-log";
+import { isDayKey } from "@/modules/shared-new/window";
 
 /**
  * The voice note (session 4, feature 1) — a second way into the daily log.
@@ -68,6 +69,49 @@ export const UNCOUNTED_TTL_DAYS = 30;
 
 export const VOICE_LOG_STATUSES = ["uncounted", "counted"] as const;
 export type VoiceLogStatus = (typeof VOICE_LOG_STATUSES)[number];
+
+/**
+ * Is this a day a note may be filed under?
+ *
+ * PURE, and the single definition — the writer calls it, and a client can call it
+ * before uploading. That is N13a's arrangement rather than two copies of one rule in
+ * two files that drift apart.
+ *
+ * ## Why a shape check was not enough (audit finding)
+ *
+ * `saveNote` originally tested `dayKey` against `^\d{4}-\d{2}-\d{2}$` and nothing else.
+ * That admits "2026-99-99", which is not a day — and, the part that matters, it admits
+ * any day in the FUTURE.
+ *
+ * `purgeExpiredNotes` selects `dayKey < today - UNCOUNTED_TTL_DAYS`, and day keys are
+ * compared as STRINGS (D26). So a note filed under "2099-01-01" is never less than any
+ * cutoff this app will ever compute. It sits in Firestore with its audio forever, while
+ * the screen tells its owner in as many words that an uncounted recording is deleted
+ * after thirty days. Reproduced against the emulator: saved, then a purge run dated 400
+ * days from now removed nothing.
+ *
+ * Nothing legitimate is refused by fixing it. `/voice-log` computes the day on the
+ * SERVER and hands it to the recorder, which sends it straight back — so the only value
+ * an honest client ever supplies is today's. The bound exists because the body is a
+ * body: a client-side value is a courtesy and a server-side check is the limit, which
+ * is the same argument this module already makes about the audio size.
+ *
+ * ## The two ends
+ *
+ * NOT IN THE FUTURE — the end that actually closes the hole. Every past key eventually
+ * falls behind the purge cutoff; no future key ever does.
+ *
+ * NOT ALREADY EXPIRED — a note older than the retention window would be born past its
+ * own deletion date, accepted and then removed by the next purge, which is a worse
+ * answer than refusing it outright. Yesterday is deliberately inside the window: a
+ * coach who stops speaking at 23:59:58 holds the page's day key while the save lands on
+ * the next one, and that note is real.
+ */
+export function isSavableDayKey(key: unknown, todayKeyValue: string): key is string {
+  if (!isDayKey(key)) return false;
+  if (key > todayKeyValue) return false;
+  return key >= shiftKey(todayKeyValue, -UNCOUNTED_TTL_DAYS);
+}
 
 /**
  * The collection. New, and written ONLY by the API route through the Admin SDK.

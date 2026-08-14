@@ -1,8 +1,9 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { db } from "@/lib/firebase-admin";
-import { shiftKey } from "@/lib/daily-log";
+import { shiftKey, todayKey } from "@/lib/daily-log";
 import type { DailyLogValues, LogFieldKey } from "@/lib/daily-log";
 import {
+  isSavableDayKey,
   MAX_AUDIO_BYTES,
   MAX_DURATION_MS,
   UNCOUNTED_TTL_DAYS,
@@ -46,8 +47,19 @@ export type SaveNoteResult = { ok: true; id: string } | { ok: false; error: stri
  * state variable would be gone. What survives that gap is a note the coach can come
  * back to; what does not survive it is a log, which is correct — nobody confirmed one.
  */
-export async function saveNote(input: SaveNoteInput): Promise<SaveNoteResult> {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.dayKey)) {
+export async function saveNote(
+  input: SaveNoteInput,
+  /**
+   * Today, passed in rather than read from the clock — E1's rule, and the same shape
+   * `purgeExpiredNotes` and `rankCallList` already take, so the bound below is
+   * testable against a fixed date instead of against whenever the suite runs.
+   */
+  todayKeyValue: string = todayKey()
+): Promise<SaveNoteResult> {
+  // Shape AND range. A future day key would never fall behind the purge cutoff, so a
+  // note filed under one would outlive the retention this app promises — see
+  // `isSavableDayKey`, where the reasoning and the reproduction live.
+  if (!isSavableDayKey(input.dayKey, todayKeyValue)) {
     return { ok: false, error: "That date is not valid." };
   }
   if (!Number.isFinite(input.durationMs) || input.durationMs <= 0) {

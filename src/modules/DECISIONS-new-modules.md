@@ -1227,3 +1227,113 @@ not edit that file. Each header names the one line that turns it on.
 date and says so on screen. A retention rule that never runs is invisible: the app tells
 every coach their recording is deleted after thirty days, and nothing deletes it. Whoever
 wires the first of these should wire that one.
+
+---
+
+# Final audit
+
+## N55 — A note could be filed under a day the purge can never reach (audit fix)
+
+N54 says a retention rule that never runs is invisible. This is the same failure one
+layer down: the rule runs, and a note can be placed where it will never look.
+
+`saveNote` validated `dayKey` against `^\d{4}-\d{2}-\d{2}$` and nothing else. Two things
+that admits, and the second is the bug:
+
+- **"2026-99-99"** — shaped like a day, not a day. No screen can ever show it either,
+  because `getNoteSummary` only ever asks for today's key.
+- **Any day in the FUTURE.** `purgeExpiredNotes` selects `dayKey < today −
+  UNCOUNTED_TTL_DAYS`, compared as STRINGS (D26). Every past key eventually falls behind
+  that cutoff. **No future key ever does.**
+
+So `POST /api/voice-logs` with `dayKey: "2099-01-01"` stored a recording that nothing in
+this system will ever delete, under a screen that tells its owner an uncounted note is
+deleted after thirty days. Reproduced against the emulator: saved, then a purge run dated
+400 days out removed nothing and left the document in place.
+
+Not a disclosure — `voiceLogs` is readable only by its author (N45), so a coach can only
+do this to themselves. It is a **stated retention control that silently does not hold**,
+which is the class v2 §5.3 exists for and the one N42 committed this module to.
+
+**Fixed** with `isSavableDayKey(key, todayKey)` in `model.ts`, which the writer calls:
+calendar-shaped, not in the future, and not already past its own deletion date. Yesterday
+stays inside the window deliberately — a coach who stops speaking at 23:59:58 holds the
+page's day key while the save lands on the next one, and that note is real.
+
+Nothing legitimate was ever refused by this: `/voice-log` computes the day on the SERVER
+and hands it to the recorder, which sends it straight back, so the only value an honest
+client supplies is today's. The check exists because the body is a body — the same
+argument this module already makes about the audio size, applied to the one field that
+had been left out of it.
+
+**Why nothing caught it.** Every other value in that route is bounded (audio bytes, mime
+type, duration, transcript length, the `heard` array is filtered against `LOG_FIELDS`).
+`dayKey` was the only one checked for shape alone, and it is the only one that feeds a
+QUERY rather than a document field. The e2e drives the honest client, which cannot
+produce the value. `saveNote` imports firebase-admin so no unit test can reach it — the
+N13a split again — so the decision was extracted into the pure half, where
+`tests/voice-log.test.ts` now pins it, including a sweep asserting the accepted window is
+exactly the window the purge can still reach. A change to either end that breaks that
+pairing fails there rather than in production.
+
+## N56 — What the audit verified, and the two things it did not
+
+Recorded because "the suite is green" and "the feature works" are different claims, and
+the gap between them is where the next session will look.
+
+**Verified end to end, against the emulator, beyond what the committed suite reaches.**
+The suite covers the empty and small-org states — which is the right thing for it to
+cover, since that is what a pilot club sees on day one — but every aggregation job was
+therefore only exercised through its pure helpers. Each was run against real Firestore:
+
+- **Boards on a real field of 14.** All four scopes publish; podium is exactly 3; the
+  last-placed coach is shown ranks `1,2,3,10,11,12,13,14` — the **break** N2a's floor
+  exists to guarantee, on every scope and both windows. Gap exact, window strictly ahead
+  only, no participant count on any client-readable document. Volume publishes monthly
+  only. Different boards have different winners, which is the whole point of four.
+- **Volume's validation split.** Six coaches with an approved proof rank on 1000; six
+  with none rank at 0 carrying 1000 unchecked; and a target whose approved proof is
+  superseded by a newer pending one goes back to the unchecked column. An unchecked claim
+  never lifts anyone above a checked figure.
+- **All five criterion types**, including the two the e2e never reaches: `volume`
+  (baseline captured at entry, never moves, only points earned SINCE entry count) and
+  `newCoaches`. Qualifying latches while the per-criterion rows keep telling the truth;
+  a coach reparented out of the line has their row deleted.
+- **The three seats in a browser** — participant sees the badge and NAMES of qualifiers
+  plus a COUNT of who is one step away; creator sees the per-criterion drop-off and the
+  one-step coach BY NAME; a peer in a sibling branch sees neither. N16's asymmetry is a
+  property of what is served, not of what is rendered.
+- **Silence**: active leg silent, 20-day leg quiet, 100-day leg dormant, 2-day-old leg
+  not assessable, at most two per upline per morning shortest-first, cooldown holds on a
+  second run, dry run writes nothing.
+- **Voice**: the 40-day uncounted note purges, today's survives, counting deletes the
+  audio, a counted note is never purged.
+- **Duplication**: rolling 28-day window, per-depth levels, a lineless coach's reading
+  deleted rather than zeroed, a rerun overwrites rather than duplicating.
+
+**Not verified, and honestly cannot be from here:**
+
+1. **Nothing is on a schedule.** Six `onSchedule` functions exist across five files and
+   none is exported from `functions/src/index.ts`, which this branch may not edit
+   (N10, N23, N35, N54). Every job above was proven correct by being CALLED. In a
+   deployed system nothing calls them. `CRON_SECRET` is also unset in `.env`, so even a
+   manual POST is refused — which is what the e2e asserts. Until those exports land,
+   "server-side snapshots on a schedule" is built and runnable, not running.
+2. **The indexes are declared, not proven.** Two composite indexes were added —
+   `qualificationProgress(qualificationId, kind)` and `voiceLogs(status, dayKey)` — and
+   every other new query is single-field or a document-id read. That was checked by
+   reading every `.where()` in the new code, because **the emulator creates composite
+   indexes on demand and a green local run carries no information here** (D42). First
+   deploy must still run the two paths once against a real project.
+
+**One narrow race, reported and NOT fixed.** `evaluateQualification` writes each progress
+row with a full `set()`, carrying `remindersSent` forward from the row it read at the top
+of the call. `sendDueReminders` appends to that same field with `arrayUnion`. A reminder
+landing between the evaluator's read and its commit is therefore overwritten, and the
+band comes due again on the next run — one duplicate notification, which is exactly the
+drumbeat N24 is written to avoid. The window is small (the evaluator does no I/O between
+its read and its commit for an audience under 400) and the reminders job runs daily, so
+this is unlikely rather than impossible. It is reported rather than patched because the
+complete fix is a decision about **who owns `remindersSent`** — a partial one that used
+`arrayUnion` in the evaluator would still clobber a coach's FIRST band, which is the
+common case, while reading as though it were solved.
