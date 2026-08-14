@@ -27,6 +27,11 @@ import { HUB_BLURB as VOICE_BLURB } from "@/modules/voice-log/copy";
 
 const LINKS = [
   {
+    href: "/portfolio",
+    title: "My Page",
+    body: "Your own link — growline.in/yourname. Photo, your story, and two buttons a new person can press. Goes on every report you send.",
+  },
+  {
     href: "/who-to-call",
     title: "Who to call today",
     body: CALL_LIST_BLURB,
