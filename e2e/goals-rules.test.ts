@@ -72,6 +72,13 @@ async function main() {
     await setDoc(doc(db, "goalSheets", ASHA, "private", "needs"), {
       needs: "Clearing a loan", needsAmount: 50000,
     });
+
+    // A target conversation between Asha (upline) and Chandan (the coach it is for).
+    await setDoc(doc(db, "goalConversations", "tgt_chan_aug"), {
+      coachId: CHAN, uplineId: ASHA, month: "2026-08", status: "proposed",
+      proposedPoints: 400, changeNote: "",
+      actions: [{ blocker: "time", action: "Three evening calls, not ten", done: false }],
+    });
   });
 
   const as = (uid: string) => env.authenticatedContext(uid).firestore();
@@ -114,6 +121,31 @@ async function main() {
   );
   await check("nor to a stranger", () =>
     assertFails(getDoc(doc(as(OUTSIDER), "goalSheets", ASHA, "private", "needs")))
+  );
+
+  // ---- The target conversation: the two parties, and nobody else ------------
+  await check("the coach the target is for reads the conversation", () =>
+    assertSucceeds(getDoc(doc(as(CHAN), "goalConversations", "tgt_chan_aug")))
+  );
+  await check("so does the upline who proposed it", () =>
+    assertSucceeds(getDoc(doc(as(ASHA), "goalConversations", "tgt_chan_aug")))
+  );
+  await check(
+    "MANDATORY: the grandparent cannot — a renegotiation is not the line's business",
+    () => assertFails(getDoc(doc(as(ROOT), "goalConversations", "tgt_chan_aug")))
+  );
+  await check("nor can a stranger", () =>
+    assertFails(getDoc(doc(as(OUTSIDER), "goalConversations", "tgt_chan_aug")))
+  );
+  await check("MANDATORY: nobody can accept a target from a browser", () =>
+    assertFails(
+      setDoc(doc(as(CHAN), "goalConversations", "tgt_chan_aug"), { status: "accepted" })
+    )
+  );
+  await check("...and an upline cannot accept on their downline's behalf either", () =>
+    assertFails(
+      setDoc(doc(as(ASHA), "goalConversations", "tgt_chan_aug"), { status: "accepted" })
+    )
   );
 
   // ---- No client writes -----------------------------------------------------

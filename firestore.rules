@@ -670,6 +670,34 @@ service cloud.firestore {
       }
     }
 
+    /**
+     * The conversation around a target (A3) — proposed, accepted, or reopened, plus the
+     * actions answering the coach's blockers.
+     *
+     * Readable by the two people in it and nobody else. Not the upline chain: a
+     * grandparent reading "Chandan asked to renegotiate his target" turns a private
+     * disagreement between two people into something the line can see, which is the
+     * fastest way to make coaches stop using the reopen button and quietly ignore targets
+     * instead — the exact behaviour this feature exists to end.
+     *
+     * Both ids are read off the conversation itself rather than resolved live, and that is
+     * safe here in a way it would NOT be for the goal sheet: they are written together in
+     * one server write and never change, because re-proposing replaces the document. There
+     * is no window in which they can go stale (contrast D64, where the stale value was a
+     * tree path that moves underneath the document).
+     *
+     * Writes denied. Accepting is the psychological centre of the feature and its
+     * authorisation — only the coach the target is FOR may accept — is re-derived on the
+     * server. A client-writable status would let an upline accept on their downline's
+     * behalf, which is an imposed quota wearing the agreement's clothes.
+     */
+    match /goalConversations/{targetId} {
+      allow read: if signedIn() && (
+        uid() == resource.data.coachId || uid() == resource.data.uplineId
+      );
+      allow write: if false;
+    }
+
     match /workspaceMembers/{memberId} {
       // A client listing members must filter on `workspaceId`, which pins the field the
       // rule tests. Listing across organisations is not expressible, which is the point.
