@@ -221,14 +221,21 @@ export default function PortfolioEditor({
             aria-checked={p.published}
             aria-label="Show my page publicly"
             disabled={busy || !slugCheck.ok}
-            onClick={() => {
-              const next = !p.published;
-              set("published", next);
-              // Saved immediately rather than left for the Save button. A switch that
-              // looks flipped but is not is the worst possible outcome for this
-              // particular setting.
-              save({ published: next });
-            }}
+            /*
+             * Saved immediately rather than left for the Save button — and NOT flipped
+             * optimistically first.
+             *
+             * The obvious version sets local state, then saves. That renders "Your page
+             * is live" before the server has agreed, so a coach on a slow connection
+             * reads that their page is public while the request is still in flight — and
+             * if it fails, the switch stays flipped over a page nobody can see. For this
+             * particular control that is the worst available outcome, and it is the one
+             * the honest version costs a few hundred milliseconds to avoid.
+             *
+             * `save()` replaces the whole state from the response, so the label follows
+             * what was actually stored.
+             */
+            onClick={() => save({ published: !p.published })}
             className={`h-12 w-20 shrink-0 rounded-full border border-hairline transition-colors disabled:opacity-40 ${
               p.published ? "bg-gem-green" : "bg-elevated"
             }`}

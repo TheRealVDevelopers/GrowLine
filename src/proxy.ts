@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { RESERVED_SLUGS } from "@/modules/portfolio/model";
 
 // Cheap cookie-presence gate only. Real JWT verification lives in the
 // authenticated layout and every API route (Next 16 auth-near-routes pattern).
@@ -16,10 +17,37 @@ const PUBLIC_PATHS = [
   /^\/demo$/,
 ];
 
+/**
+ * Is this a coach's public portfolio (F9)?
+ *
+ * Portfolios live at the ROOT — `growline.in/priyasharma` — because that URL gets
+ * printed on posters and read down a phone. The cost lands here: this gate cannot tell
+ * a coach's page from `/settings` by shape alone, and a rule as loose as "any single
+ * segment is public" would unauthenticate every app route in one line.
+ *
+ * `RESERVED_SLUGS` is exactly the distinction, and it already exists for the other half
+ * of the same problem — it is what stops a coach claiming a name a route would shadow.
+ * Using it in both places means the two can never disagree, and the test that builds the
+ * expected list by READING `src/app/` keeps it true as routes are added: a new
+ * `src/app/pricing/` fails the suite until "pricing" is reserved, which is the same
+ * moment it stops being publicly reachable here.
+ *
+ * Deliberately strict about shape. Only a lowercase single segment qualifies, so
+ * `/Settings`, `/settings/x` and anything with a dot are never mistaken for a coach.
+ *
+ * Being "public" here only means the auth redirect is skipped. The page itself still
+ * 404s unless the slug is claimed AND the coach published it.
+ */
+function isPortfolioPath(pathname: string): boolean {
+  const m = /^\/([a-z0-9][a-z0-9-]*)$/.exec(pathname);
+  return m !== null && !RESERVED_SLUGS.has(m[1]);
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasSession = request.cookies.has(SESSION_COOKIE);
-  const isPublic = PUBLIC_PATHS.some((re) => re.test(pathname));
+  const isPublic =
+    PUBLIC_PATHS.some((re) => re.test(pathname)) || isPortfolioPath(pathname);
 
   // Note: the snapshot HTML keeps Next's own `no-cache, must-revalidate` — Next
   // sets Cache-Control on dynamic page responses itself and overrides both this
