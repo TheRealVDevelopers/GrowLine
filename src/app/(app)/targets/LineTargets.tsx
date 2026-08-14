@@ -6,11 +6,11 @@ import { Avatar } from "@/components/Avatar";
 import ProgressBar from "@/components/ProgressBar";
 import {
   MAX_NOTE,
-  MAX_TARGET_POINTS,
   PROOF_STATUS_LABELS,
   isAchieved,
   type ProofStatus,
 } from "@/lib/targets";
+import TargetGate from "@/modules/goals/TargetGate";
 import type { ProofRow } from "./ProofToAnswer";
 
 type Row = {
@@ -57,7 +57,6 @@ export default function LineTargets({
 function LineRow({ row, month }: { row: Row; month: string }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const [points, setPoints] = useState(row.target?.targetPoints ?? 0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [asking, setAsking] = useState(false);
@@ -67,30 +66,6 @@ function LineRow({ row, month }: { row: Row; month: string }) {
   const achieved = row.target
     ? isAchieved(row.target.progressPoints, row.target.targetPoints)
     : false;
-
-  const saveTarget = async () => {
-    if (busy) return;
-    setError("");
-    setBusy(true);
-    try {
-      const res = await fetch("/api/targets", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ coachId: row.coach.id, month, targetPoints: points }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data.error ?? "Could not save. Please try again.");
-        return;
-      }
-      setEditing(false);
-      router.refresh();
-    } catch {
-      setError("No connection. Check your network and try again.");
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const askForProof = async () => {
     if (!row.target || busy) return;
@@ -146,39 +121,25 @@ function LineRow({ row, month }: { row: Row; month: string }) {
       )}
 
       {editing ? (
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium" htmlFor={`target-${row.coach.id}`}>
-            Target points for {row.coach.name.split(" ")[0]}
-          </label>
-          <input
-            id={`target-${row.coach.id}`}
-            value={points}
-            onChange={(e) => {
-              const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
-              setPoints(digits === "" ? 0 : Math.min(MAX_TARGET_POINTS, Number(digits)));
-            }}
-            inputMode="numeric"
-            className="h-12 w-full rounded-xl border border-hairline bg-elevated px-4 text-xl font-bold tabular-nums outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
-          />
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={saveTarget}
-              disabled={busy || points < 1}
-              className="h-12 rounded-xl bg-gold px-5 font-semibold text-on-gold disabled:opacity-40"
-            >
-              {busy ? "Saving…" : "Save target"}
-            </button>
-            <button
-              onClick={() => {
-                setPoints(row.target?.targetPoints ?? 0);
-                setEditing(false);
-              }}
-              className="h-12 rounded-xl border border-hairline px-4 font-medium"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+        /*
+         * The number field no longer lives here.
+         *
+         * A3 requires that an upline cannot open target-setting without first seeing
+         * their downline's goal sheet, so the gate owns the whole exchange: read the
+         * sheet, then the number, then what to do about the blockers. Keeping a second
+         * input on this screen would be a way around the thing the gate exists to do.
+         */
+        <TargetGate
+          coachId={row.coach.id}
+          coachName={row.coach.name}
+          month={month}
+          initialPoints={row.target?.targetPoints ?? 0}
+          onCancel={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false);
+            router.refresh();
+          }}
+        />
       ) : (
         <div className="flex flex-wrap gap-2">
           <button
