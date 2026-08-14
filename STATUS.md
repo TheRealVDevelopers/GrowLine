@@ -1,4 +1,4 @@
-# GROWLINE STATUS — last updated: 2026-08-13 · updated from: PC · branch: `feature/new-modules`
+# GROWLINE STATUS — last updated: 2026-08-14 · updated from: PC · branch: `feature/new-modules`
 
 > Single source of truth between mobile and PC. Produced by a read-only audit that read
 > code paths end to end — not commit messages, not filenames, not docs.
@@ -19,7 +19,9 @@ was missing, stubbed, unreachable, or behind a flag nobody sets, it is **not** D
 "DONE" claim was then handed to a separate pass whose only job was to refute it; three were
 overturned and are recorded as PARTIAL below.
 
-**Counts: 27 areas → 8 DONE · 15 PARTIAL · 4 NOT STARTED · 5 of the PARTIALs also CONFLICTING.**
+**Counts: 27 areas → 9 DONE · 15 PARTIAL · 3 NOT STARTED · 5 of the PARTIALs also CONFLICTING.**
+(2026-08-14: Feature A moved NOT STARTED → DONE. Bugs #2, #6, #7 fixed; #16 found and
+fixed; **#17 found and NOT fixed — it is the launch blocker, see below.**)
 
 ---
 
@@ -71,6 +73,25 @@ fast-forward. Merging `master` forward settled ⚠️ A in practice (the Phase-2
       (`npm run verify:workspaces`). Server-side owner enforcement confirmed by hand — a
       member's PATCH gets 404, not just a hidden form.
 
+- [x] **Feature A — Goal Sheet ("My Why") + the target conversation** — the whole feature,
+      not the foundation. The three-step sheet with a skip on every step and a completion
+      meter counting STEPS not fields (`GoalSheetForm.tsx`); the personal-reason panel in
+      the calm register with sharing OFF by default; the upline gate that puts the sheet in
+      front of the number rather than beside it, with the old inline input removed from
+      `LineTargets.tsx` so there is no way around it (`TargetGate.tsx`); the reverse-math
+      running volume-in/activity-out with every assumption editable and a warning when the
+      arithmetic asks for more hours than the coach said they have; blockers-become-actions,
+      one line per ticked blocker and the free-text note as context rather than a seventh
+      input row; "I accept this target" and "Ask to talk" on the home screen, disappearing
+      the moment there is nothing to do (`TargetToAccept.tsx`); the month-end review; and the
+      nudge that fires after the first prospect and **never at signup** — asked before a
+      coach has used the app once, the sheet fills with a throwaway answer nobody revises,
+      which is worse than empty. Verified: **19 privacy checks**
+      (`npm run test:rules:goals`, up from 13 — the six new ones prove the grandparent
+      cannot read a renegotiation and that nobody can accept from a browser) and **47 unit
+      tests**. **Only the dream photo is outstanding**, blocked on Storage being deny-all
+      (D49).
+
 **Not messy, worth stating:** three independent audit passes read `firestore.rules` for
 different reasons and described it identically — `users` deny-all, the `prospects`
 `shareProspects` gate, `dailyLogs`/`targets` deny-all. The privacy core is consistent.
@@ -93,9 +114,12 @@ different reasons and described it identically — `users` deny-all, the `prospe
       glyph coverage, not shaping, so they cannot catch this.
 - [ ] **Retention purge (180 days)** — done: the Cloud Function exists and is scheduled.
       **missing:** it purges by **record age, not inactivity**, contradicting the spec — see 🐛 #3.
-- [ ] **Automated tests + CI** — done: CI runs unit, the mandatory prospects-privacy rules test,
-      re-parent verification, and e2e. **missing:** four rules suites (88 assertions) exist but
-      are not wired into CI; `functions/` is not built, typechecked or tested at all — see 🐛 #2, #6.
+- [ ] **Automated tests + CI** — done: CI runs unit (497), **all seven rules suites (178
+      assertions, every one now blocking)**, `functions/` typecheck, re-parent verification,
+      and e2e (43). **missing:** no tests inside `functions/` itself — typechecking is not
+      the same as knowing the retention purge selects the right rows (🐛 #3, #6). And the
+      whole suite runs against emulators only, which is 🐛 #17: the emulator invents missing
+      composite indexes, so no test here can fail the way production will.
 - [ ] **F13 Leaderboards** — built with rules and tests, but inert (see 🐛 #1) and disputed (⚠️ A).
       · branch: `feature/new-modules` only
 - [ ] **F14 Event qualification** — same. · branch: `feature/new-modules` only
@@ -160,17 +184,7 @@ check; three copies means three chances to get it wrong once.
        This is also the gate the whole business model depends on, and it does not exist.
 4. [ ] **Phase 10 — onboarding tour, Capacitor Android, Play Store prep** — depends on: Tiers,
        and on **FCM** (Web Push cannot reach a native app).
-5. [ ] **Feature A — Goal Sheet ("My Why")** — **foundation built, UI and target flow are not.**
-       Done: the pure model (`src/modules/goals/model.ts`) including the reverse-math and the
-       completion meter; the split-document data layer (`queries.ts`); Security Rules for both
-       visibilities; **13 privacy checks** (`npm run test:rules:goals`) and 22 unit tests.
-       Still to build: the three-step sheet UI and its save route · the nudge after the first
-       prospect · the target-setting gate in `LineTargets.tsx` · the talking-points card ·
-       "I accept this target" and the proposed/accepted state (planned as a
-       `goalConversations` record keyed by target, so `targets` itself is never modified —
-       that collection is outside the approved file set) · blockers-become-actions · the
-       month-end review. **Dream photo is blocked** on Firebase Storage, which is deny-all
-       and unused by deliberate decision (D49); enabling it is its own call.
+5. ~~[ ] **Feature A — Goal Sheet ("My Why")**~~ → **COMPLETE 2026-08-14**, moved to ✅ DONE.
 6. [ ] **Feature B — Recognition Wall** — depends on: workspaces (done) for its scope, and on
        `src/app/(app)/page.tsx` to sit below Today's Mission. Its card types read from F13
        leaderboards and F14 qualifications, so it also inherits ⚠️ A. Any card-generating
@@ -190,10 +204,35 @@ check; three copies means three chances to get it wrong once.
    them fails closed until it is provisioned in the real deployment. Exporting was necessary,
    not sufficient. See also ⚠️ A — four of the six belong to features whose authorisation is
    still an open question; exporting fixed the code, it did not settle whether it should ship.
-2. **HIGH — four of five Security Rules suites (88 assertions) never run in CI.** Only
-   `e2e/rules.test.ts` is wired into `.github/scripts/ci-integration.sh`. The session-4,
-   leaderboards, qualifications and duplication rules tests all exist and pass, and none blocks
-   a merge. A regression reopening any of those collections would go green.
+16. **HIGH — `npm run e2e` failed all 43 tests on a machine with no web server, and it
+    looked like the app was broken.** Happened twice in one session on 2026-08-14; the
+    second time it was briefly read as a real regression before the log showed 43×
+    `ECONNREFUSED 127.0.0.1:3000`. `playwright.config.ts` had no `webServer` block, so the
+    suite assumed somebody had run `next start` in another terminal — true in CI, where
+    `ci-integration.sh` starts one, and false on every developer machine.
+    → **FIXED 2026-08-14**: `webServer` with `command: "npx next start"` and
+    `reuseExistingServer: true`. Reuse is unconditional rather than the usual
+    `!process.env.CI`, because CI starts its own server inside the emulator lifetime and
+    Playwright must attach to it rather than race a second process for port 3000.
+
+17. **BLOCKER (unresolved) — nothing has ever run against real Firebase, and the emulator
+    is more permissive than production in a way no test can see.** A query needing a
+    composite index that does not exist throws `FAILED_PRECONDITION` the first time a real
+    coach opens the screen; the emulator creates missing indexes silently on demand, so
+    every suite here passes against an instance that cannot reproduce the failure. CI is
+    structurally incapable of catching this and it is the most likely launch-day outage.
+    → **Partly addressed 2026-08-14**: `npm run verify:indexes` runs all twenty compound
+    query shapes and reports the ones Firestore refuses, surfacing the console URL that
+    creates each missing index. It uses ids that cannot exist, so it is safe against
+    production data. **This is not closed until somebody runs it against the real project
+    with the emulator host variables unset.** Against the emulator it passes trivially, and
+    the script says so rather than reporting a pass.
+
+2. ~~**HIGH — four of five Security Rules suites (88 assertions) never run in CI.**~~
+   **FIXED 2026-08-14.** All six previously-unwired suites — boards, quals, duplication,
+   session4, workspaces, goals — now run inside the same emulator lifetime as the mandatory
+   prospects suite in `.github/scripts/ci-integration.sh`, and every one blocks the merge.
+   **178 rules assertions across 7 suites** are enforced now rather than optional.
 3. **HIGH — `purgeStaleHealthData` purges by record age, not inactivity**
    (`functions/src/index.ts:117-128`), contradicting BUILD_PROMPT_V2 §5.3 / RULES P5's literal
    *"180 days of prospect inactivity — no stage change, no report view."* No `lastActivityAt`
@@ -205,12 +244,16 @@ check; three copies means three chances to get it wrong once.
 5. **MEDIUM — `/voice-log` and `/who-to-call` are unreachable from any navigation.** Only via
    `/more` or a typed URL (`AppNav.tsx:29-33`). Documented as deliberate, but as shipped a coach
    following the UI never finds them.
-6. **MEDIUM — the `functions/` package is not built, typechecked or tested in CI**
-   (`.github/workflows/ci.yml`). Nothing would catch a compile or logic error in the retention
-   purge before deploy.
-7. **LOW — stale home-screen copy.** "Coming next on Growline" tells a coach Targets and Threads
-   don't exist, next to the working Targets link and the Threads tab
-   (`src/app/(app)/page.tsx:247-253`).
+6. ~~**MEDIUM — the `functions/` package is not built, typechecked or tested in CI**~~
+   **PARTLY FIXED 2026-08-14.** `.github/workflows/ci.yml` now runs `npm ci` and
+   `npm run typecheck` in `functions/`, so a compile error in the retention purge — the one
+   job that irreversibly deletes user data — can no longer reach deploy. Still no TESTS in
+   that package: typechecking is not the same as knowing the purge selects the right rows,
+   and bug #3 is exactly the kind of thing a typecheck cannot see.
+7. ~~**LOW — stale home-screen copy.**~~ **FIXED 2026-08-14.** The "Coming next on Growline"
+   card is removed rather than trimmed: both features it promised — targets with your
+   upline, messages from your line — now exist, and a card promising what the user already
+   has reads as a dead app. It returns when there is a real next thing to promise.
 8. **LOW — proof photos are still base64 in Firestore; video proofs unsupported** despite the
    spec saying Firebase unblocks them. Documented (D49).
 9. **LOW — one `todo` test in `tests/wellness.test.ts`** records that the healthy-weight upper
