@@ -15,7 +15,7 @@
     "verify:reparent": "tsx scripts/verify-reparent.ts",
     "test:unit": "node --import tsx --test \"tests/**/*.test.ts\"",
     "e2e": "playwright test",
-    "e2e:reset": "tsx scripts/reset-emulators.ts && npm run migrate:firestore",
+    "e2e:reset": "npm run db:seed && tsx scripts/reset-emulators.ts && npm run migrate:firestore",
     "test:rules": "tsx e2e/rules.test.ts",
     "test:rules:boards": "tsx e2e/leaderboards-rules.test.ts",
     "test:rules:quals": "tsx e2e/qualifications-rules.test.ts",

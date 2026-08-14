@@ -21,7 +21,14 @@
 set -euo pipefail
 
 echo "--- seeding SQLite and migrating into Firestore"
-npm run db:seed
+# `e2e:reset` now re-seeds first, so the explicit `db:seed` that used to be here is gone
+# rather than duplicated. That ordering is the point: SQLite is the source the migration
+# reads, its fixture dates are relative to the moment it is written, and re-migrating
+# without re-seeding replays dates that have aged. A fixture meaning "promised a call
+# yesterday" becomes "2 days late" overnight and the call-list spec fails describing the
+# app as broken. This bit CI's own ordering into existence once (bug #12) and bit a
+# developer again on 2026-08-14 (bug #18) — the second time because the reset step LOOKS
+# like it covers seeding and did not.
 npm run e2e:reset
 npm run migrate:verify
 

@@ -215,6 +215,17 @@ check; three copies means three chances to get it wrong once.
     `!process.env.CI`, because CI starts its own server inside the emulator lifetime and
     Playwright must attach to it rather than race a second process for port 3000.
 
+18. **MEDIUM — `npm run e2e:reset` did not re-seed, so fixture dates aged into failures
+    that read as app bugs.** The name and the docs both present it as the thing you run
+    before e2e, but it only reset the emulator and re-migrated — from a `dev.db` that might
+    have been seeded days ago. On 2026-08-14 that produced `e2e/session4.spec.ts:105`
+    expecting "1 day late" and getting "2 days late", which is bug #12 returning by a
+    different route: #12 fixed the fixture to be relative to when it is WRITTEN, and this is
+    the case where it is never rewritten. Both failures in that run
+    (`session4` and the `realtime` flake) passed immediately after a manual `db:seed`.
+    → **FIXED 2026-08-14**: `e2e:reset` now runs `db:seed` first, and CI's separate
+    `db:seed` line is removed rather than duplicated.
+
 17. **BLOCKER (unresolved) — nothing has ever run against real Firebase, and the emulator
     is more permissive than production in a way no test can see.** A query needing a
     composite index that does not exist throws `FAILED_PRECONDITION` the first time a real
