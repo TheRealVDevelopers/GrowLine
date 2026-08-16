@@ -20,7 +20,7 @@ was missing, stubbed, unreachable, or behind a flag nobody sets, it is **not** D
 overturned and are recorded as PARTIAL below.
 
 **Counts: 27 areas → 10 DONE · 15 PARTIAL · 2 NOT STARTED · 5 of the PARTIALs also CONFLICTING.**
-(2026-08-14: Feature A and Portfolio Basic moved NOT STARTED → DONE. Bugs #2, #3, #6, #7 fixed; #16, #18, #19, #20 found and
+(2026-08-14: Feature A, Portfolio Basic and the tier system moved NOT STARTED → DONE/PARTIAL. Bugs #2, #3, #6, #7 fixed; #16, #18, #19, #20 found and
 fixed; **#17 found and NOT fixed — it is the launch blocker, see below.**)
 
 ---
@@ -200,8 +200,17 @@ check; three copies means three chances to get it wrong once.
        Firebase Storage** + a thumbnail function — the transformation gallery is the part
        that needs it, and building it on data-URLs would repeat the D3/D49 pattern v2 was
        meant to close.
-3. [ ] **Phase 9 Tiers (Starter/Leader/Elite) + 2nd-downline trial trigger + Razorpay** —
-       depends on: Portfolio, because the Leader tier's stated unlock *includes* Pro portfolio.
+3. [ ] **Phase 9 Tiers — TIER SYSTEM DONE 2026-08-14 (D70), RAZORPAY NOT.** Built with
+       every gate standing OPEN by owner instruction ("start tiers now, don't gate anything
+       yet"): the Starter/Leader/Elite model, 2nd-downline qualification, 30-day trial
+       clock, `/plans` (Trust Zone, honest that nothing is locked), the recognition card,
+       the admin funnel, and `gateLeaderTool` wired into targets / threads / proof-review.
+       `TIERS_ENFORCED = false` in `src/modules/tiers/model.ts` is the one flip; the unit
+       suite pins both positions and the e2e has a real Starter set a target and send a
+       thread through the real routes. The v1 60-day countdown is deleted from Home and
+       Settings. **Still missing: Razorpay** — mandate at paid conversion, webhooks, the
+       cancel flow, promo codes. The flip is a set of three (constant, /plans banner,
+       start-trial refusal) and is an OWNER decision that needs keys in the environment.
        This is also the gate the whole business model depends on, and it does not exist.
 4. [ ] **Phase 10 — onboarding tour, Capacitor Android, Play Store prep** — depends on: Tiers,
        and on **FCM** (Web Push cannot reach a native app).

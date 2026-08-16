@@ -68,31 +68,39 @@ feature backlog.
    have no `lastActivityAt`, and the purge deliberately skips them, so their health data
    is retained past the window the privacy notice promises until it runs. `--check` exits
    non-zero while any remain.
-4. **Phase 9 Tiers + Razorpay does not exist.** This is the entire business model. It
-   depends on Phase 8 Portfolio, because the Leader tier's stated unlock includes Pro
-   portfolio.
+4. **Razorpay does not exist.** The TIER SYSTEM does, as of 2026-08-14 (D70): model,
+   qualification, trial clock, `/plans`, admin funnel, and gates standing OPEN in the
+   three Leader routes behind `TIERS_ENFORCED = false`. Nothing is taken from anyone.
+   What is missing is the money: mandate at paid conversion, webhooks, cancel flow, promo
+   codes. **The flip is an owner decision and a set of three** — the constant, the
+   launch-open banner on `/plans`, the `start-trial` refusal in `/api/tiers` — and it
+   needs keys in the environment first. The unit test that pins the constant is named to
+   send whoever flips it to D70.
 5. **The privacy notice cannot be written** until the owner supplies legal entity name,
    grievance-officer contact and postal address (RULES P-series, DPDP). Ships with the app
    or the app does not ship.
 
 ### What is next in the build queue
 
-Two things finished on 2026-08-14:
+Three things finished on 2026-08-14:
 
 - **Feature A (Goal Sheet)** — sheet UI, upline gate, accept / renegotiate,
   blockers-become-actions, month-end review, first-prospect nudge. Only the dream photo
   is outstanding, blocked on Firebase Storage being deny-all (D49).
 - **Portfolio Basic (F9)** — `growline.in/<slug>`, the last unbuilt piece of the v1 MVP.
   Pro (the transformation gallery) still waits on Storage.
+- **The tier system (v2 §8), gates OPEN** — see blocker 4. Razorpay is the remaining
+  half. `TIERS_ENFORCED` in `src/modules/tiers/model.ts` is the flip; do not flip it
+  without reading D70.
 
 In order:
 
 1. **Feature B — Recognition Wall.** Depends on workspaces (done). Inherits ⚠️ A in
    `STATUS.md`: its card types read from F13 leaderboards and F14 qualifications, whose
    authorisation is still an open owner decision.
-2. **v2.6 Phase 9 — Tiers + Razorpay + admin.** See blocker 4 above. The tier model, the
-   gates, the pricing screen and the 2nd-downline trial trigger can all be built before
-   Razorpay keys exist; only the mandate itself needs them.
+2. **v2.6 Phase 9b — Razorpay.** Mandate at paid conversion, charge webhooks, the
+   two-tap cancel flow (Trust Zone, G1), promo codes for club launches. Needs keys. When
+   it lands, the flip is a set of three (D70). Nothing else in Phase 9 remains.
 3. **v2.5 Phase 8 Pro portfolio** — needs Storage + a thumbnail function.
 4. **v2.7 Phase 10 — polish, Capacitor Android, Play Store.** Needs FCM; Web Push cannot
    reach a native app (⚠️ B).
