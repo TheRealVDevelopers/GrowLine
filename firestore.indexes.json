@@ -53,7 +53,7 @@
       "collectionGroup": "prospects",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "createdAt", "order": "ASCENDING" },
+        { "fieldPath": "lastActivityAt", "order": "ASCENDING" },
         { "fieldPath": "heightCm", "order": "ASCENDING" }
       ]
     },

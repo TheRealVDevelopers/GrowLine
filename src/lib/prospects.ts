@@ -135,6 +135,12 @@ export async function createProspect(
     // chooses is worth nothing as evidence.
     consentAt: input.consentGiven ? Timestamp.now() : null,
     createdAt: Timestamp.now(),
+    /**
+     * Seeded at creation so the retention purge (RULES P5) has something to measure from
+     * day one. Capture IS the first activity, and a row that starts without this field
+     * would sit outside the purge until the backfill reached it.
+     */
+    lastActivityAt: Timestamp.now(),
   };
 
   if (!docId) {

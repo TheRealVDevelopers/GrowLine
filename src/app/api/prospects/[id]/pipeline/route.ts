@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getProspectForCoach, updateProspect } from "@/lib/prospects";
 import { getSessionUserId } from "@/lib/session";
 import { isStage } from "@/lib/pipeline";
+import { touchProspect } from "@/modules/retention/activity";
 
 const MAX_NOTES = 2000;
 /** A follow-up further out than this is a typo, not a plan. */
@@ -80,6 +81,18 @@ export async function PATCH(
 
   const updated = await updateProspect(id, data);
   if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  /**
+   * A stage move is activity, and it is one of the two things RULES P5 names (the other
+   * is the prospect opening their report). Awaited rather than fired off, because this
+   * route already went to the database and losing the touch would eventually delete
+   * health data on a live relationship.
+   *
+   * Only a STAGE move. Editing notes or nudging a follow-up date is the coach tidying
+   * their own records, not contact with the person, and counting it would let a
+   * prospect's health data survive on activity they took no part in.
+   */
+  if (data.stage !== undefined) await touchProspect(id, "stage");
   return NextResponse.json({
     ok: true,
     prospect: {

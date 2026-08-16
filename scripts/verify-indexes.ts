@@ -107,10 +107,10 @@ const QUERIES: { where: string; what: string; run: () => Promise<unknown> }[] = 
   },
   {
     where: "retention purge (Cloud Function)",
-    what: "prospects: createdAt < , heightCm != null",
+    what: "prospects: lastActivityAt < , heightCm != null",
     run: () =>
       prospects()
-        .where("createdAt", "<", SOME_TS)
+        .where("lastActivityAt", "<", SOME_TS)
         .where("heightCm", "!=", null)
         .limit(1)
         .get(),

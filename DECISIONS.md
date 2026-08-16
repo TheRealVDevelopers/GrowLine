@@ -1924,3 +1924,68 @@ also how the same class of bug is caught for `/c` and `/r`.
 
 **Any public surface needs a test that visits it signed-out.** Written down here because
 it is the second time this project has learned it and it should be the last.
+
+## D69
+
+**The 180-day health purge measures inactivity, not record age — and a missing
+`lastActivityAt` is never purged.**
+
+`purgeStaleHealthData` shipped querying `where("createdAt", "<", cutoff)`. RULES P5 and
+v2 §5.3 both say *"180 days of prospect **inactivity** — no stage change, no report
+view."* Record age is not inactivity, and the difference is not academic: a prospect
+captured 200 days ago and worked yesterday — moved to "Attended", opening their snapshot
+every week — had their height, weight, age, gender and every derived metric nulled, and
+their reports deleted with them. Live data destroyed on a healthy relationship, by the one
+job in this codebase that cannot be undone.
+
+It was the only deliberate-looking simplification in the repo with no entry here, which is
+roughly how it survived. Recorded now with the fix.
+
+### What counts as activity, and what deliberately does not
+
+Exactly the two things the rule names: a **stage move**, and the **prospect opening their
+own report**. `lastActivityAt` is seeded at capture and pushed forward by those.
+
+Not counted, on purpose:
+
+- **A coach editing notes or nudging a follow-up date.** That is the coach tidying their
+  own records, not contact with the person. Counting it would let a prospect's health data
+  live indefinitely behind activity they took no part in, which is the retention rule made
+  decorative.
+- **The coach previewing their own send.** Otherwise any coach could keep somebody's
+  health data alive forever by opening a page once a month.
+
+### The throttle, and why a public route forced it
+
+A report view is an unauthenticated page load. Writing on every one puts an unbounded
+write on a public route — a cost bomb, and a trivial way for anybody holding a link to run
+up a bill. So a touch only writes when the stored value is more than a day old. The
+precision given up is one day against a window of 180; it cannot change a purge decision.
+
+### A missing value is never stale
+
+The purge ignores rows without the field, and `isStale(null)` returns false. This fails
+toward KEEPING data, which is the wrong direction for a retention obligation and the right
+one for an irreversible delete: a row the backfill has not reached must not be mistaken
+for one nobody has touched in six months. Keeping data too long is fixable with a script;
+deleting it early is not fixable at all.
+
+That gap is closed by `npm run backfill:prospect-activity`, whose `--check` exits non-zero
+while any prospect is still missing the field — the same enforceability shape as
+`backfill:workspaces` (D-series, workspaces).
+
+**The backfill seeds from `createdAt`, and that has a real cost.** Nothing recorded stage
+moves or report views before the field existed, so capture time is the only honest value
+available. For a prospect captured 200 days ago and worked yesterday, this seeds a value
+already past the window and their health data is purged on the next run — the exact case
+the fix prevents, happening once, to the backlog. Seeding "now" was rejected: it would
+grant every dormant prospect a fresh 180 days, quietly resetting the retention obligation
+for everybody, and unlike this direction it would be invisible.
+
+### The index moved with the query
+
+`firestore.indexes.json` now carries `(lastActivityAt, heightCm)` instead of
+`(createdAt, heightCm)`. Changing a query without its index is invisible here — the
+emulator invents missing indexes on demand — and would have surfaced as a
+`FAILED_PRECONDITION` on the first real run, inside a scheduled job with nobody watching.
+A unit test asserts the declared index matches the query the purge actually makes.

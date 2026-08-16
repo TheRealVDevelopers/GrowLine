@@ -13,6 +13,7 @@ import { Avatar } from "@/components/Avatar";
 import SnapshotMetrics from "@/components/SnapshotMetrics";
 import RemoveMyDetails from "./RemoveMyDetails";
 import { getOwnPortfolio } from "@/modules/portfolio/queries";
+import { touchProspect } from "@/modules/retention/activity";
 
 type Params = { params: Promise<{ token: string }> };
 
@@ -69,6 +70,20 @@ export default async function PublicReportPage({ params }: Params) {
    * Growline session is no reason to deny someone their own erasure link.
    */
   const viewerOwnsProspect = (await getSessionUserId()) === report.coachId;
+
+  /**
+   * The prospect opening their own snapshot is the second thing RULES P5 counts as
+   * activity, so it pushes the 180-day purge back.
+   *
+   * Not when the COACH is previewing their own send — that is the coach checking their
+   * work, not the person staying engaged, and letting it count would mean any coach could
+   * keep a prospect's health data alive forever by opening a page.
+   *
+   * Not awaited: this is a public page and its render must not wait on a write. The touch
+   * throttles itself to at most one write a day, which is what keeps an unauthenticated
+   * route from being an unbounded write.
+   */
+  if (!viewerOwnsProspect) void touchProspect(report.prospectId, "report-view");
 
   // The coach's public page (F9), only if published. Relative, so it needs no origin.
   const myPage = await getOwnPortfolio(report.coachId);

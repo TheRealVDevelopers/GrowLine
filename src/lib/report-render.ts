@@ -10,6 +10,7 @@ export type LoadedReport = {
   token: string;
   snapshot: ReportSnapshot;
   firstName: string;
+  prospectId: string;
   coachId: string;
   coach: {
     name: string;
@@ -50,6 +51,7 @@ export const loadReportForRender = cache(
       snapshot,
       // First name only: these images end up in group chats.
       firstName: prospect.name.trim().split(/\s+/)[0],
+      prospectId: prospect.id,
       coachId: prospect.coachId,
       coach: {
         name: coach.name,

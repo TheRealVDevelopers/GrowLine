@@ -104,7 +104,7 @@ export const morningReminder = onSchedule(
 );
 
 /**
- * Purges prospect health data after 180 days of inactivity (v2 §5.3).
+ * Purges prospect health data after 180 days of INACTIVITY (v2 §5.3, RULES P5).
  *
  * Scheduled here rather than in v2.3 because the collection it acts on is being
  * created now, and a retention rule that arrives after the data does is a
@@ -113,6 +113,25 @@ export const morningReminder = onSchedule(
  * Contact details survive; height, weight and derived metrics do not. The reports
  * go with them — they are the derived metrics, in a form a prospect can still open
  * (D17), so leaving them would make the purge cosmetic.
+ *
+ * ## This keyed off `createdAt` until 2026-08-14, and that was wrong
+ *
+ * Record age is not inactivity. A prospect captured 200 days ago and worked yesterday —
+ * moved to "Attended", opening their snapshot every week — had their height, weight and
+ * every derived metric nulled anyway, and their reports deleted with them. Live data
+ * destroyed on a healthy relationship, by the one job in this codebase that cannot be
+ * undone, and it contradicted the rule's own words.
+ *
+ * It now reads `lastActivityAt`, which is stamped at capture and pushed forward by the two
+ * events the rule names: a stage move, and the prospect opening their own report. See
+ * `src/modules/retention/activity.ts` for why nothing else counts.
+ *
+ * A prospect MISSING the field is not purged. That fails toward keeping data, which is
+ * the wrong direction for a retention obligation and the right one for an irreversible
+ * delete — a row the backfill has not reached must not be mistaken for one nobody has
+ * touched in six months. `npm run backfill:prospect-activity -- --check` exits non-zero
+ * while any row is still missing it, which is what makes that gap closeable rather than
+ * permanent.
  */
 const RETENTION_DAYS = 180;
 
@@ -122,7 +141,7 @@ export const purgeStaleHealthData = onSchedule(
     const cutoff = new Date(Date.now() - RETENTION_DAYS * 86_400_000);
     const stale = await db
       .collection("prospects")
-      .where("createdAt", "<", cutoff)
+      .where("lastActivityAt", "<", cutoff)
       .where("heightCm", "!=", null)
       .limit(400)
       .get();
