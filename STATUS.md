@@ -19,8 +19,8 @@ was missing, stubbed, unreachable, or behind a flag nobody sets, it is **not** D
 "DONE" claim was then handed to a separate pass whose only job was to refute it; three were
 overturned and are recorded as PARTIAL below.
 
-**Counts: 27 areas → 9 DONE · 15 PARTIAL · 3 NOT STARTED · 5 of the PARTIALs also CONFLICTING.**
-(2026-08-14: Feature A moved NOT STARTED → DONE. Bugs #2, #6, #7 fixed; #16 found and
+**Counts: 27 areas → 10 DONE · 15 PARTIAL · 2 NOT STARTED · 5 of the PARTIALs also CONFLICTING.**
+(2026-08-14: Feature A and Portfolio Basic moved NOT STARTED → DONE. Bugs #2, #6, #7 fixed; #16, #18, #19, #20 found and
 fixed; **#17 found and NOT fixed — it is the launch blocker, see below.**)
 
 ---
@@ -73,6 +73,18 @@ fast-forward. Merging `master` forward settled ⚠️ A in practice (the Phase-2
       (`npm run verify:workspaces`). Server-side owner enforcement confirmed by hand — a
       member's PATCH gets 404, not just a hidden form.
 
+- [x] **Portfolio Basic (F9)** — the last unbuilt piece of the v1 MVP. Root-level
+      `growline.in/<slug>`: photo, name, city, headline, story, "Message me on WhatsApp"
+      and "Join my club", with the free-tier watermark. The slug is claimed
+      transactionally through a reservation document whose id IS the slug (D41's shape),
+      and releasing the old name happens in the same transaction as claiming the new one.
+      Publishing is its own switch, driven by the server response rather than
+      optimistically. The WhatsApp button is a redirect route rather than a `wa.me` href,
+      because this is the one page in the app that asks to be indexed and a personal
+      mobile number does not belong in crawlable HTML. Reachable from More. Verified:
+      **24 unit tests + 2 e2e** in which a real signed-out browser reads a published page
+      and gets a 404 on an unpublished one — the test that caught the auth gate eating
+      the entire feature (🐛 #19).
 - [x] **Feature A — Goal Sheet ("My Why") + the target conversation** — the whole feature,
       not the foundation. The three-step sheet with a skip on every step and a completion
       meter counting STEPS not fields (`GoalSheetForm.tsx`); the personal-reason panel in
@@ -176,8 +188,13 @@ check; three copies means three chances to get it wrong once.
 1. [ ] **Translated privacy notice** — depends on: the owner supplying legal entity name,
        grievance-officer contact and postal address, then native-speaker review (D61, D59).
        Independent of the chain below.
-2. [ ] **Phase 8 Portfolio + Pro** — depends on: **Firebase Storage** + a thumbnail function.
-       Building the transformation gallery on data-URLs would repeat the D3/D49 pattern v2 was
+2. [ ] **Phase 8 Portfolio — BASIC IS DONE 2026-08-14, PRO is not.** Basic (F9) needed no
+       Storage and is built: root-level `growline.in/<slug>`, transactional slug claim,
+       headline/story, publish switch, WhatsApp + join buttons, free-tier watermark, and
+       it is reachable from More. 24 unit tests + 2 e2e (a real signed-out stranger reads
+       a published page and gets a 404 on an unpublished one). **Pro still depends on
+       Firebase Storage** + a thumbnail function — the transformation gallery is the part
+       that needs it, and building it on data-URLs would repeat the D3/D49 pattern v2 was
        meant to close.
 3. [ ] **Phase 9 Tiers (Starter/Leader/Elite) + 2nd-downline trial trigger + Razorpay** —
        depends on: Portfolio, because the Leader tier's stated unlock *includes* Pro portfolio.
@@ -214,6 +231,24 @@ check; three copies means three chances to get it wrong once.
     `reuseExistingServer: true`. Reuse is unconditional rather than the usual
     `!process.env.CI`, because CI starts its own server inside the emulator lifetime and
     Playwright must attach to it rather than race a second process for port 3000.
+
+19. ~~**BLOCKER — the public portfolio was not public.**~~ **FIXED 2026-08-14, same day
+    it was written.** `proxy.ts` redirects anything without a session to `/login`, and a
+    coach's page lives at the ROOT — so every prospect following a printed link would
+    have landed on a login screen for an app they will never install. The feature was
+    entirely decorative and `next build`, `tsc` and 528 unit tests all passed anyway.
+    Found only by writing the e2e test that opens the page as a real signed-out stranger.
+    → The gate now treats a lowercase single segment as a portfolio **unless it is in
+    `RESERVED_SLUGS`** — the same list that stops a coach claiming a name a route would
+    shadow, so the two can never disagree, and the filesystem-driven test keeps it true
+    as routes are added.
+    **The lesson worth keeping: a public page needs a test that visits it with no
+    session.** Nothing else in the stack can tell you the auth gate is eating it.
+
+20. ~~**MEDIUM — the publish switch reported success before the server agreed.**~~
+    **FIXED 2026-08-14.** It flipped local state and saved afterwards, so "Your page is
+    live" rendered while the request was still in flight — and a failed save left the
+    switch flipped over a page nobody could see. State now comes from the response.
 
 18. **MEDIUM — `npm run e2e:reset` did not re-seed, so fixture dates aged into failures
     that read as app bugs.** The name and the docs both present it as the thing you run

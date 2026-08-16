@@ -73,20 +73,36 @@ feature backlog.
 
 ### What is next in the build queue
 
-Feature A (Goal Sheet) is COMPLETE as of 2026-08-14 — sheet UI, upline gate, accept /
-renegotiate, blockers-become-actions, month-end review, first-prospect nudge. Only the
-dream photo is outstanding, and it is blocked on Firebase Storage being deny-all (D49).
+Two things finished on 2026-08-14:
+
+- **Feature A (Goal Sheet)** — sheet UI, upline gate, accept / renegotiate,
+  blockers-become-actions, month-end review, first-prospect nudge. Only the dream photo
+  is outstanding, blocked on Firebase Storage being deny-all (D49).
+- **Portfolio Basic (F9)** — `growline.in/<slug>`, the last unbuilt piece of the v1 MVP.
+  Pro (the transformation gallery) still waits on Storage.
 
 In order:
 
 1. **Feature B — Recognition Wall.** Depends on workspaces (done). Inherits ⚠️ A in
    `STATUS.md`: its card types read from F13 leaderboards and F14 qualifications, whose
    authorisation is still an open owner decision.
-2. **v2.5 Phase 8 — Portfolio + Pro.** Blocked on Firebase Storage + a thumbnail function.
-   Building the gallery on data-URLs would repeat the D3/D49 mistake v2 exists to close.
-3. **v2.6 Phase 9 — Tiers + Razorpay + admin.** See blocker 4 above.
+2. **v2.6 Phase 9 — Tiers + Razorpay + admin.** See blocker 4 above. The tier model, the
+   gates, the pricing screen and the 2nd-downline trial trigger can all be built before
+   Razorpay keys exist; only the mandate itself needs them.
+3. **v2.5 Phase 8 Pro portfolio** — needs Storage + a thumbnail function.
 4. **v2.7 Phase 10 — polish, Capacitor Android, Play Store.** Needs FCM; Web Push cannot
    reach a native app (⚠️ B).
+
+### One lesson from 2026-08-14 worth not relearning
+
+The portfolio shipped fully working, fully typed, with 24 passing unit tests — and was
+**completely unreachable**, because `src/proxy.ts` redirected every session-less request
+to `/login` and a coach's page lives at the root. Nothing in the build, the typecheck or
+the unit suite could see it. Only an e2e test that opened the page in a signed-out browser
+found it.
+
+**Any public surface needs a test that visits it with no session.** That is the only
+instrument that works.
 
 ### Decisions only the owner can make
 

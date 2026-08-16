@@ -1859,3 +1859,68 @@ current month only: a shield spent in July is not a warning to give somebody in 
 
 The flame is unchanged otherwise. Losing a streak must never feel like punishment
 (v2 §4), and the copy says the shield caught it rather than that a day was lost.
+
+## D68
+
+**The public portfolio lives at the root of the site, not under a prefix — and
+`RESERVED_SLUGS` is what makes that safe, in two places at once.**
+
+Every other public route here is prefixed: `/c/<code>` for the prospect's self-fill form,
+`/r/<token>` for a wellness snapshot, `/join/<code>` for a referral. `/p/<slug>` would
+have matched that convention, cost nothing to build, and been immune to the whole class
+of problem below.
+
+It was rejected because for this one route the URL *is* the product. v1 §F9 specifies
+`growline.in/<username>` and §7 sells a custom link name as a Pro feature. The string
+gets printed on a QR poster on a club wall, it rides on every wellness report, and a
+coach reads it down a phone to somebody who has never seen it written. `/p/` loses a word
+of that every single time it is spoken.
+
+### What the choice actually costs
+
+Two things, and both are paid rather than hoped away.
+
+**A route added later can shadow a coach whose link is already printed.** Next resolves
+static segments before dynamic ones, so shipping `src/app/pricing/` silently steals the
+page of any coach who claimed "pricing" — and their poster is already on a wall.
+`RESERVED_SLUGS` in `src/modules/portfolio/model.ts` blocks it at claim time: every
+current route, plus the words a growing product reaches for (pricing, help, blog, about,
+terms, support). Blocking a name today costs a coach one retype. Discovering the clash
+later costs them a reprint.
+
+That list is only as good as its maintenance, so the test that enforces it does not
+contain a copy of the routes — it **reads `src/app/` and `src/app/(app)/` off the
+filesystem** and asserts every directory it finds is reserved. Adding
+`src/app/pricing/` fails the suite until somebody reserves "pricing". A hardcoded list
+could not have noticed, which is the whole point.
+
+**Every stray URL in the app now reaches this segment.** `/some-typo` used to 404 in the
+router; it now runs a page. So `getPublicPortfolio` validates the slug's SHAPE before it
+reads anything, and a request for a malformed path never touches Firestore.
+
+### The bug this was one line away from shipping with
+
+`src/proxy.ts` redirects any request with no session cookie to `/login`. A coach's page
+lives at the root and its readers have no account — so the entire feature was
+unreachable. Fully built, fully typed, 24 unit tests green, `next build` clean, and every
+prospect following a printed link would have landed on a login screen for an app they
+will never install.
+
+The obvious fix — treat any single segment as public — would have unauthenticated
+`/settings`, `/team` and every other app route in one line.
+
+`RESERVED_SLUGS` is the distinction, and it already existed. The gate now treats a
+lowercase single segment as a portfolio *unless it is reserved*. The same list that stops
+a coach claiming a shadowed name tells the proxy which paths are coach pages, so the two
+can never drift apart, and the filesystem-driven test keeps both honest at once: a new
+route that nobody reserves fails the suite, and until it is reserved it is also publicly
+reachable — one fact, one place, one test.
+
+### The instrument that found it
+
+Nothing in the build, the typecheck, or the unit suite could see this. The only thing
+that could was an e2e test that opens the page **in a browser with no session**, which is
+also how the same class of bug is caught for `/c` and `/r`.
+
+**Any public surface needs a test that visits it signed-out.** Written down here because
+it is the second time this project has learned it and it should be the last.
