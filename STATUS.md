@@ -20,7 +20,7 @@ was missing, stubbed, unreachable, or behind a flag nobody sets, it is **not** D
 overturned and are recorded as PARTIAL below.
 
 **Counts: 27 areas → 10 DONE · 15 PARTIAL · 2 NOT STARTED · 5 of the PARTIALs also CONFLICTING.**
-(2026-08-14: Feature A and Portfolio Basic moved NOT STARTED → DONE. Bugs #2, #6, #7 fixed; #16, #18, #19, #20 found and
+(2026-08-14: Feature A and Portfolio Basic moved NOT STARTED → DONE. Bugs #2, #3, #6, #7 fixed; #16, #18, #19, #20 found and
 fixed; **#17 found and NOT fixed — it is the launch blocker, see below.**)
 
 ---
@@ -124,8 +124,12 @@ different reasons and described it identically — `users` deny-all, the `prospe
       at render time, prospect names no longer leak to Google. **missing:** satori does no
       complex-script shaping, so Indic names still render *incorrectly* (D66). The tests check
       glyph coverage, not shaping, so they cannot catch this.
-- [ ] **Retention purge (180 days)** — done: the Cloud Function exists and is scheduled.
-      **missing:** it purges by **record age, not inactivity**, contradicting the spec — see 🐛 #3.
+- [ ] **Retention purge (180 days)** — done: the Cloud Function exists, is scheduled, and
+      as of 2026-08-14 measures true inactivity (🐛 #3, D69). **missing:** it has never run
+      against real Firebase, and `npm run backfill:prospect-activity` MUST run once on the
+      production database before the first purge — until it does, pre-existing prospects
+      have no `lastActivityAt` and are skipped, so their health data is retained past the
+      window the privacy notice promises.
 - [ ] **Automated tests + CI** — done: CI runs unit (497), **all seven rules suites (178
       assertions, every one now blocking)**, `functions/` typecheck, re-parent verification,
       and e2e (43). **missing:** no tests inside `functions/` itself — typechecking is not
@@ -279,12 +283,21 @@ check; three copies means three chances to get it wrong once.
    session4, workspaces, goals — now run inside the same emulator lifetime as the mandatory
    prospects suite in `.github/scripts/ci-integration.sh`, and every one blocks the merge.
    **178 rules assertions across 7 suites** are enforced now rather than optional.
-3. **HIGH — `purgeStaleHealthData` purges by record age, not inactivity**
-   (`functions/src/index.ts:117-128`), contradicting BUILD_PROMPT_V2 §5.3 / RULES P5's literal
-   *"180 days of prospect inactivity — no stage change, no report view."* No `lastActivityAt`
-   field exists to measure it. A prospect worked yesterday but captured 200 days ago has their
-   health data nulled anyway. **Unlike every other deliberate simplification here, this one has
-   no `DECISIONS.md` entry.**
+3. ~~**HIGH — `purgeStaleHealthData` purges by record age, not inactivity**~~ **FIXED
+   2026-08-14, D69.** Now keys off `lastActivityAt`, seeded at capture and pushed forward
+   by exactly the two events RULES P5 names — a stage move and the prospect opening their
+   own report. Not by a coach editing notes (that is not contact with the person) and not
+   by the coach previewing their own send. The report-view touch throttles to one write a
+   day, because writing on every view puts an unbounded write on an unauthenticated route.
+   **A missing value is never purged** — failing toward keeping data is the only safe
+   direction for an irreversible delete — and
+   `npm run backfill:prospect-activity -- --check` exits non-zero while any row still
+   lacks the field. The composite index moved with the query, with a test asserting they
+   match; the emulator invents missing indexes, so nothing else here would have noticed.
+   *As originally recorded:* it contradicted RULES P5's literal *"180 days of prospect
+   inactivity — no stage change, no report view"*; no `lastActivityAt` field existed to
+   measure it; and unlike every other deliberate simplification here it had no
+   `DECISIONS.md` entry — which is roughly how it survived.
 4. **MEDIUM — push still on Web Push/VAPID, not FCM.** Works for web; means Phase 10's Android
    delivery starts from scratch. See ⚠️ B.
 5. **MEDIUM — `/voice-log` and `/who-to-call` are unreachable from any navigation.** Only via

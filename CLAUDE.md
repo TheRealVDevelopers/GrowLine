@@ -63,7 +63,11 @@ feature backlog.
    until this exists. See the "Blocking cutover" list in `HANDOFF.md`.
 3. **`CRON_SECRET` is blank in `.env.example`**, so all eight scheduled Cloud Functions
    fail closed in production — including the retention purge. Exporting them (done) was
-   necessary, not sufficient.
+   necessary, not sufficient. And **`npm run backfill:prospect-activity` must run once on
+   the production database before the first purge**: prospects created before 2026-08-14
+   have no `lastActivityAt`, and the purge deliberately skips them, so their health data
+   is retained past the window the privacy notice promises until it runs. `--check` exits
+   non-zero while any remain.
 4. **Phase 9 Tiers + Razorpay does not exist.** This is the entire business model. It
    depends on Phase 8 Portfolio, because the Leader tier's stated unlock includes Pro
    portfolio.
