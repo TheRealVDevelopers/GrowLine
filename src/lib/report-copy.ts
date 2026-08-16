@@ -79,11 +79,27 @@ export function whatsappMessage(opts: {
   firstName: string;
   url: string;
   coachName: string;
+  /**
+   * The coach's public page, when they have published one (F9).
+   *
+   * F9 requires this link to ride on every report sent, and it is the only reason the
+   * portfolio has any distribution at all — a page nobody links to is a page nobody
+   * visits. Omitted entirely when there is no published page rather than degraded to a
+   * dead link, because a prospect who taps a 404 learns something worse about the coach
+   * than they would have learned from no link.
+   *
+   * A URL, not free text: the rule at the top of this file is that nothing on a report
+   * is typed by a coach at runtime, and a slug they chose is checked against a fixed
+   * format before it can ever exist.
+   */
+  portfolioUrl?: string | null;
 }): string {
   return [
     `Hi ${opts.firstName}, good to meet you. Here is your wellness snapshot:`,
     opts.url,
+    ...(opts.portfolioUrl ? [`A bit about me: ${opts.portfolioUrl}`] : []),
     `— ${opts.coachName}`,
+    // Last, so it is the line sitting directly above the message box when they read it.
     `(${DISCLAIMER})`,
   ].join("\n\n");
 }

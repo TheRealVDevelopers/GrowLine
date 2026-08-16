@@ -18,17 +18,20 @@ export default function ProspectActions({
   prospectName,
   prospectPhone,
   coachName,
+  portfolioUrl,
 }: {
   reportUrl: string;
   reportToken: string;
   prospectName: string;
   prospectPhone: string;
   coachName: string;
+  /** The coach's published page (F9), or null when they have not published one. */
+  portfolioUrl: string | null;
 }) {
   const [copied, setCopied] = useState(false);
 
   const firstName = prospectName.trim().split(/\s+/)[0];
-  const message = whatsappMessage({ firstName, url: reportUrl, coachName });
+  const message = whatsappMessage({ firstName, url: reportUrl, coachName, portfolioUrl });
   const waHref = `https://wa.me/${whatsappNumber(
     prospectPhone
   )}?text=${encodeURIComponent(message)}`;

@@ -1199,6 +1199,37 @@ test("L5: the WhatsApp message carries the disclaimer with the link", () => {
   assert.ok(!/\+?\d{10}/.test(body), "a phone-shaped number reached the message");
 });
 
+test("F9: the coach's page rides on the message, and is absent when unpublished", () => {
+  /**
+   * F9 says the portfolio link travels with every report sent. It is also the only
+   * distribution the portfolio has — a page nobody links to is a page nobody visits.
+   *
+   * The absent case matters more than the present one. A coach who has not published
+   * must get NO link rather than a dead one: a prospect who taps through to a 404 learns
+   * something worse about the coach than they would have learned from no link at all.
+   */
+  const withPage = reportCopy.whatsappMessage({
+    firstName: "Asha",
+    url: "https://example.test/r/tok",
+    coachName: "Ravi",
+    portfolioUrl: "https://example.test/ravi",
+  });
+  assert.ok(withPage.includes("https://example.test/ravi"));
+  // The disclaimer stays last, so it is the line above the message box as they send.
+  assert.ok(withPage.trimEnd().endsWith(`(${reportCopy.DISCLAIMER})`));
+
+  for (const missing of [null, undefined, ""]) {
+    const without = reportCopy.whatsappMessage({
+      firstName: "Asha",
+      url: "https://example.test/r/tok",
+      coachName: "Ravi",
+      portfolioUrl: missing,
+    });
+    assert.ok(!/A bit about me/.test(without), `a dangling label survived ${missing}`);
+    assert.ok(without.includes(reportCopy.DISCLAIMER));
+  }
+});
+
 test("L3: no report string anywhere names a clinical category", () => {
   /**
    * Sweeps every exported string in report-copy, including nested objects and the

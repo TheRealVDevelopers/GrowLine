@@ -13,6 +13,8 @@ import ProspectDetailsEditor from "./ProspectDetailsEditor";
 import PipelineControls from "./PipelineControls";
 import { toStage } from "@/lib/pipeline";
 import { bucketFollowup, describeFollowup } from "@/lib/followup";
+import { getOwnPortfolio } from "@/modules/portfolio/queries";
+import { portfolioUrl } from "@/modules/portfolio/model";
 
 export default async function ProspectDetailPage({
   params,
@@ -39,7 +41,20 @@ export default async function ProspectDetailPage({
 
   const blocked = eligibilityMessage(eligibility);
 
-  const reportUrl = report ? `${await siteUrl()}/r/${report.token}` : null;
+  const base = await siteUrl();
+  const reportUrl = report ? `${base}/r/${report.token}` : null;
+
+  /**
+   * The coach's own page, if they have published one (F9).
+   *
+   * Only when PUBLISHED — an unpublished page 404s, and a link to it in a message a
+   * prospect receives teaches them something worse about the coach than no link would.
+   * Read here rather than in the client component so the URL is built from the server's
+   * idea of the origin (`site-url.ts`), which is the correct one behind a proxy.
+   */
+  const myPage = await getOwnPortfolio(user.id);
+  const myPageUrl =
+    myPage.published && myPage.slug ? portfolioUrl(base, myPage.slug) : null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -78,6 +93,7 @@ export default async function ProspectDetailPage({
             prospectName={prospect.name}
             prospectPhone={prospect.phone}
             coachName={user.name}
+            portfolioUrl={myPageUrl}
           />
         </>
       ) : blocked ? (

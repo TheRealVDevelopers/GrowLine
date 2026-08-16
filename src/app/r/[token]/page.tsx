@@ -12,6 +12,7 @@ import { whatsappNumber } from "@/lib/prospect";
 import { Avatar } from "@/components/Avatar";
 import SnapshotMetrics from "@/components/SnapshotMetrics";
 import RemoveMyDetails from "./RemoveMyDetails";
+import { getOwnPortfolio } from "@/modules/portfolio/queries";
 
 type Params = { params: Promise<{ token: string }> };
 
@@ -69,6 +70,10 @@ export default async function PublicReportPage({ params }: Params) {
    */
   const viewerOwnsProspect = (await getSessionUserId()) === report.coachId;
 
+  // The coach's public page (F9), only if published. Relative, so it needs no origin.
+  const myPage = await getOwnPortfolio(report.coachId);
+  const myPageUrl = myPage.published && myPage.slug ? `/${myPage.slug}` : null;
+
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-8">
       <header className="flex flex-col gap-1">
@@ -111,6 +116,23 @@ export default async function PublicReportPage({ params }: Params) {
         >
           Message {coach.name.split(" ")[0]} on WhatsApp
         </a>
+        {/*
+         * The coach's own page (F9), and only when they have published one — an
+         * unpublished page 404s, and a dead link on the one document a prospect keeps
+         * is worse than no link.
+         *
+         * Secondary to the WhatsApp button on purpose. The report exists to start a
+         * conversation; reading more about the coach is the softer option for somebody
+         * not ready to message a stranger yet, which is most people.
+         */}
+        {myPageUrl && (
+          <a
+            href={myPageUrl}
+            className="mt-2 flex h-12 items-center justify-center rounded-xl border border-hairline font-medium text-text"
+          >
+            More about {coach.name.split(" ")[0]}
+          </a>
+        )}
       </section>
 
       <footer className="mt-8 flex flex-col gap-3 border-t border-hairline pt-6 text-sm text-text-dim">
