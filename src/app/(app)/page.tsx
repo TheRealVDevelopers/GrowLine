@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
-import { daysUntil, todayHeading } from "@/lib/dates";
+import { todayHeading } from "@/lib/dates";
 import { followupCounts } from "@/lib/followup-queries";
 import { getLogState } from "@/lib/daily-log-queries";
 import {
@@ -19,6 +19,8 @@ import { getUserById } from "@/lib/users";
 import { getConversation } from "@/modules/goals/conversations";
 import { shouldNudgeGoalSheet } from "@/modules/goals/nudge";
 import TargetToAccept from "@/modules/goals/TargetToAccept";
+import { getTierState } from "@/modules/tiers/queries";
+import TrialOfferCard from "@/modules/tiers/TrialOfferCard";
 
 export default async function HomePage() {
   const user = await getSessionUser();
@@ -28,7 +30,7 @@ export default async function HomePage() {
   // same transaction as the signup that creates a downline — Firestore cannot
   // count children, and this page should not pay for a query to find out.
   const directCount = user.directDownlineCount;
-  const [followups, logState, myTarget, proofsToAnswer, proofsToReview, nudgeGoals] =
+  const [followups, logState, myTarget, proofsToAnswer, proofsToReview, nudgeGoals, tierState] =
     await Promise.all([
       followupCounts(user.id),
       getLogState(user.id),
@@ -36,8 +38,8 @@ export default async function HomePage() {
       pendingProofCount(user.id),
       proofsAwaitingReview(user.id),
       shouldNudgeGoalSheet(user.id),
+      getTierState(user),
     ]);
-  const trialDaysLeft = daysUntil(user.trialEndsAt);
   const firstName = user.name.split(" ")[0];
   const today = todayHeading();
 
@@ -82,6 +84,9 @@ export default async function HomePage() {
 
       <TodaysMission missions={missions} />
 
+      {/* The 2nd-downline recognition (v2 §8). Once, dismissible for good. */}
+      {tierState.showOffer && <TrialOfferCard downlineCount={directCount} />}
+
       {showConversation && (
         <TargetToAccept
           targetId={conversation.targetId}
@@ -108,17 +113,10 @@ export default async function HomePage() {
         />
       )}
 
-      {user.plan === "trial" && (
-        <Link
-          href="/settings"
-          className="flex items-center justify-between rounded-2xl bg-surface px-5 py-4"
-        >
-          <span>
-            Free trial · <b>{trialDaysLeft} days</b> left
-          </span>
-          <span className="text-sm font-medium text-gold-ink">Details</span>
-        </Link>
-      )}
+      {/* The v1 trial countdown card is deleted, not hidden (v2 §8: "delete any
+          remnants"). It counted down to a day on which nothing happened — no charge,
+          no lock — and a countdown to nothing teaches users the app's numbers are
+          decorative. Starter is free forever; Settings and /plans now say so. */}
 
       {/* Today's work, above everything else. Overdue people are named as late so
           the number cannot be read as "all caught up" (F5). */}

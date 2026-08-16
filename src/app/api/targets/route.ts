@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/session";
 import { setTarget } from "@/lib/targets-queries";
 import { currentMonth, isMonthKey } from "@/lib/targets";
+import { gateLeaderTool } from "@/modules/tiers/queries";
 
 /**
  * An upline sets or changes a direct downline's monthly target (F7).
@@ -12,6 +13,13 @@ import { currentMonth, isMonthKey } from "@/lib/targets";
 export async function PUT(req: Request) {
   const uid = await getSessionUserId();
   if (!uid) return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+
+  // Leader gate (v2 §8) — standing, and OPEN: while TIERS_ENFORCED is false this
+  // returns allowed before any read. It is wired now so the flip is one constant, not
+  // a hunt through routes under launch pressure. 402 is the honest code for "this
+  // needs a paid tier"; the body names what still works (never lock a user out).
+  const gate = await gateLeaderTool(uid, "set-targets");
+  if (!gate.allowed) return NextResponse.json({ error: gate.reason }, { status: 402 });
 
   const body = await req.json().catch(() => null);
   const b = (body ?? {}) as Record<string, unknown>;

@@ -37,6 +37,11 @@ const LINKS = [
     body: CALL_LIST_BLURB,
   },
   {
+    href: "/plans",
+    title: "Plans",
+    body: "What Growline costs and what each plan includes. Nothing is locked during launch.",
+  },
+  {
     href: "/voice-log",
     title: "Say today's work",
     body: VOICE_BLURB,

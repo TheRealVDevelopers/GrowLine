@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/session";
 import { reviewProof, submitProof } from "@/lib/targets-queries";
 import { MAX_NOTE } from "@/lib/targets";
+import { gateLeaderTool } from "@/modules/tiers/queries";
 
 /** Proof photos are re-encoded client-side; this bounds what the server accepts. */
 const MAX_MEDIA_CHARS = 900_000; // ~650 KB of base64
@@ -43,6 +44,12 @@ export async function PATCH(
         { status: 400 }
       );
     }
+    // Leader gate (v2 §8) on the REVIEW branch only — standing and OPEN. Submitting
+    // proof is the downline's action and stays free on every tier; only the upline's
+    // approve/reject is a Leader tool ("validate proofs", §8).
+    const gate = await gateLeaderTool(uid, "review-proofs");
+    if (!gate.allowed) return NextResponse.json({ error: gate.reason }, { status: 402 });
+
     const result = await reviewProof(uid, id, decision, comment === "" ? null : comment);
     if (!result.ok) {
       const status = result.error === "Not found" ? 404 : 400;

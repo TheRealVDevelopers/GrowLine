@@ -1989,3 +1989,79 @@ for everybody, and unlike this direction it would be invisible.
 emulator invents missing indexes on demand — and would have surfaced as a
 `FAILED_PRECONDITION` on the first real run, inside a scheduled job with nobody watching.
 A unit test asserts the declared index matches the query the purge actually makes.
+
+## D70
+
+**Tiers are built with every gate open, behind one constant — and the v1 trial is
+deleted, not hidden.**
+
+Owner instruction, 2026-08-14: *"start tiers now, don't gate anything yet."*
+
+### What "built but not enforced" means concretely
+
+Everything v2 §8 describes exists: the Starter / Leader / Elite model, the 2nd-downline
+qualification, the 30-day trial clock, the pricing screen, the recognition card, the admin
+funnel, and a `gateLeaderTool` check standing in the three Leader routes — set targets,
+send threads, review proofs. `TIERS_ENFORCED` in `src/modules/tiers/model.ts` is `false`,
+which makes every gate answer "allowed" **before it does any read**. Cost of the plumbing
+today: zero Firestore reads, zero behaviour change.
+
+The reason to stand the gates now rather than at flip time is that the flip will happen
+under launch pressure. One constant, already wired, already tested in both positions, is a
+different kind of change from a hunt through routes for the places a check should go.
+
+### Why the gate is standing in exactly three places, and not a fourth
+
+§8 lists Leader's unlocks as: set targets, send threads, validate proofs, team analytics
+dashboard, Pro portfolio, watermark removed. The first three have routes; the gate stands
+in them. Team analytics and Pro portfolio have no route yet — their gates arrive with them.
+The watermark is already `!portfolio.isPro`, which is the same flag by another name.
+
+**Proof submission is not gated.** Only the upline's approve/reject is. §8's word is
+"validate", the downline attaching evidence is not validation, and gating it would let a
+Starter be *asked* for proof they could not *send* — a dead end nobody should be put in.
+
+### The e2e proof is the one that matters
+
+The unit suite pins `TIERS_ENFORCED === false` as a tripwire, and it pins the enforced
+branch too — a gate that always short-circuits hides a broken enforced path until the day
+it matters. But neither can tell an accidentally-closed gate from a correctly-open one;
+those look identical from outside. So `e2e/tiers.spec.ts` logs in a real unqualified
+Starter and has her set a target and send a thread through the real routes. If those ever
+return 402, the flip happened by accident.
+
+Writing it surfaced a harness fact worth keeping: `page.request` shares the browser's
+cookie jar but does **not** send a `Secure` cookie over plain `http://127.0.0.1`, and
+`next start` is production, so `gl_session` is Secure. Browsers carve out a localhost
+exception; the request client does not. Every earlier spec that used `page.request` did so
+signed-out, which is why nothing had tripped over this. Authenticated API calls in e2e go
+through `fetch` inside the page — which is what the app's own components do anyway.
+
+### What the trial-start endpoint does while enforcement is off
+
+Refuses, with a 409 and a reason. Every Leader tool is open to everyone, so starting a
+30-day clock now would burn a coach's whole trial on tools they already have — they would
+reach the flip with nothing left. The qualification is theirs and keeps; the clock starts
+when it buys something. The recognition card says exactly this and celebrates the true
+thing (the team grew, Leader is earned and reserved) rather than the spec's literal
+"unlocked", because nothing was locked and a celebration that lies stops landing.
+
+### The v1 trial remnants
+
+§8 opens with: the v1 model "is CANCELLED. Delete any remnants." Home and Settings still
+carried a 60-day countdown against which nothing happened on day 61 — no charge, no lock.
+A countdown to nothing teaches users the app's numbers are decorative, which is fatal for a
+product whose entire pitch is that its numbers can be trusted, and it is v1 §4.7's
+money-surprise pattern turned inside out. Both are deleted, not reworded. Starter is free
+forever and Settings now says that in those words.
+
+`users.plan` and `users.trialEndsAt` still exist on the document and in `AppUser`. They
+are unread by any screen and will be removed with the migration that lands paid tiers;
+deleting a stored field this week for no user-visible reason is churn on the one week
+that cannot afford it.
+
+### The flip, when it comes, is a set of three
+
+`TIERS_ENFORCED = true`; the launch-open banner comes out of `/plans`; the `start-trial`
+refusal comes out of `/api/tiers`. The unit test that pins the constant is deliberately
+named so that whoever flips it is sent here.

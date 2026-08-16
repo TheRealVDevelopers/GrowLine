@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import { formatPhoneForDisplay } from "@/lib/phone";
-import { daysUntil, formatLongDate } from "@/lib/dates";
+import { TIER_INFO } from "@/modules/tiers/model";
+import { getTierState } from "@/modules/tiers/queries";
 import ProfileSection from "./ProfileSection";
 import ReminderToggle from "./ReminderToggle";
 import PrivacyToggle from "./PrivacyToggle";
@@ -14,9 +16,10 @@ export default async function SettingsPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
-  const trialDaysLeft = daysUntil(user.trialEndsAt);
-  const trialEndDate = formatLongDate(user.trialEndsAt);
-  const { locale, t } = await getTranslate();
+  const [{ locale, t }, tierState] = await Promise.all([
+    getTranslate(),
+    getTierState(user),
+  ]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -39,23 +42,31 @@ export default async function SettingsPage() {
         phoneDisplay={`+91 ${formatPhoneForDisplay(user.phone)}`}
       />
 
-      {/* Trust-first: the trial countdown is always visible here (Section 4.7) */}
+      {/*
+       * Trust-first (Section 4.7), v2 §8 edition. The v1 trial countdown that lived
+       * here is deleted, not reworded: it counted down 60 days to a day on which
+       * nothing happened, and a countdown to nothing is the money-surprise pattern
+       * §4.7 exists to prevent, inverted. Starter is free forever and this says so;
+       * the trial that DOES exist (30 Leader days at the 2nd downline) is stated only
+       * for the coach who has earned it.
+       */}
       <section className="rounded-2xl bg-surface p-5">
         <h2 className="font-semibold">My plan</h2>
-        {user.plan === "trial" ? (
-          <>
-            <p className="mt-2 text-3xl font-bold">
-              {trialDaysLeft} <span className="text-base font-medium">days left</span>
-            </p>
-            <p className="mt-1 text-sm text-text-dim">
-              Free trial ends on {trialEndDate}. After that, Growline is ₹999/month or
-              ₹9,999/year (2 months free). No payment method is connected yet — payment
-              setup arrives before your trial ends, and you can cancel anytime.
-            </p>
-          </>
-        ) : (
-          <p className="mt-2 text-text-dim">Plan: {user.plan}</p>
-        )}
+        <p className="mt-2 text-3xl font-bold">{TIER_INFO[tierState.tier].name}</p>
+        <p className="mt-1 text-sm text-text-dim">
+          {tierState.tier === "starter"
+            ? "Free forever. No payment method is connected, and nothing charges by itself."
+            : "Leader tools are yours."}
+          {tierState.qualified && tierState.tier === "starter"
+            ? " Your team earned you 30 free days of Leader — they start when payments begin."
+            : ""}
+        </p>
+        <Link
+          href="/plans"
+          className="mt-3 inline-flex h-12 items-center rounded-xl border border-hairline px-4 font-medium"
+        >
+          See all plans
+        </Link>
       </section>
 
       <ReminderToggle />

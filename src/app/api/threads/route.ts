@@ -8,6 +8,7 @@ import {
 } from "@/lib/threads-queries";
 import { checkBody, checkLinkUrl, isThreadScope } from "@/lib/threads";
 import { isPushConfigured, sendToUser } from "@/lib/push";
+import { gateLeaderTool } from "@/modules/tiers/queries";
 
 /**
  * A coach broadcasts to their line (F8).
@@ -22,6 +23,10 @@ export async function POST(req: Request) {
 
   const sender = await getUserById(uid);
   if (!sender) return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+
+  // Leader gate (v2 §8) — standing and OPEN; see /api/targets for the reasoning.
+  const gate = await gateLeaderTool(sender, "send-threads");
+  if (!gate.allowed) return NextResponse.json({ error: gate.reason }, { status: 402 });
 
   const body = await req.json().catch(() => null);
   const b = (body ?? {}) as Record<string, unknown>;
