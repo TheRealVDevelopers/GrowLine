@@ -5,8 +5,12 @@
  * Register: everyday spoken Hindi, the way a coach in a tier-2 city actually talks —
  * NOT the Sanskritised officialese of government forms. So "सेव करें" not "सहेजें",
  * "दोबारा कोशिश करें" not "पुनः प्रयास करें", "सेहत" not "स्वास्थ्य". Loanwords that
- * Hindi genuinely uses (टीम, सेव, इंटरनेट, सिग्नल, क्यूआर) are written in Devanagari;
- * nothing stays in Latin script.
+ * Hindi genuinely uses (टीम, सेव, इंटरनेट, सिग्नल) are written in Devanagari.
+ *
+ * ONE deliberate exception: **QR stays in Latin**. Native-speaker review, 2026-08-14 —
+ * every UPI app's Hindi UI (GPay, PhonePe, Paytm) and every shop-counter sticker writes
+ * "QR कोड", so the two Latin letters are recognised as a picture while "क्यूआर" makes a
+ * semi-literate reader stop and sound it out. Do not "fix" this back to Devanagari.
  *
  * Length matters more here than in English. Devanagari renders wider than Latin at the
  * same point size, and five of these strings share a bottom navigation bar on a 360px
@@ -44,7 +48,8 @@ const hi: Dict = {
   "prospects.title": "मेरे लोग",
   "prospects.search": "नाम या नंबर से खोजें",
   "prospects.all": "सभी",
-  "prospects.myQr": "मेरा क्यूआर कोड",
+  // QR in Latin on purpose — see the header note.
+  "prospects.myQr": "मेरा QR कोड",
   "prospects.addFirst": "पहला व्यक्ति जोड़ें",
   "prospects.newPerson": "नया व्यक्ति",
 

@@ -31,8 +31,12 @@ const kn: Dict = {
   "settings.language.help": "ನಿಮಗೆ ಸುಲಭವಾಗಿ ಓದಲು ಬರುವ ಭಾಷೆಯನ್ನು ಆರಿಸಿ.",
   "settings.language.saving": "ಉಳಿಸುತ್ತಿದೆ…",
   "settings.language.error": "ಭಾಷೆ ಬದಲಾಗಲಿಲ್ಲ. ಇನ್ನೊಮ್ಮೆ ಪ್ರಯತ್ನಿಸಿ.",
+  // ಸ್ವಾಸ್ಥ್ಯ was the Sanskrit-flavoured word — the cognate of Hindi स्वास्थ्य, which
+  // hi.ts's own header already rejects in favour of सेहत. Karnataka says ಆರೋಗ್ಯ.
+  // ಇಂಗ್ಲಿಷಿನಲ್ಲೇ over ಇಂಗ್ಲಿಷ್‌ನಲ್ಲೇ so the source carries no zero-width joiner.
+  // Native-speaker review 2026-08-14 (one reviewer; the second never ran — see STATUS).
   "settings.language.reportNote":
-    "ಸ್ವಾಸ್ಥ್ಯ ವರದಿಗಳು ಸರಿಯಾಗಿ ಪ್ರಿಂಟ್ ಆಗಲು ಸದ್ಯಕ್ಕೆ ಇಂಗ್ಲಿಷ್ ಭಾಷೆಯಲ್ಲೇ ಇರುತ್ತವೆ.",
+    "ಆರೋಗ್ಯ ವರದಿಗಳು ಸರಿಯಾಗಿ ಪ್ರಿಂಟ್ ಆಗಲು ಸದ್ಯಕ್ಕೆ ಇಂಗ್ಲಿಷಿನಲ್ಲೇ ಇರುತ್ತವೆ.",
 
   // Log screen. "ಸತತ N ದಿನ" = "N days in a row" — the natural way to say a streak.
   "log.title": "ಇಂದಿನ ಕೆಲಸ",

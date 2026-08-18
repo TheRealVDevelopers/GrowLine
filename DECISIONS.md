@@ -2065,3 +2065,47 @@ that cannot afford it.
 `TIERS_ENFORCED = true`; the launch-open banner comes out of `/plans`; the `start-trial`
 refusal comes out of `/api/tiers`. The unit test that pins the constant is deliberately
 named so that whoever flips it is sent here.
+
+## D72
+
+**Native-speaker review of the four Indian-language dictionaries: three changes applied,
+three rejected by a second reader, ten unverified.**
+
+Reviewed by one native-register reader per language, with each proposed change handed to a
+second independent reader whose only job was to refute it. That second pass earned its
+keep immediately — it rejected three of the first reader's suggestions, including two the
+first reader had rated as improvements:
+
+- **Hindi `prospects.title` (मेरे लोग → लोग)** — rejected. "मेरे लोग" is not coach-speak
+  for a downline; the team tab next to it is literally "मेरी टीम". A bare "लोग" as a
+  screen heading reads like a dictionary entry.
+- **Hindi `settings.language.reportNote`** — rejected as register churn, not improvement.
+- **Telugu `threads.acknowledged` (చూసేశాను)** — rejected: the dialect premise did not
+  hold, and the reviewer's replacement was a longer sentence where a word was wanted. The
+  second reader's advice was to fix any visual confusability in the chip styling instead.
+
+**Applied:**
+
+- **Hindi `prospects.myQr`: क्यूआर → QR.** Every UPI app's Hindi UI and every
+  shop-counter sticker writes "QR कोड" in Latin; the two letters are recognised as a
+  picture, while "क्यूआर" makes a semi-literate reader stop and sound it out. The hi.ts
+  header previously said "nothing stays in Latin script" — it now records QR as the
+  deliberate exception, so the next reader does not revert it.
+- **Telugu `threads.passItOn`: ముందుకు పంపండి → ఫార్వర్డ్ చేయండి.** The old string was a
+  calque ("send it forward"). This action IS the WhatsApp forward every coach does daily,
+  and ఫార్వర్డ్ is the word they say — the same loanword-in-native-script policy te.ts
+  already follows for టీమ్/సేవ్/నెట్.
+- **Kannada `settings.language.reportNote`: ಸ್ವಾಸ್ಥ್ಯ → ಆರೋಗ್ಯ.** Single-reviewer, applied
+  anyway because the claim is factual rather than stylistic and the repo corroborates it:
+  ಸ್ವಾಸ್ಥ್ಯ is the cognate of Hindi स्वास्थ्य, which hi.ts's own header already rejects in
+  favour of सेहत. The same project made the opposite choice in the sibling language.
+
+**Ten proposals were never verified** — the review ran out of budget mid-pass. They are
+all "nicer"-grade register polish (Kannada ರದ್ದು → ರದ್ದುಮಾಡಿ, ಇಂದಿನ → ಇವತ್ತಿನ; Tamil
+குறியீடு → கோட், the -ஆயிற்று completive, தொடர்ச்சி → தொடர்ந்து) and are listed in
+`STATUS.md` for a human native speaker to settle. **Nothing unverified was applied**, and
+the conservative default is the right one here: the second reader rejected half of what it
+saw, which is the best evidence available that single-reviewer confidence is not enough.
+
+**No rule violations were found in any of the four languages.** All four were rated
+high-quality, genuinely spoken register, with loanwords correctly in native script.

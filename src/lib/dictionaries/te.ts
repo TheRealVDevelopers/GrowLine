@@ -59,7 +59,10 @@ const te: Dict = {
   "threads.title": "సందేశాలు",
   "threads.acknowledge": "చూశాను",
   "threads.acknowledged": "చూసేశాను",
-  "threads.passItOn": "ముందుకు పంపండి",
+  // "ముందుకు పంపండి" was a calque — "send it forward". Native-speaker review, 2026-08-14:
+  // this action IS the WhatsApp forward every coach does daily, and the word they say for
+  // it is ఫార్వర్డ్ (standard Telugu-script spelling, same policy as టీమ్/సేవ్/నెట్).
+  "threads.passItOn": "ఫార్వర్డ్ చేయండి",
 
   // Shared.
   "common.save": "సేవ్ చేయండి",
