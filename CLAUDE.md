@@ -61,13 +61,16 @@ feature backlog.
 2. **Firebase project provisioning** — Blaze plan, Phone auth enabled, SMS delivery
    confirmed for Indian numbers, service account in `.env`. Nothing below can be verified
    until this exists. See the "Blocking cutover" list in `HANDOFF.md`.
-3. **`CRON_SECRET` is blank in `.env.example`**, so all eight scheduled Cloud Functions
-   fail closed in production — including the retention purge. Exporting them (done) was
-   necessary, not sufficient. And **`npm run backfill:prospect-activity` must run once on
-   the production database before the first purge**: prospects created before 2026-08-14
-   have no `lastActivityAt`, and the purge deliberately skips them, so their health data
-   is retained past the window the privacy notice promises until it runs. `--check` exits
-   non-zero while any remain.
+3. **`CRON_SECRET` is blank in `.env.example`**, so all nine scheduled Cloud Functions fail
+   closed in production. Exporting them (done, all nine verified in `functions/lib/`) was
+   necessary, not sufficient. **This got worse on 2026-08-14 when the owner authorised the
+   Phase-2 features (D74)**: six of those jobs now feed user-facing screens, so without the
+   secret the boards stay empty, the duplication page reads "nothing counted yet" forever,
+   and qualifications never evaluate — a coach who opens one concludes the app is broken.
+   And **`npm run backfill:prospect-activity` must run once on the production database
+   before the first purge**: prospects created before 2026-08-14 have no `lastActivityAt`,
+   and the purge deliberately skips them, so their health data is retained past the window
+   the privacy notice promises until it runs. `--check` exits non-zero while any remain.
 4. **Razorpay does not exist.** The TIER SYSTEM does, as of 2026-08-14 (D70): model,
    qualification, trial clock, `/plans`, admin funnel, and gates standing OPEN in the
    three Leader routes behind `TIERS_ENFORCED = false`. Nothing is taken from anyone.
@@ -122,8 +125,8 @@ instrument that works.
 
 These are in `STATUS.md` under 🚫 BLOCKED and none of them is an engineering call:
 
-- Do F13 / F14 / F20 / the quick-wins ship, or stay unmerged? They map onto the Phase-2
-  list that RULES S7 parks until 200 paying users, and there are none.
+- ~~Do F13 / F14 / F20 / the quick-wins ship?~~ **DECIDED 2026-08-14: they ship (D74).**
+  RULES S7 still parks the rest of §8 — one exception is not the rule.
 - Storage on now, or does Portfolio wait?
 - FCM now, or deferred to the Capacitor build?
 - Who produces the 8-item Jewel Asset Pack? It is not derivable from code.

@@ -42,7 +42,7 @@ commitment, or a rule that a previous session already broke and fixed.
 | S4 | **WhatsApp via `wa.me` only.** No paid Business API in v1. | v1 §4.2 |
 | S5 | **Offline-first** for prospect capture *and* daily logs. | v1 §4.3 · D28 |
 | S6 | **Simple words.** "My Team", "Today's Work", "New Person". Never "CRM", "pipeline analytics", "engagement metrics". | v1 §4.6 |
-| S7 | **No Phase 2 features early.** If it maps to v1 §8, park it. | v1 §5.8 |
+| S7 | **No Phase 2 features early.** If it maps to v1 §8, park it. **One authorised exception (D74):** F13 leaderboards, F14 qualifications, F20 duplication and the quick wins ship. Everything else in §8 — social feed, event manager, poster library, club-owner module, advanced analytics + PDF — stays parked. The exception is not the rule. | v1 §5.8 · D74 |
 
 ## Design (v2.2 onward)
 

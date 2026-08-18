@@ -158,13 +158,16 @@ different reasons and described it identically — `users` deny-all, the `prospe
       the same as knowing the retention purge selects the right rows (🐛 #3, #6). And the
       whole suite runs against emulators only, which is 🐛 #17: the emulator invents missing
       composite indexes, so no test here can fail the way production will.
-- [ ] **F13 Leaderboards** — built with rules and tests, but inert (see 🐛 #1) and disputed (⚠️ A).
-      · branch: `feature/new-modules` only
-- [ ] **F14 Event qualification** — same. · branch: `feature/new-modules` only
-- [ ] **F20 Duplication score** — same, and its page permanently reads "nothing counted yet".
-      · branch: `feature/new-modules` only
-- [ ] **Quick wins (voice-note log, who-to-call, silence alerts)** — built, but unreachable from
-      the nav and their Cloud Functions never deploy. · branch: `feature/new-modules` only
+- [ ] **F13 Leaderboards · F14 Qualifications · F20 Duplication · the quick wins**
+      (voice-note log, who-to-call, silence alerts) — **AUTHORISED to ship 2026-08-14
+      (D74)**, and no longer disputed or unreachable. Built with rules and tests; all four
+      reachable from `/more`; all nine Cloud Functions export and compile, verified against
+      `functions/lib/index.js`. **The only thing missing is `CRON_SECRET`** — without it the
+      six scheduled jobs fail closed, so the boards stay empty, the duplication page reads
+      "nothing counted yet" forever, and qualifications never evaluate or remind. That is
+      now a launch blocker rather than a background nag, because these screens are
+      user-facing: a coach who opens one and finds it permanently blank concludes the app
+      is broken. · branch: both (on `master` since the 2026-08-14 fast-forward)
 - [ ] **Branch/repo hygiene** — a stray git worktree, an uncommitted lint fix, two parallel
       decision logs. See ⚠️ C and 🐛 #10.
 
@@ -172,15 +175,23 @@ different reasons and described it identically — `users` deny-all, the `prospe
 
 ## ⚠️ CONFLICTS / DUPLICATES — resolve before building anything new
 
-**A. Phase-2 work shipped early, against RULES S7.**
-`F13 Leaderboards` is not an approximate match to CLAUDE.md §8's Phase-2 list — it is the line
-item, *"Team leaderboards (weekly, monthly) with opt-out."* F20 plausibly maps to §8's
-"advanced team analytics". §8's bar is **200 paying users**; there are zero, and payments are
-NOT STARTED. None of F13/F14/F20 or the quick-wins appear in `CLAUDE.md`, `BUILD_PROMPT_V2.md`
-or `RULES.md` at all.
-→ **Recommendation:** owner decision, not an engineering one. Either formally authorise them
-(and write that into `DECISIONS.md`), or hold `feature/new-modules` unmerged until Portfolio
-and Tiers land. Do not merge silently — that converts a rule breach into precedent.
+**~~A. Phase-2 work shipped early, against RULES S7.~~ RESOLVED 2026-08-14 — the owner
+authorised it: "keep the phase 2 features, don't remove anything." Recorded as D74.**
+
+F13 Leaderboards, F14 Qualifications, F20 Duplication and the quick wins (voice-note log,
+who-to-call, silence alerts) ship. **RULES S7 is not repealed** — §8's remaining items
+(social feed, event manager, poster library, club-owner module, advanced analytics + PDF)
+stay parked until the 200-paying-user bar. One authorised exception is not the rule's
+repeal, and a future session wanting the event manager needs its own owner decision.
+
+→ **What the decision obliges, and it is not nothing:** these features are now user-facing,
+so they have to work. Verified today — all nine Cloud Functions export and compile
+(`functions/lib/index.js`), and all four screens are reachable from `/more`. **The one
+thing left is `CRON_SECRET`**, and keeping the features promotes it from a background nag
+to a launch blocker: without it the six jobs fail closed, so the boards stay empty, the
+duplication page reads "nothing counted yet" forever and qualifications never evaluate.
+A coach opening a feature that never fills in concludes the app is broken — worse than the
+feature not existing.
 
 **B. FCM vs Web Push — the spec override was never reconciled.**
 `BUILD_PROMPT_V2` §3 says *"FCM replaces Web Push/VAPID entirely"*, and v2 wins on conflict.
@@ -448,10 +459,11 @@ cause never confirmed. Worth watching rather than closing.
 ## 🚫 BLOCKED / NEEDS A HUMAN DECISION
 
 **Authorisation**
-- F13 / F14 / F20 / quick-wins map onto CLAUDE.md §8's Phase-2 list, which RULES S7 says to park
-  until 200 paying users (there are none). **Authorise and fold in, or hold unmerged?**
-- Who may add the six missing exports to `functions/src/index.ts` — the file every new-module
-  session declares itself "not permitted to edit"?
+- ~~F13 / F14 / F20 / quick-wins: authorise and fold in, or hold unmerged?~~ **DECIDED
+  2026-08-14 — they ship (D74).** RULES S7 still parks the rest of §8; one exception is
+  not the rule.
+- ~~Who may add the six missing exports to `functions/src/index.ts`?~~ **Moot — they were
+  added on 2026-08-12 and all nine functions compile (verified in `functions/lib/`).**
 - Is `CRON_SECRET` provisioned in the real deployment, for the six new jobs *and* the two
   existing ones (`morningReminder`, `purgeStaleHealthData`)?
 

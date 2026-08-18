@@ -2241,3 +2241,56 @@ Three consecutive full suites at **49/49**, against three consecutive failures i
 before. `tests/offline-sync.test.ts` pins the shape, and its MANDATORY check was confirmed
 to FAIL when the original one-line `return` was reinstated — a source test that passes
 against the bug it describes is decorative, so it was run both ways rather than assumed.
+
+## D74
+
+**The four Phase-2 features already built are AUTHORISED to ship. RULES S7 still stands
+for everything else.**
+
+Owner decision, 2026-08-14: *"keep the phase 2 features, don't remove anything."*
+
+This closes ⚠️ A, which had been the only open item in STATUS's conflicts list since the
+audit on 2026-08-13 and which blocked new work under STATUS standing rule 2.
+
+### What is authorised, precisely
+
+Four things, and only these four:
+
+- **F13 Leaderboards** — weekly/monthly boards with opt-out. This is not an approximate
+  match to CLAUDE.md §8's Phase-2 list; it is the line item, verbatim.
+- **F14 Event qualification** — conditions, a closing date, a tracker.
+- **F20 Duplication score** — plausibly §8's "advanced team analytics".
+- **The quick wins** — voice-note log, who-to-call, silence alerts.
+
+### What is NOT authorised, and why this entry says so explicitly
+
+RULES S7 — *"No Phase 2 features early. If it maps to v1 §8, park it"* — is **not
+repealed**. §8's remaining items stay parked until the 200-paying-user bar: the social
+feed with video posts, the shake-party/event manager, the poster and graphics library,
+Kannada/Hindi/Marathi *report* localisation, the club-owner module, and advanced analytics
+with PDF export.
+
+The distinction matters because the cheapest way to lose a rule is to let one authorised
+exception be read as the rule's repeal. A future session that wants to build the event
+manager does not get to cite this entry; it needs its own owner decision.
+
+### What "keep them" obliges, which is more than doing nothing
+
+They now ship, so they have to work for a real coach:
+
+1. **All nine Cloud Functions are exported and compile** — verified against
+   `functions/lib/index.js`, which exposes all nine including the six these features need
+   (`rebuildLeaderboards`, `evaluateQualifications`, `qualificationReminders`,
+   `rebuildDuplicationScores`, `silenceCheck`, `purgeVoiceNotes`). Bug #1's fix is intact.
+2. **All four screens are reachable** from `/more` — leaderboards, qualifications,
+   duplication, voice-log and who-to-call. None is URL-only any more.
+3. **`CRON_SECRET` is still blank in `.env.example`**, and that is now their launch
+   blocker rather than a background nag. Every one of those six jobs fails closed without
+   it, and the visible consequence is precise and bad: the boards stay empty, the
+   duplication page reads "nothing counted yet" forever, and qualifications never
+   evaluate or remind. A coach opening a feature that never fills in learns the app does
+   not work — which is worse than the feature not existing, and worse than it would have
+   been while they were unauthorised and unreachable.
+
+That third point is the substance of this decision. Keeping the features converts a
+config gap into a user-visible failure, so `CRON_SECRET` moves up the launch list.
