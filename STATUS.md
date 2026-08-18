@@ -22,8 +22,8 @@ overturned and are recorded as PARTIAL below.
 **Counts: 27 areas → 11 DONE · 15 PARTIAL · 1 NOT STARTED · 5 of the PARTIALs also CONFLICTING.**
 (2026-08-14: Feature A, Portfolio Basic, the tier system and Feature B moved NOT STARTED →
 DONE/PARTIAL. Bugs #2, #3, #6, #7 fixed; #16, #18, #19, #20 found and fixed; **#17 found
-and NOT fixed — it is the launch blocker**; #21 escalated — the offline-capture spec now
-fails in every full run, see the e2e note.)
+and NOT fixed — it is the launch blocker**; #21 found and fixed — the offline-capture
+"flake" was a real product bug in the queue drain (D73).)
 
 ---
 
@@ -408,13 +408,28 @@ check; three copies means three chances to get it wrong once.
 and on the very next full run (43/43). Shared emulator state and ordering, same family as
 D44. Watch it; do not "fix" it by weakening the assertion.
 
-**⚠️ CHANGED 2026-08-14 — `e2e/offline-capture.spec.ts` now fails in EVERY full run.**
-Three consecutive full suites today ended 48/49 on it (`Offline Person <ts>` never
-appears), and it passes on its own every single time. That is no longer "flaky, watch it":
-it reproduces reliably in the full-suite ordering, which means it is a real interaction
-with the state earlier specs leave behind — the same family as D44, but now deterministic
-enough to actually debug. **Do not weaken the assertion.** The queued-capture sync is a
-v1 §4.3 guarantee and this is the only test that covers it.
+**✅ RESOLVED 2026-08-14 — `e2e/offline-capture.spec.ts` was never a flaky test. It was a
+real product bug, and it is fixed (D73).**
+
+It failed in three consecutive full runs and passed alone every time, which is what got
+it filed as flaky twice. The trace settled it: exactly ONE `POST /api/prospects`, aborted
+while offline, and no second attempt ever. `OfflineSync` drained on four EDGES — mount,
+`online`, a queue write, a tab becoming visible — and `if (!navigator.onLine) return`
+treated being offline as terminal. When the signal returned a few milliseconds before the
+next page loaded, the `online` event fired on the page being torn down and the fresh
+mount read `navigator.onLine` before the renderer caught up. Both edges missed and the
+captured person stayed in IndexedDB.
+
+**This needed no test to happen.** One flaky drain on a weak signal stranded a real
+capture, after the coach was told "saved on this phone" — the exact silent failure the
+spec's own header warns about. The queue is now a LEVEL, not an edge: while anything is
+queued it retries with backoff (2s→30s, one timer, cleared on unmount), and a returning
+signal resets the backoff.
+
+Verified: three consecutive full suites at **49/49**, against three consecutive failures
+before. Pinned by `tests/offline-sync.test.ts`, whose MANDATORY check was confirmed to
+FAIL against the original one-line defect — a source test that passes against the bug it
+describes is decorative, so it was checked both ways.
 
 **Historical note:** `e2e/offline-capture.spec.ts` failed once on
 `claude/mobile-pc-workflow-test-alhnwl` right after the font commit (queued capture never

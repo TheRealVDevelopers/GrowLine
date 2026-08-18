@@ -2176,3 +2176,68 @@ saw, which is the best evidence available that single-reviewer confidence is not
 
 **No rule violations were found in any of the four languages.** All four were rated
 high-quality, genuinely spoken register, with loanwords correctly in native script.
+
+## D73
+
+**The offline queue drains on a LEVEL, not on edges — and the "flaky" e2e test was a real
+capture-losing bug the whole time.**
+
+`e2e/offline-capture.spec.ts` failed in every full-suite run and passed in isolation every
+time. It was filed as flaky twice (STATUS 2026-08-13, then escalated 2026-08-14). It was
+not flaky.
+
+### What the trace said
+
+Exactly one `POST /api/prospects`, status `-1` — the form's own attempt, aborted because
+the signal was cut. Then the test brought the signal back, loaded `/prospects`, and **no
+second POST ever happened.**
+
+`OfflineSync` drained on four triggers: mount, the `online` event, a queue write, and a
+tab becoming visible. Every one of those is an EDGE. And the first line of the drain was:
+
+```ts
+if (!navigator.onLine) return;
+```
+
+which treats "offline right now" as terminal rather than as "come back in a moment".
+
+The race that killed it: the signal returned a few milliseconds before the next page
+loaded, so the `online` event fired on the page being torn down (whose listener was
+already removed by cleanup), and the fresh mount read `navigator.onLine` before the
+renderer had processed the state change. Both edges missed. Nothing else was ever going to
+fire, and the captured person sat in IndexedDB.
+
+### Why this mattered beyond the test
+
+It needs no test to happen. One flaky drain on a weak signal — precisely where walk-and-talk
+happens — strands a real capture **after the coach has been told "saved on this phone"**.
+That is the silent failure the spec's own header warns about, in production, on the exact
+audience v1 §4.3 and RULES S5 wrote the offline requirement for.
+
+The instinct on a test that "passes alone and fails in the suite" is to blame shared
+emulator state and quarantine it. That instinct was wrong here, and the cost of being
+wrong was a data-loss bug shipping to launch.
+
+### The fix
+
+A timing race cannot be fixed by adding a fifth edge. While anything is queued, the drain
+keeps coming back:
+
+- offline with a non-empty queue now **schedules a retry** instead of returning;
+- a partial drain (`synced > 0 && remaining > 0` — `syncQueue` stops at the first item the
+  server will not take) schedules another pass;
+- backoff 2s → 4s → 8s → 15s → 30s, holding at 30s. The tail is the part that matters on a
+  phone: a coach offline for an hour drains within half a minute of the signal returning;
+- **one timer at a time**, because all four triggers can fire within milliseconds of a
+  signal returning and four timers would be a burst rather than a backoff;
+- the timer is cleared on unmount, and a returning `online` event resets the backoff since
+  the reason the last attempt failed is gone;
+- the queue is read BEFORE the network is checked, so an empty queue — every mount, on
+  every screen — costs nothing and schedules nothing.
+
+### Verification
+
+Three consecutive full suites at **49/49**, against three consecutive failures immediately
+before. `tests/offline-sync.test.ts` pins the shape, and its MANDATORY check was confirmed
+to FAIL when the original one-line `return` was reinstated — a source test that passes
+against the bug it describes is decorative, so it was run both ways rather than assumed.
