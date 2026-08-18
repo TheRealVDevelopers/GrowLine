@@ -82,7 +82,7 @@ feature backlog.
 
 ### What is next in the build queue
 
-Three things finished on 2026-08-14:
+Five things finished on 2026-08-14:
 
 - **Feature A (Goal Sheet)** — sheet UI, upline gate, accept / renegotiate,
   blockers-become-actions, month-end review, first-prospect nudge. Only the dream photo
@@ -92,17 +92,19 @@ Three things finished on 2026-08-14:
 - **The tier system (v2 §8), gates OPEN** — see blocker 4. Razorpay is the remaining
   half. `TIERS_ENFORCED` in `src/modules/tiers/model.ts` is the flip; do not flip it
   without reading D70.
+- **Feature B — Recognition Wall** — earned-only cards, one 👏, 14-day expiry, workspace
+  scoped, per-user opt-out. Deliberately built WITHOUT the F13/F14 card types that would
+  have inherited ⚠️ A, so it carries no unresolved authorisation (D71).
+- **Native-speaker translation review** — three fixes applied, three rejected by a second
+  reader, ten left unverified for a human to settle (D72).
 
 In order:
 
-1. **Feature B — Recognition Wall.** Depends on workspaces (done). Inherits ⚠️ A in
-   `STATUS.md`: its card types read from F13 leaderboards and F14 qualifications, whose
-   authorisation is still an open owner decision.
-2. **v2.6 Phase 9b — Razorpay.** Mandate at paid conversion, charge webhooks, the
+1. **v2.6 Phase 9b — Razorpay.** Mandate at paid conversion, charge webhooks, the
    two-tap cancel flow (Trust Zone, G1), promo codes for club launches. Needs keys. When
    it lands, the flip is a set of three (D70). Nothing else in Phase 9 remains.
-3. **v2.5 Phase 8 Pro portfolio** — needs Storage + a thumbnail function.
-4. **v2.7 Phase 10 — polish, Capacitor Android, Play Store.** Needs FCM; Web Push cannot
+2. **v2.5 Phase 8 Pro portfolio** — needs Storage + a thumbnail function.
+3. **v2.7 Phase 10 — polish, Capacitor Android, Play Store.** Needs FCM; Web Push cannot
    reach a native app (⚠️ B).
 
 ### One lesson from 2026-08-14 worth not relearning

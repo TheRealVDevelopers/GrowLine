@@ -19,9 +19,11 @@ was missing, stubbed, unreachable, or behind a flag nobody sets, it is **not** D
 "DONE" claim was then handed to a separate pass whose only job was to refute it; three were
 overturned and are recorded as PARTIAL below.
 
-**Counts: 27 areas → 10 DONE · 15 PARTIAL · 2 NOT STARTED · 5 of the PARTIALs also CONFLICTING.**
-(2026-08-14: Feature A, Portfolio Basic and the tier system moved NOT STARTED → DONE/PARTIAL. Bugs #2, #3, #6, #7 fixed; #16, #18, #19, #20 found and
-fixed; **#17 found and NOT fixed — it is the launch blocker, see below.**)
+**Counts: 27 areas → 11 DONE · 15 PARTIAL · 1 NOT STARTED · 5 of the PARTIALs also CONFLICTING.**
+(2026-08-14: Feature A, Portfolio Basic, the tier system and Feature B moved NOT STARTED →
+DONE/PARTIAL. Bugs #2, #3, #6, #7 fixed; #16, #18, #19, #20 found and fixed; **#17 found
+and NOT fixed — it is the launch blocker**; #21 escalated — the offline-capture spec now
+fails in every full run, see the e2e note.)
 
 ---
 
@@ -73,6 +75,19 @@ fast-forward. Merging `master` forward settled ⚠️ A in practice (the Phase-2
       (`npm run verify:workspaces`). Server-side owner enforcement confirmed by hand — a
       member's PATCH gets 404, not just a hidden form.
 
+- [x] **Feature B — Recognition Wall** — a feed of what coaches in the same workspace have
+      DONE, where every card is minted by an event the app already records and none is ever
+      typed. Six card types (first person, first member, streak, target reached, first
+      downline, qualified), one 👏 whose one-per-person rule is the EXISTENCE of a document
+      keyed by the clapper (not a counter somebody keeps honest), no comment box at all
+      (RULES S3), 14-day expiry derived at read time with nothing deleted and no job, own
+      workspace only re-checked when clapping, and a per-user opt-out enforced at BOTH
+      write and read. Only {30, 100, 365} streaks reach the wall against the log's eight —
+      a test pins the wall's set as a strict SUBSET, because a card for a day the log does
+      not celebrate would show somebody's group a number they had never seen themselves.
+      Reachable from More. Verified: **18 unit tests + 11 rules checks**
+      (`npm run test:rules:wall`), the latter including a PERMITTED read as a control so
+      the suite cannot pass against a deny-all.
 - [x] **Portfolio Basic (F9)** — the last unbuilt piece of the v1 MVP. Root-level
       `growline.in/<slug>`: photo, name, city, headline, story, "Message me on WhatsApp"
       and "Join my club", with the free-tier watermark. The slug is claimed
@@ -215,10 +230,7 @@ check; three copies means three chances to get it wrong once.
 4. [ ] **Phase 10 — onboarding tour, Capacitor Android, Play Store prep** — depends on: Tiers,
        and on **FCM** (Web Push cannot reach a native app).
 5. ~~[ ] **Feature A — Goal Sheet ("My Why")**~~ → **COMPLETE 2026-08-14**, moved to ✅ DONE.
-6. [ ] **Feature B — Recognition Wall** — depends on: workspaces (done) for its scope, and on
-       `src/app/(app)/page.tsx` to sit below Today's Mission. Its card types read from F13
-       leaderboards and F14 qualifications, so it also inherits ⚠️ A. Any card-generating
-       Cloud Function must be exported in `functions/src/index.ts` or it is dead code.
+6. ~~[ ] **Feature B — Recognition Wall**~~ → **BUILT 2026-08-14 (D71)**, moved to ✅ DONE.
 
 ---
 
@@ -396,7 +408,15 @@ check; three copies means three chances to get it wrong once.
 and on the very next full run (43/43). Shared emulator state and ordering, same family as
 D44. Watch it; do not "fix" it by weakening the assertion.
 
-**Previously-failing test, now passing:** `e2e/offline-capture.spec.ts` failed once on
+**⚠️ CHANGED 2026-08-14 — `e2e/offline-capture.spec.ts` now fails in EVERY full run.**
+Three consecutive full suites today ended 48/49 on it (`Offline Person <ts>` never
+appears), and it passes on its own every single time. That is no longer "flaky, watch it":
+it reproduces reliably in the full-suite ordering, which means it is a real interaction
+with the state earlier specs leave behind — the same family as D44, but now deterministic
+enough to actually debug. **Do not weaken the assertion.** The queued-capture sync is a
+v1 §4.3 guarantee and this is the only test that covers it.
+
+**Historical note:** `e2e/offline-capture.spec.ts` failed once on
 `claude/mobile-pc-workflow-test-alhnwl` right after the font commit (queued capture never
 synced). It passes on `feature/new-modules` — **43 of 43 e2e green**. Did not reproduce;
 cause never confirmed. Worth watching rather than closing.
@@ -422,12 +442,24 @@ cause never confirmed. Worth watching rather than closing.
 **Compliance**
 - Owner must supply: **legal entity name, grievance-officer contact, postal address** — the
   privacy notice cannot be written without them.
-- **Native-speaker review** of the four UI translations before any of that text ships.
-- `purgeStaleHealthData`: fix to key off true last activity, or accept age-based purge as an
-  intentional simplification? Either way it needs a `DECISIONS.md` entry.
+- ~~**Native-speaker review** of the four UI translations~~ — **DONE 2026-08-14 (D72).**
+  No rule violations; all four rated genuinely spoken register. Three changes applied
+  (Hindi क्यूआर→QR, Telugu ముందుకు పంపండి→ఫార్వర్డ్ చేయండి, Kannada ಸ್ವಾಸ್ಥ್ಯ→ಆರೋಗ್ಯ); three
+  rejected by a second reader. **Ten proposals remain UNVERIFIED and unapplied** — the
+  review ran out of budget mid-pass. All are register polish, none is a defect, and a
+  human native speaker should settle them:
+  - Kannada: `common.cancel` ರದ್ದು → ರದ್ದುಮಾಡಿ · `log.title` ಇಂದಿನ → ಇವತ್ತಿನ ·
+    `common.offline` ಸಂಪರ್ಕ ಇಲ್ಲ → ಇಂಟರ್ನೆಟ್ ಇಲ್ಲ · `prospects.myQr` ಕ್ಯೂಆರ್ → QR
+  - Tamil: `prospects.myQr` குறியீடு → கோட் · `threads.acknowledged` பார்த்தாயிற்று →
+    பார்த்துவிட்டேன் · `log.streakDays` {days} நாள் தொடர்ச்சி → தொடர்ந்து {days} நாள் ·
+    `settings.language.reportNote` clause reorder · `prospects.search` எண் → நம்பர்
+  - Hindi: the `settings.language.reportNote` tail, if the more spoken tone is wanted
+    (the second reader offered a counter-proposal — see D72).
+- ~~`purgeStaleHealthData`: fix to key off true last activity, or accept age-based purge?~~
+  **DECIDED 2026-08-14 (D69):** fixed to measure real inactivity. No longer open.
 
 **Process**
-- Wire the four unwired rules suites into CI?
+- ~~Wire the four unwired rules suites into CI?~~ **DONE 2026-08-14** — all eight run and block.
 - A 6th nav tab for voice-log / who-to-call, or a link from Home?
 - Commit or reject the pending `eslint.config.mjs` fix; remove the stray worktree?
 
