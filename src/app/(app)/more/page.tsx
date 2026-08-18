@@ -37,6 +37,11 @@ const LINKS = [
     body: CALL_LIST_BLURB,
   },
   {
+    href: "/wall",
+    title: "The Wall",
+    body: "What your group has done in the last two weeks — first person, first member, streaks, targets reached. Nobody writes these; they are earned.",
+  },
+  {
     href: "/plans",
     title: "Plans",
     body: "What Growline costs and what each plan includes. Nothing is locked during launch.",

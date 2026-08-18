@@ -2066,6 +2066,73 @@ that cannot afford it.
 refusal comes out of `/api/tiers`. The unit test that pins the constant is deliberately
 named so that whoever flips it is sent here.
 
+## D71
+
+**The Recognition Wall is earned-only, workspace-scoped, one-reaction and self-expiring —
+and every one of those four is a guard against it becoming a social feed.**
+
+Feature B. RULES S7 parks "social feed with video posts" until 200 paying users, and the
+distance between a recognition wall and that feed is exactly four decisions:
+
+1. **Nothing is manually posted.** Every card is minted by an event the app already
+   records — first prospect, first member, a streak the log itself celebrates, a target
+   crossed, a first downline, a qualification met. There is no compose box, so there is
+   nothing to moderate, nothing to boast in, and no card asserting something the app
+   cannot vouch for. `CARD_COPY` enumerates every string that can appear; the unit suite
+   sweeps that table for money, ranks and company names, and there is no free-text path
+   onto the wall for a sweep to miss.
+2. **Own workspace only.** Cross-workspace visibility would turn recognition into
+   comparison between organisations. The query filters on the viewer's own
+   `workspaceId`, and `clap` re-checks it rather than trusting the id it was handed.
+3. **One 👏, no comments.** RULES S3 bans group chat, and a comment box under a
+   recognition card is a group chat that arrives one feature request at a time. The
+   one-per-person rule is STRUCTURAL: the clap is a document keyed by the clapper's uid
+   in a `claps` subcollection, so "twice" is not expressible. The count on the parent is
+   bumped by `increment` in the same transaction, so the two cannot drift.
+4. **14-day expiry, derived at read time.** A wall that never clears is a leaderboard
+   with extra steps, and old cards bury new ones. Nothing is deleted and no job runs —
+   the query is a range on `earnedAt` and `isLive` re-checks the boundary.
+
+### Opt-out is enforced twice, and that is not redundancy
+
+`mint` refuses to create a card for an opted-out coach, AND `getWall` drops cards from
+anyone who has since opted out. Write-side alone would leave every card earned before the
+switch was flipped sitting on the wall; read-side alone would keep minting cards nobody
+sees, which is a slow leak of documents and a nasty surprise if the coach ever opts back
+in. A coach who opts out also sees nothing: opting out is leaving the room, not becoming
+invisible inside it.
+
+### Which streaks reach the wall, and why it is a subset
+
+`WALL_STREAK_DAYS` is {30, 100, 365} while the log privately celebrates
+{3, 7, 14, 30, 60, 100, 200, 365}. Three- and seven-day streaks fire constantly across a
+workspace and would drown every other card. A unit test asserts the wall's set is a strict
+SUBSET of the log's — a card for a day the log does not celebrate would put a number in
+front of somebody's whole group that they had never seen themselves.
+
+### Sharing is the earner's own card only
+
+The share button renders only when `card.earnerId === viewer.id`, and every `shareText`
+line is first person. The Weekly Recap established the brag loop (v2 §4.6) as the user's
+own pride becoming the product's marketing; sharing a colleague's achievement to your own
+WhatsApp Status is a different and much stranger act.
+
+### No Security Rules block, and a suite that pins that
+
+`recognitions` and `wallPrefs` have no `match` block — every read goes through the admin
+SDK in a server component, so Firestore's default deny is both the safest rule and the
+correct one. But "we meant to leave it out" and "we forgot" look identical in a rules
+file, so `e2e/wall-rules.test.ts` asserts the denials explicitly. It includes a PERMITTED
+read (workspaceMembers) as a control, because a suite of nothing but denials passes just
+as well against a rules file that denies everything the app needs.
+
+### The index moved with the feature
+
+`(workspaceId ASC, earnedAt DESC)` is declared in `firestore.indexes.json` and probed by
+`verify:indexes`. The emulator invents missing indexes, so a wall shipped without it would
+have worked in every test here and thrown `FAILED_PRECONDITION` on a real coach's first
+visit.
+
 ## D72
 
 **Native-speaker review of the four Indian-language dictionaries: three changes applied,

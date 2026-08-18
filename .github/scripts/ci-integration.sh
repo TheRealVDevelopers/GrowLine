@@ -48,6 +48,7 @@ npm run test:rules:duplication
 npm run test:rules:session4
 npm run test:rules:workspaces
 npm run test:rules:goals
+npm run test:rules:wall
 
 # Re-parenting rewrites documents across four collections at once and its failure mode is
 # silent — the coach looks attached while their downlines' work quietly stops rolling up.

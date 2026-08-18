@@ -221,6 +221,18 @@ const QUERIES: { where: string; what: string; run: () => Promise<unknown> }[] = 
     run: () => prospects().where("coachId", "==", SOME_ID).limit(1).select().get(),
   },
   {
+    where: "recognition wall (Feature B)",
+    what: "recognitions: workspaceId == , earnedAt >= , orderBy earnedAt desc",
+    run: () =>
+      db
+        .collection("recognitions")
+        .where("workspaceId", "==", SOME_ID)
+        .where("earnedAt", ">=", SOME_TS)
+        .orderBy("earnedAt", "desc")
+        .limit(1)
+        .get(),
+  },
+  {
     where: "report erasure",
     what: "reports: prospectId ==",
     run: () => reports().where("prospectId", "==", SOME_ID).limit(1).get(),

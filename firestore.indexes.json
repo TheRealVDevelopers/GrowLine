@@ -90,6 +90,14 @@
       ]
     },
     {
+      "collectionGroup": "recognitions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "workspaceId", "order": "ASCENDING" },
+        { "fieldPath": "earnedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "voiceLogs",
       "queryScope": "COLLECTION",
       "fields": [

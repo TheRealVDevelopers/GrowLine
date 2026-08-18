@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/session";
 import { getLogState, saveLog } from "@/lib/daily-log-queries";
+import { getUserById } from "@/lib/users";
+import { onEvent } from "@/modules/wall/queries";
 import {
   LOG_FIELDS,
   MAX_COUNT,
@@ -63,6 +65,13 @@ export async function PUT(req: Request) {
   const result = await saveLog(uid, key, values);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
+  }
+
+  // Recognition Wall (Feature B): a wall-worthy streak posts a card. Same guard as the
+  // private milestone below — first save of TODAY only, so a backfill or a corrected
+  // number never replays it. Not awaited: a wall post must never slow a log save.
+  if (key === todayKey() && result.wasFirstSaveOfDay) {
+    void getUserById(uid).then((u) => u && onEvent.streakReached(u, result.streak));
   }
 
   return NextResponse.json({
