@@ -31,13 +31,20 @@ and NOT fixed — it is the launch blocker**; #21 found and fixed — the offlin
 
 | Branch | State |
 |---|---|
-| `feature/new-modules` | **The working branch.** Everything below is built here. |
-| `master` | Fast-forwarded to `78f2a99` on 2026-08-13, then `feature/new-modules` moved ahead again with workspaces and the Goal Sheet foundation. |
+| `master` | **Fast-forwarded to `35fe28c` on 2026-08-14 — identical to `feature/new-modules`.** Everything below is on it. |
+| `feature/new-modules` | Same commit as `master`. Still the working branch; new work continues here and merges forward. |
 | `claude/mobile-pc-workflow-test-alhnwl` | Fully contained in both. Nothing lives only there. |
 
 **No merge conflict has ever existed between these** — every merge so far has been a clean
-fast-forward. Merging `master` forward settled ⚠️ A in practice (the Phase-2 work is on
-`master` now); it still wants a line in `DECISIONS.md` so the next session does not re-open it.
+fast-forward, this one included (27 commits ahead, 0 behind).
+
+⚠️ A was already moot before this merge and stays that way: the Phase-2 modules (F13,
+F14, F20, the quick-wins) reached `master` in the 2026-08-13 fast-forward, so this merge
+added no contested work. What it added is workspaces, the Goal Sheet, Portfolio Basic,
+the tier system, the Recognition Wall, the retention fix, the offline-queue fix and the
+CI hardening. **The open question is unchanged and is still the owner's:** do the Phase-2
+features stay, or come out before launch? Being on `master` is not the same as being
+authorised.
 
 ---
 
