@@ -70,10 +70,19 @@ jobs:
 
       # The Firestore emulator is a Java process. ubuntu-latest ships a JDK, but
       # pinning it means an image change cannot break the build silently.
+      #
+      # 21, not 17. firebase-tools 15 refuses to start the emulators on anything older:
+      #
+      #   Error: firebase-tools no longer supports Java version before 21.
+      #
+      # Nobody had seen that message because the job had never reached this step — it
+      # died at typecheck long before booting an emulator. The pin was written when 17
+      # was current and the tooling moved underneath it, which is the failure mode a pin
+      # trades for: it cannot break silently, but it does go stale silently.
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
       - run: npm ci
 
