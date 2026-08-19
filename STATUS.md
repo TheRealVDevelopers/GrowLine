@@ -469,10 +469,21 @@ before. Pinned by `tests/offline-sync.test.ts`, whose MANDATORY check was confir
 FAIL against the original one-line defect — a source test that passes against the bug it
 describes is decorative, so it was checked both ways.
 
-**STILL OPEN, and it now has a third sighting — 2026-08-19, on CI.**
+**STILL OPEN, third sighting — 2026-08-19, on CI, and now shown to be INTERMITTENT.**
 `e2e/offline-capture.spec.ts` ("a capture made offline survives and syncs when the signal
 returns") failed on the first CI run that ever reached the e2e suite: 61 passed, 1
 skipped, this one failed. The queued capture never appeared within the 20s window.
+
+The next run passed — 63/63, CI fully green — and the two runs differ by **one
+documentation file** (`5e2db0f` → `610a6bd`, STATUS.md only). Identical application code,
+one fail then one pass: intermittent on CI, roughly 1-in-2 so far.
+
+**Intermittent is not the same as harmless, and D73 is why.** That entry describes the
+identical symptom being filed as flaky twice before the trace showed a real
+capture-losing bug. A green re-run is evidence about frequency, not about cause. Note
+also that the workflow uploads Playwright artefacts `if: failure()` only, so a passing
+run leaves no trace behind — the failing run's artefact is the only diagnostic that
+exists.
 
 What is known:
 
@@ -504,8 +515,10 @@ path; if it never fired, the drain missed again on a browser this repo has not b
 testing against. Re-running the job from this session was refused (403), and the
 artifact needs a token to download.
 
-**Not quarantined, not skipped, not weakened.** CI is red on
-`claude/pull-everything-2hzx4h` for this one test.
+**Not quarantined, not skipped, not weakened.** CI is green on
+`claude/pull-everything-2hzx4h` as of `610a6bd` — the first fully green run this
+repository has ever had — but this test is expected to fail again, and it should be
+investigated from the trace rather than watched until somebody stops noticing.
 
 ---
 
