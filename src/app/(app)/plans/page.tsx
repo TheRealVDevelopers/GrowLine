@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import { TIERS_ENFORCED, TIER_INFO, type Tier } from "@/modules/tiers/model";
 import { getTierState } from "@/modules/tiers/queries";
+import { getPaymentState } from "@/modules/payments/queries";
+import { isConfigured } from "@/modules/payments/razorpay";
+import PaymentControls from "@/modules/payments/PaymentControls";
 
 /**
  * Plans (v2 §8) — a TRUST ZONE screen (RULES G1).
