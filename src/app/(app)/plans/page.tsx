@@ -5,6 +5,7 @@ import { getTierState } from "@/modules/tiers/queries";
 import { getPaymentState } from "@/modules/payments/queries";
 import { isConfigured } from "@/modules/payments/razorpay";
 import PaymentControls from "@/modules/payments/PaymentControls";
+import RedeemField from "@/modules/promo/RedeemField";
 
 /**
  * Plans (v2 §8) — a TRUST ZONE screen (RULES G1).
@@ -107,6 +108,14 @@ export default async function PlansPage() {
           </section>
         );
       })}
+
+      {/*
+       * The code field sits ABOVE the purchase controls and is shown to everybody,
+       * including before the flip. Unlike "Get Leader", a code is not a thing being
+       * sold — it costs nothing and is only usable by somebody already holding one — so
+       * the reason the purchase controls are gated does not apply to it.
+       */}
+      <RedeemField />
 
       {showPayments ? (
         <PaymentControls

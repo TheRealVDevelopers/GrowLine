@@ -20,7 +20,7 @@ import { db } from "./firebase-admin";
  * party can read is one they can learn to work around. The panel renders it server-side.
  */
 
-export const ADMIN_ACTIONS = ["broadcast"] as const;
+export const ADMIN_ACTIONS = ["broadcast", "mint-promo-code"] as const;
 export type AdminAction = (typeof ADMIN_ACTIONS)[number];
 
 export type AuditEntry = {

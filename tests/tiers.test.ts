@@ -117,10 +117,32 @@ describe("the trial clock — day keys, never Date subtraction (RULES E1)", () =
     assert.equal(effectiveTier(trial, "2026-12-01"), "starter");
   });
 
-  test("a paid or granted Leader does not expire on a trial key", () => {
+  test("a paid Leader never expires on a date, because it never carries one", () => {
     const paid: TierRecord = { ...trial, source: "paid", trialEndsKey: null };
     assert.equal(effectiveTier(paid, "2030-01-01"), "leader");
+    // No countdown on a subscription: it ends by cancellation, not by a day key.
     assert.equal(trialDaysLeft(paid, "2026-08-14"), 0);
+  });
+
+  test("a promo grant DOES expire on its date, and is counted down", () => {
+    // The trap this pins: effectiveTier used to expire only `source === "trial"`, so a
+    // granted record with an end date was permanent Leader. One code handed out at a
+    // club launch would have been free Leader forever for everyone who typed it.
+    const granted: TierRecord = {
+      tier: "leader",
+      source: "granted",
+      trialEndsKey: "2026-09-14",
+      offerSeenKey: null,
+    };
+    assert.equal(effectiveTier(granted, "2026-09-14"), "leader", "the last day is live");
+    assert.equal(effectiveTier(granted, "2026-09-15"), "starter", "the day after is not");
+    assert.equal(trialDaysLeft(granted, "2026-09-14"), 1);
+    assert.equal(trialDaysLeft(granted, "2026-09-15"), 0);
+  });
+
+  test("a dated source with no date is Starter, not an endless Leader", () => {
+    const halfWritten: TierRecord = { ...trial, trialEndsKey: null };
+    assert.equal(effectiveTier(halfWritten, "2026-08-14"), "starter");
   });
 
   test("no record is Starter, and a garbage tier value is Starter", () => {

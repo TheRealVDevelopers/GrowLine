@@ -108,9 +108,17 @@ export const LEADER_TRIAL_DAYS = 30;
  */
 export type TierRecord = {
   tier: Tier;
-  /** How they got it. "trial" expires; "paid" ends by cancellation (Phase 9b). */
+  /**
+   * How they got it. "trial" is the 30 days earned at the 2nd downline, "granted" is a
+   * promo code (Phase 9b), "paid" is a Razorpay subscription and ends by cancellation.
+   * The admin funnel counts all three apart so a club launch is never read as revenue.
+   */
   source: "trial" | "paid" | "granted";
-  /** Last day (inclusive) the trial is live. Null for non-trial sources. */
+  /**
+   * Last day (inclusive) this tier is live, or null for a tier that does not end on a
+   * date. Trials and promo grants carry one; "paid" is always null, because a
+   * subscription ends by cancellation and its own period end, not by a day key.
+   */
   trialEndsKey: string | null;
   /** The celebration card was shown and acknowledged — never show it twice. */
   offerSeenKey: string | null;
@@ -126,15 +134,35 @@ export type TierRecord = {
  */
 export function effectiveTier(record: TierRecord | null, todayKey: string): Tier {
   if (!record) return "starter";
-  if (record.source === "trial") {
-    if (!record.trialEndsKey || todayKey > record.trialEndsKey) return "starter";
-  }
+  /*
+   * Expiry keys on the DATE, not on the source.
+   *
+   * This used to read `if (record.source === "trial")`, which was correct while only
+   * trials carried a date. Promo grants (Phase 9b) carry one too, and under the old
+   * test a granted record with an end date never expired — a code handed out at one
+   * club launch would have been permanent free Leader for everyone who typed it.
+   *
+   * Keying on the date is also the safer default for whatever source comes next: a new
+   * source that forgets to be listed here expires on its date rather than lasting
+   * forever. "paid" is unaffected because it always stores null (see applySubscription).
+   */
+  if (record.trialEndsKey !== null && todayKey > record.trialEndsKey) return "starter";
+  // A source that is supposed to end on a date but has none is not a Leader. Trials are
+  // the case that matters: a half-written trial record must not grant an endless one.
+  if (record.source === "trial" && record.trialEndsKey === null) return "starter";
   return record.tier;
 }
 
-/** Days of trial remaining, inclusive of today. 0 when lapsed or not on trial. */
+/**
+ * Days of dated Leader remaining, inclusive of today. 0 when lapsed, or when the tier
+ * does not end on a date.
+ *
+ * Counts promo grants as well as trials: a coach given 90 days should be able to see how
+ * many are left, and the alternative — a countdown that works for earned days and reads
+ * zero for given ones — would be the app appearing to have forgotten a present.
+ */
 export function trialDaysLeft(record: TierRecord | null, todayKey: string): number {
-  if (!record || record.source !== "trial" || !record.trialEndsKey) return 0;
+  if (!record || record.source === "paid" || !record.trialEndsKey) return 0;
   if (todayKey > record.trialEndsKey) return 0;
   const [y1, m1, d1] = todayKey.split("-").map(Number);
   const [y2, m2, d2] = record.trialEndsKey.split("-").map(Number);
