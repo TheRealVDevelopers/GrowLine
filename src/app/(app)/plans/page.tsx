@@ -25,13 +25,27 @@ import PaymentControls from "@/modules/payments/PaymentControls";
  * the sub-line. Elite is shown and marked "coming soon": visible so the ladder reads
  * as a ladder, not buyable because selling an empty tier would be the same dark
  * pattern with a price tag.
+ *
+ * ## Why the money controls are gated, and why one case ignores the gate
+ *
+ * `showPayments` is `hasSubscription || (configured && TIERS_ENFORCED)`. Selling "Get
+ * Leader" while every Leader tool is open to everyone would be charging for something
+ * the coach already has — the same dark pattern as a buyable Elite, on the one screen
+ * RULES G1 asks to be calm and honest. So before the flip, nobody is sold anything.
+ *
+ * The `hasSubscription` half is not symmetry, it is the important half: a coach who IS
+ * being charged sees their plan and their cancel button no matter what the flag says.
+ * A cancel path that a config constant can hide is a dark pattern with a worse blast
+ * radius than the one the gate prevents.
  */
 export default async function PlansPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
-  const state = await getTierState(user);
+  const [state, pay] = await Promise.all([getTierState(user), getPaymentState(user.id)]);
   const order: Tier[] = ["starter", "leader", "elite"];
+  const configured = isConfigured();
+  const showPayments = pay.hasSubscription || (configured && TIERS_ENFORCED);
 
   return (
     <div className="flex flex-col gap-4">
@@ -94,11 +108,24 @@ export default async function PlansPage() {
         );
       })}
 
-      <p className="text-sm text-text-dim">
-        No payment method is connected to Growline today. When payments begin they run
-        on UPI autopay, you see every charge before it happens, and cancelling takes
-        two taps — your data stays yours on any plan.
-      </p>
+      {showPayments ? (
+        <PaymentControls
+          initial={{
+            paidLeader: pay.paidLeader,
+            cancelled: pay.cancelled,
+            accessEndsKey: pay.accessEndsKey,
+            inGrace: pay.inGrace,
+            plan: pay.plan,
+          }}
+          configured={configured}
+        />
+      ) : (
+        <p className="text-sm text-text-dim">
+          No payment method is connected to Growline today. When payments begin they run
+          on UPI autopay, you see every charge before it happens, and cancelling takes
+          two taps — your data stays yours on any plan.
+        </p>
+      )}
     </div>
   );
 }
