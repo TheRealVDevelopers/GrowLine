@@ -43,6 +43,15 @@ jobs:
       # Legacy SQLite, still the migration script's source until the cutover completes.
       DATABASE_URL: file:./dev.db
       SESSION_SECRET: ci-not-a-secret
+      # The webhook secret ONLY. e2e/payments.spec.ts signs a body with it and asserts
+      # the route verifies it — a throwaway string proves the HMAC path exactly as well
+      # as a real key would, and this repo must never hold a real one (RULES L7).
+      #
+      # The other four RAZORPAY_* vars stay unset on purpose, so `isConfigured()` is
+      # false. That is the state this server is in before launch, and it is what makes
+      # the "subscribing says payments are off" test test something: with all five set,
+      # CI would try to reach api.razorpay.com and the 503 assertion would vanish.
+      RAZORPAY_WEBHOOK_SECRET: ci-not-a-razorpay-secret
       # FIREBASE_SERVICE_ACCOUNT is deliberately UNSET. Both emulator hosts are set, so
       # the boot guard (D45) requires the credential to be absent — setting it here
       # would make the app refuse to start, which is the guard working correctly.
