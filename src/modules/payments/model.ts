@@ -160,3 +160,21 @@ export const PAY_COPY = {
   readOnlyExplainer:
     "Leader tools are paused because the last charge did not go through. Everything else works, and nothing has been deleted. Update your payment to switch them back on.",
 } as const;
+
+/**
+ * What a coach who has cancelled reads. Takes the end date because the sentence is
+ * useless without it — "you keep Leader for a while" is the vagueness a Trust Zone
+ * screen exists to avoid.
+ *
+ * A function rather than a constant, and here rather than in either screen, because
+ * /plans and Settings both say this. Two copies of a money sentence drift, and the
+ * version that drifts is the one somebody reads on the day they are charged.
+ *
+ * `accessEndsKey` is an IST day key from `getPaymentState`, or null when Razorpay has
+ * not told us the period end yet. Never computed here — RULES E1 keeps day boundaries
+ * in day.ts, and this file must stay pure enough for a "use client" import (E2).
+ */
+export function cancelledExplainer(accessEndsKey: string | null): string {
+  const until = accessEndsKey ?? "the end of this period";
+  return `Cancelled. Leader stays on until ${until}, then you move to Starter. Nothing is deleted.`;
+}

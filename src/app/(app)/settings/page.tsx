@@ -4,6 +4,8 @@ import { getSessionUser } from "@/lib/session";
 import { formatPhoneForDisplay } from "@/lib/phone";
 import { TIER_INFO } from "@/modules/tiers/model";
 import { getTierState } from "@/modules/tiers/queries";
+import { PAY_COPY, PLANS, cancelledExplainer } from "@/modules/payments/model";
+import { getPaymentState } from "@/modules/payments/queries";
 import ProfileSection from "./ProfileSection";
 import ReminderToggle from "./ReminderToggle";
 import PrivacyToggle from "./PrivacyToggle";
@@ -16,9 +18,10 @@ export default async function SettingsPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
-  const [{ locale, t }, tierState] = await Promise.all([
+  const [{ locale, t }, tierState, pay] = await Promise.all([
     getTranslate(),
     getTierState(user),
+    getPaymentState(user.id),
   ]);
 
   return (
@@ -52,12 +55,36 @@ export default async function SettingsPage() {
        */}
       <section className="rounded-2xl bg-surface p-5">
         <h2 className="font-semibold">My plan</h2>
-        <p className="mt-2 text-3xl font-bold">{TIER_INFO[tierState.tier].name}</p>
+        <p className="mt-2 text-3xl font-bold">
+          {TIER_INFO[tierState.tier].name}
+          {pay.hasSubscription && pay.plan ? (
+            <span className="text-base font-medium text-text-dim">
+              {" "}
+              · {PLANS[pay.plan].label}
+            </span>
+          ) : null}
+        </p>
         <p className="mt-1 text-sm text-text-dim">
-          {tierState.tier === "starter"
-            ? "Free forever. No payment method is connected, and nothing charges by itself."
-            : "Leader tools are yours."}
-          {tierState.qualified && tierState.tier === "starter"
+          {/*
+           * A coach who is being CHARGED gets the money state, not the tier blurb. The
+           * tier line is written for somebody with no payment method — telling a paying
+           * Leader "nothing charges by itself" while their mandate is live would be the
+           * money surprise §4.7 exists to prevent, and telling a cancelled coach only
+           * "Leader tools are yours" would hide the date they stop being theirs.
+           *
+           * Order matters: cancelled before grace before ordinary. Cancelled is the
+           * state with a deadline in it, and a coach in both should read the deadline.
+           */}
+          {pay.hasSubscription
+            ? pay.cancelled
+              ? cancelledExplainer(pay.accessEndsKey)
+              : pay.inGrace
+                ? PAY_COPY.graceExplainer
+                : PAY_COPY.mandateExplainer
+            : tierState.tier === "starter"
+              ? "Free forever. No payment method is connected, and nothing charges by itself."
+              : "Leader tools are yours."}
+          {!pay.hasSubscription && tierState.qualified && tierState.tier === "starter"
             ? " Your team earned you 30 free days of Leader — they start when payments begin."
             : ""}
         </p>
@@ -65,7 +92,7 @@ export default async function SettingsPage() {
           href="/plans"
           className="mt-3 inline-flex h-12 items-center rounded-xl border border-hairline px-4 font-medium"
         >
-          See all plans
+          {pay.hasSubscription ? "Manage my plan" : "See all plans"}
         </Link>
       </section>
 

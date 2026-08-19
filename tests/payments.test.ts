@@ -10,6 +10,7 @@ import {
   HANDLED_EVENTS,
   PAY_COPY,
   PLANS,
+  cancelledExplainer,
   isPaidLeader,
   isPlanKey,
   rupees,
@@ -175,6 +176,28 @@ describe("Trust Zone copy (RULES G1) and RULES L7", () => {
     assert.match(PAY_COPY.cancelExplainer, /nothing is deleted/i);
     assert.match(PAY_COPY.readOnlyExplainer, /nothing has been deleted/i);
     assert.match(PAY_COPY.mandateExplainer, /never sees or stores/i);
+  });
+
+  test("the cancelled sentence obeys the same rules as the constants", () => {
+    // It is not a member of PAY_COPY (it takes a date), so the sweep above cannot see
+    // it. /plans and Settings both render it, which is exactly why it is swept here:
+    // an un-swept money sentence is the one that drifts.
+    for (const v of [cancelledExplainer("2026-09-14"), cancelledExplainer(null)]) {
+      assert.doesNotMatch(v, /!/);
+      assert.doesNotMatch(v, /🎉|🔥|congrat/i);
+      assert.match(v, /nothing is deleted/i);
+      // v2 §8: the downgrade is to Starter, and the coach is told so, not left to guess.
+      assert.match(v, /starter/i);
+    }
+  });
+
+  test("the cancelled sentence names the date, and stays honest without one", () => {
+    assert.match(cancelledExplainer("2026-09-14"), /until 2026-09-14/);
+    // Razorpay has not sent current_end yet. Vague, but never invented — RULES E1 keeps
+    // day arithmetic in day.ts and this must not guess a date it does not have.
+    const noDate = cancelledExplainer(null);
+    assert.match(noDate, /the end of this period/);
+    assert.doesNotMatch(noDate, /\d{4}-\d{2}-\d{2}/);
   });
 
   test("MANDATORY: no field on the subscription record could hold a credential", () => {

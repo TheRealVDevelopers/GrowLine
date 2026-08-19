@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PAY_COPY, PLANS, rupees, type PlanKey } from "./model";
+import { PAY_COPY, PLANS, cancelledExplainer, rupees, type PlanKey } from "./model";
 
 /**
  * The money controls on /plans (v2 §8, Phase 9b). A TRUST ZONE (RULES G1): flat, calm,
@@ -143,7 +143,7 @@ export default function PaymentControls({
           </p>
           <p className="mt-1 text-sm text-text-dim">
             {state.cancelled
-              ? `Cancelled. Leader stays on until ${state.accessEndsKey ?? "the end of this period"}, then you move to Starter. Nothing is deleted.`
+              ? cancelledExplainer(state.accessEndsKey)
               : state.inGrace
                 ? PAY_COPY.graceExplainer
                 : PAY_COPY.mandateExplainer}
