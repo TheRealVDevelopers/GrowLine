@@ -161,11 +161,23 @@ export async function gateLeaderTool(
   return canUseLeaderTool(effectiveTier(record, todayKey()), tool);
 }
 
-/** Admin funnel numbers: how many coaches sit at each step toward paying. */
+/**
+ * Admin funnel numbers: how many coaches sit at each step toward paying.
+ *
+ * The three Leader counts are split by SOURCE and not lumped, because the question the
+ * funnel screen answers is "how many people pay us". This used to count everything that
+ * was not a trial as paying, which is right only for as long as `granted` is unused —
+ * and `granted` is the promo-code source (v2 §8), whose entire purpose is a Leader who
+ * is deliberately NOT paying. Folding the two together would overstate revenue on the
+ * one screen an owner would use to decide whether this business works.
+ */
 export async function tierFunnel(): Promise<{
   qualified: number;
   onTrial: number;
-  leaders: number;
+  /** Leaders whose tier came from a Razorpay subscription. Revenue. */
+  paid: number;
+  /** Leaders on a promo code — a longer free run, not a sale. */
+  granted: number;
 }> {
   const today = todayKey();
   const [qualifiedSnap, tierSnap] = await Promise.all([
@@ -177,12 +189,14 @@ export async function tierFunnel(): Promise<{
     tiers().get(),
   ]);
   let onTrial = 0;
-  let leaders = 0;
+  let paid = 0;
+  let granted = 0;
   for (const doc of tierSnap.docs) {
     const record = toRecord(doc);
     if (effectiveTier(record, today) !== "leader") continue;
     if (record?.source === "trial") onTrial++;
-    else leaders++;
+    else if (record?.source === "granted") granted++;
+    else paid++;
   }
-  return { qualified: qualifiedSnap.data().count, onTrial, leaders };
+  return { qualified: qualifiedSnap.data().count, onTrial, paid, granted };
 }
