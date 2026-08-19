@@ -2407,8 +2407,9 @@ and not one document is deleted anywhere.
 
 ### What is NOT built
 
-Promo codes (v2 §8's club-launch codes). Designed in the handoff, not written. When they
-are, `granted` is their source and the funnel already keeps them out of revenue.
+Promo codes (v2 §8's club-launch codes) were still unwritten when this entry was first
+made. They shipped the same day — see **D76**, which is also where the trap that design
+walked into is recorded.
 
 ### RULES L7, as a type
 
@@ -2422,3 +2423,148 @@ server receives three ids and a signature and re-verifies even those against Raz
 `TIERS_ENFORCED = true`, the launch-open banner off `/plans`, the `start-trial` 409 out of
 `src/app/api/tiers/route.ts`. Keys first. The unit test that pins the constant will fail
 and name D70; that is it working.
+
+---
+
+## D76
+
+**A promo code grants DAYS, never money — and `effectiveTier` had to start expiring on
+the date rather than on the source before that was safe to ship.**
+
+v2 §8's club-launch codes, the last unbuilt item in the Phase 9b queue (D75).
+
+Files: `src/modules/promo/{model,queries,RedeemField}.ts(x)`, `src/app/api/promo/route.ts`,
+`src/app/api/admin/promo-codes/route.ts`, `src/app/admin/promo-codes/`,
+`src/modules/tiers/model.ts`, `tests/promo.test.ts`, `e2e/promo.spec.ts`.
+
+### The boundary: days, not price
+
+A code adds free Leader days and never touches Razorpay. It does not discount, does not
+set a price, does not create a subscription. The paid conversion afterwards is the
+ordinary path through `/api/payments/subscribe`, on the ordinary mandate, at the ordinary
+price.
+
+`lockedPlan` exists on the code document because §8 mentions founding pricing, but it is
+carried as INFORMATION ONLY — nothing reads it to decide an amount. When founding prices
+exist they will be Razorpay plan ids created in the dashboard like any other plan.
+
+The reason for the boundary: a code that could alter what somebody is charged would put
+pricing logic into a string handed out at a club launch, and the failure mode is a room
+full of people holding a price the system does not honour. Days are safe to give away by
+hand; money is not.
+
+### The trap, which the design sketch walked into
+
+The plan was "extend the trial by `leaderDays`, `source: "granted"`". But `effectiveTier`
+read:
+
+    if (record.source === "trial") {
+      if (!record.trialEndsKey || todayKey > record.trialEndsKey) return "starter";
+    }
+
+A `granted` record carrying an end date would therefore **never expire**. One code handed
+out at one club launch would have been permanent free Leader for everybody who typed it —
+silently, with no error anywhere, discovered whenever somebody wondered why revenue never
+started. Nothing writes `granted` today, which is exactly why it had never been wrong and
+why this was the cheap moment to find it.
+
+Expiry now keys on the DATE:
+
+    if (record.trialEndsKey !== null && todayKey > record.trialEndsKey) return "starter";
+    if (record.source === "trial" && record.trialEndsKey === null) return "starter";
+
+That is also the safer default for whatever source comes next: a new source that forgets
+to be listed here expires on its date instead of lasting forever. `paid` is unaffected
+because `applySubscription` always writes `trialEndsKey: null` — a subscription ends by
+cancellation and its own period end, never by a day key.
+
+`trialDaysLeft` now counts grants as well as trials. A countdown that works for earned
+days and reads zero for given ones would look like the app had forgotten a present.
+
+An existing test named *"a paid or granted Leader does not expire on a trial key"* only
+ever exercised the paid half, so nothing failed. It is now two tests that assert what is
+actually true, plus a third pinning that a dated source with no date is Starter rather
+than an endless Leader.
+
+### Days are added, never substituted
+
+`extendedEndKey` extends from the coach's existing end date when it is still live, and
+starts today when there is none or it has lapsed. A coach nineteen days into a
+qualification trial who redeems a 90-day code gets 90 on top of the nineteen.
+
+Replacing instead of extending would have quietly taken those nineteen days away from
+somebody being given a present, and would have looked like a shorter number on a screen
+nobody was checking. The unit test asserts extension beats replacement explicitly, rather
+than only asserting the resulting date, so the property survives a refactor of the
+arithmetic. All of it through `day.ts` (RULES E1), including a month end and a leap
+February.
+
+### Structural guards, not checks
+
+- `promoCodes/{CODE}` — the code IS the document id, so minting the same name twice is a
+  failed `create()` rather than two sets of terms living under one string that two rooms
+  of people are holding.
+- `promoRedemptions/{CODE}__{uid}` — existence IS "already redeemed". Created with
+  `txn.create()` INSIDE the transaction that increments `uses` and writes the tier, so
+  all three move together or not at all. Two taps on a weak signal — which is how this
+  feature is actually used, standing in a room at a launch — cannot grant the days twice
+  or burn a use without granting anything. Same shape as claps, referral codes, and
+  `webhookEvents` (D75).
+
+A coach already on a *paid* Leader plan is refused rather than silently given days that
+do nothing: their tier record is `source: "paid"`, and overwriting it with a grant would
+lose the subscription's own state.
+
+### An unknown code and an expired code answer identically
+
+Both say "That code is not valid." A code is a bearer credential and distinguishing the
+two lets somebody probe which codes exist. A *fully used* code is distinguished, because
+there the coach holds a real code and the honest answer is that they were too late.
+
+### Trust Zone (RULES G1)
+
+The field lives on `/plans`, collapsed behind "Have a code?", flat and calm, with no
+celebration **even though the outcome is good news**. G1 carves out no exception for
+pleasant money events: this sits one scroll above the buttons that charge people, and
+teaching a coach that this screen celebrates is the association the Trust Zone exists to
+prevent.
+
+The success line says what happened and what did not — Leader until a date, nothing
+charged, no payment method connected. A grant that left somebody wondering whether they
+had just started paying would be the money surprise of v1 §4.7 arriving through the door
+marked free.
+
+It is shown to everyone, including before the flip, unlike the purchase controls: a code
+is not a thing being sold, costs nothing, and is only usable by somebody already holding
+one, so the reason those are gated does not apply.
+
+### The admin tab that deliberately did not exist
+
+`src/app/admin/layout.tsx` carried a comment explaining why there was no Promo codes tab:
+codes were meaningless before tiers and payments, and a screen minting codes that did
+nothing would have had somebody hand them out at a club launch and find out in front of a
+room. Tiers ship (D70) and payments ship (D75), so the tab exists and the comment is
+rewritten rather than deleted — the reasoning is why the tab is safe now.
+
+Minting is bounded at 365 days and audited (`mint-promo-code`, a new `ADMIN_ACTIONS`
+member). The bounds guard a specific human error: an admin at 11pm before a launch typing
+an extra zero into a field that gives away free Leader.
+
+### Testing
+
+Unit tests cover normalisation, shape, mint bounds, redeemability, and the extension
+arithmetic. The e2e drives the parts a unit test cannot reach — the transaction — against
+real Firestore: a second redemption is refused and the use count does **not** move,
+an expired and an unknown code return byte-identical errors, a capped code stays capped.
+
+The spec puts the emulator back as it found it. `threads.spec.ts` and
+`qualifications.spec.ts` both log in as the same coach afterwards and every suite shares
+one Firestore instance, so leaving him a Leader would be one spec changing the world
+other specs assert about — the coupling that shows up later as a test which only fails in
+the full run. Deleting the tier document restores his state exactly, because `tiers`
+holds only the coaches who moved: absent IS Starter.
+
+Fixture setup speaks to the emulator as `Bearer owner`, because `promoCodes` has no rules
+block and the default deny applies to the REST client surface. That deny is deliberate: a
+client-readable `promoCodes` would let anyone enumerate live codes, and a writable one
+would let a coach mint themselves a free year.

@@ -251,9 +251,16 @@ check; three copies means three chances to get it wrong once.
        `e2e/payments.spec.ts` visits every payments route in a signed-out browser (D68's
        lesson — Razorpay has no session). 617 unit tests, 8 e2e.
 
-       **Still NOT built: promo codes** (v2 §8 club-launch codes). Designed in
-       CLAUDE.md's queue, not written; `granted` is their tier source and the funnel
-       already keeps them out of revenue.
+       **Promo codes: DONE 2026-08-19 (D76).** Admin mints at `/admin/promo-codes`
+       (bounded, audited); a coach redeems on `/plans` behind "Have a code?". A code is
+       free Leader DAYS and never touches Razorpay. Days are added to a live run rather
+       than replacing it; one redemption per coach per code, structurally. 639 unit
+       tests, 6 e2e.
+
+       D76 also records the trap it found: `effectiveTier` expired only
+       `source === "trial"`, so a promo grant carrying an end date would never have
+       expired — one launch code would have been permanent free Leader for everyone who
+       typed it. Expiry now keys on the date.
 
        The flip is a set of three (constant, /plans banner, start-trial refusal), is an
        OWNER decision, and needs the five `RAZORPAY_*` vars in the environment first.
