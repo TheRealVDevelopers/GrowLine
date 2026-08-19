@@ -469,10 +469,43 @@ before. Pinned by `tests/offline-sync.test.ts`, whose MANDATORY check was confir
 FAIL against the original one-line defect — a source test that passes against the bug it
 describes is decorative, so it was checked both ways.
 
-**Historical note:** `e2e/offline-capture.spec.ts` failed once on
-`claude/mobile-pc-workflow-test-alhnwl` right after the font commit (queued capture never
-synced). It passes on `feature/new-modules` — **43 of 43 e2e green**. Did not reproduce;
-cause never confirmed. Worth watching rather than closing.
+**STILL OPEN, and it now has a third sighting — 2026-08-19, on CI.**
+`e2e/offline-capture.spec.ts` ("a capture made offline survives and syncs when the signal
+returns") failed on the first CI run that ever reached the e2e suite: 61 passed, 1
+skipped, this one failed. The queued capture never appeared within the 20s window.
+
+What is known:
+
+- **Not caused by the payments/promo work.** It runs before every spec added that day
+  (alphabetical order puts it ahead of `payments`, `promo`) and touches none of the
+  changed code.
+- **Not reproducible in the cloud container.** Three full suites from a fresh
+  `e2e:reset`, plus five isolated runs, plus two runs with all four cores saturated —
+  green every time, 3.2s to 4.7s.
+- **The container and CI have never run the same browser.** `playwright.config.ts`
+  resolves `/opt/pw-browsers/chromium`, which in this image is a symlink to
+  **chromium-1194**; CI runs `npx playwright install chromium` and gets
+  **chromium-1234**. Every "e2e green" ever recorded from a cloud session was measured
+  on 1194. This spec is the only one in the suite that depends on browser-level network
+  emulation (`context.setOffline`), so it is exactly the test where a build difference
+  would show up first. **Hypothesis, not a finding** — it has not been tested, because
+  the container is configured not to download a browser.
+- **D73 is the reason this must not be filed as flaky again.** The same symptom was
+  recorded as flaky twice and turned out to be a real capture-losing bug: one aborted
+  POST and no retry, stranding a capture after the coach was told "saved on this phone".
+  The fix (drain on a level, backoff 2/4/8/15/30s) is still in
+  `src/components/OfflineSync.tsx` and its unit test still passes.
+
+**Next step, and it needs somebody who can reach the artifact:** the run uploaded a
+Playwright trace (run 32244918774, artifact `playwright-results`, 941KB). D73 was solved
+by reading exactly this — the question is whether a second `POST /api/prospects` ever
+happened after the signal returned. If it did and was rejected, the bug is on the replay
+path; if it never fired, the drain missed again on a browser this repo has not been
+testing against. Re-running the job from this session was refused (403), and the
+artifact needs a token to download.
+
+**Not quarantined, not skipped, not weakened.** CI is red on
+`claude/pull-everything-2hzx4h` for this one test.
 
 ---
 
