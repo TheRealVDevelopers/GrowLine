@@ -68,6 +68,35 @@ jobs:
 
       - run: npm ci
 
+      # --- Code generation, BEFORE the first typecheck
+      #
+      # Three files in this repo are generated, not committed, and `tsc --noEmit` reads
+      # all three. Without these steps the very first check fails in about forty
+      # seconds with errors that describe nothing a contributor wrote:
+      #
+      #   src/app/layout.tsx        TS2304  Cannot find name 'LayoutProps'
+      #   scripts/seed-sqlite.ts    TS2307  Cannot find module '../src/generated/prisma/client'
+      #   scripts/migrate-*.ts      TS7006  Parameter implicitly has an 'any' type
+      #
+      # That is exactly what CI had been doing on every commit — so the job never
+      # reached the build, the seven Security Rules suites, or a single e2e test. The
+      # workflow's own comment says every step blocks the merge and there is no
+      # advisory step here; that was true and useless, because the gate fell over
+      # before it gated anything. Same failure a fresh `git clone && npm ci` hits.
+      #
+      # `next typegen` writes the route/layout types `next build` would otherwise
+      # produce, and typecheck runs before build on purpose (a typo should fail in
+      # seconds, not after a bundle). `prisma generate` needs DATABASE_URL, which is
+      # set at job level above.
+      - run: npx prisma generate
+      - run: npx next typegen
+
+      # The SQLite schema the migration script reads. `e2e:reset` seeds this database
+      # inside ci-integration.sh, and the seed cannot create its own tables — an empty
+      # dev.db fails with P2021 `main.proofs does not exist`. Nothing else applies the
+      # migrations: no postinstall, no committed .db file.
+      - run: npx prisma migrate deploy
+
       # --- Cheap and fast first: these need no services, so a typo fails in seconds
       - run: npm run typecheck
       - run: npm run lint
