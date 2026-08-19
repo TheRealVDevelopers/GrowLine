@@ -24,15 +24,19 @@
 
 ---
 
-## ▶ START HERE — what to do next (updated 2026-08-14, PC, `feature/new-modules`)
+## ▶ START HERE — what to do next (updated 2026-08-14, PC · both branches at `357fe67`)
 
-**Read `STATUS.md` first** — it is the audited state of every feature, and this section is
-only the short version of it. Then `RULES.md`. Then come back here.
+**Read `STATUS.md` first** — it is the audited state of every feature; this section is the
+short version. Then `RULES.md`. Then come back here and pick up at **"The next session"**.
+
+`master` and `feature/new-modules` are the SAME commit. Work on `feature/new-modules`,
+merge forward to `master` when a stretch is green. Every merge so far has been a clean
+fast-forward.
 
 ### How to start a session on any device
 
 ```bash
-git pull                       # other devices push to feature/new-modules too
+git pull                       # both branches move together
 npm ci
 npm run typecheck && npm run lint && npm run test:unit
 ```
@@ -43,105 +47,167 @@ Anything touching the database also needs the emulators, in a second terminal:
 npm run emulators
 ```
 
-then `npm run e2e:reset` once, before the first suite. `npm run e2e` now starts its own
-web server, so it no longer needs `next start` in a third terminal.
+then `npm run e2e:reset` once before the first suite. `npm run e2e` starts its own web
+server. **From a phone/cloud session:** the emulators need Java and a port; if the cloud
+container cannot run them, unit tests, typecheck, lint and any pure-model work still run
+fine, and the e2e/rules suites wait for the PC leg. Say so in the commit rather than
+skipping silently.
 
-### The launch blockers, in the order they block each other
+Current green line: **615 unit · 189 rules checks (8 suites) · 49/49 e2e · 0 lint errors.**
 
-Launch is one week out. These are the things that decide whether it can happen, not the
-feature backlog.
+---
 
-1. **Nobody has ever run this against real Firebase.** Every test passes against the
-   emulator, and the emulator is *more permissive than production in two ways that matter*:
-   it creates missing composite indexes on demand, and it does not enforce billing or
-   quota. `npm run verify:indexes` exists for exactly the first one — point it at the real
-   project with the emulator host variables UNSET. A missing index is a `FAILED_PRECONDITION`
-   the first time a real coach opens the screen, and it is the most likely launch-day
-   outage.
-2. **Firebase project provisioning** — Blaze plan, Phone auth enabled, SMS delivery
-   confirmed for Indian numbers, service account in `.env`. Nothing below can be verified
-   until this exists. See the "Blocking cutover" list in `HANDOFF.md`.
-3. **`CRON_SECRET` is blank in `.env.example`**, so all nine scheduled Cloud Functions fail
-   closed in production. Exporting them (done, all nine verified in `functions/lib/`) was
-   necessary, not sufficient. **This got worse on 2026-08-14 when the owner authorised the
-   Phase-2 features (D74)**: six of those jobs now feed user-facing screens, so without the
-   secret the boards stay empty, the duplication page reads "nothing counted yet" forever,
-   and qualifications never evaluate — a coach who opens one concludes the app is broken.
-   And **`npm run backfill:prospect-activity` must run once on the production database
-   before the first purge**: prospects created before 2026-08-14 have no `lastActivityAt`,
-   and the purge deliberately skips them, so their health data is retained past the window
-   the privacy notice promises until it runs. `--check` exits non-zero while any remain.
-4. **Razorpay does not exist.** The TIER SYSTEM does, as of 2026-08-14 (D70): model,
-   qualification, trial clock, `/plans`, admin funnel, and gates standing OPEN in the
-   three Leader routes behind `TIERS_ENFORCED = false`. Nothing is taken from anyone.
-   What is missing is the money: mandate at paid conversion, webhooks, cancel flow, promo
-   codes. **The flip is an owner decision and a set of three** — the constant, the
-   launch-open banner on `/plans`, the `start-trial` refusal in `/api/tiers` — and it
-   needs keys in the environment first. The unit test that pins the constant is named to
-   send whoever flips it to D70.
-5. **The privacy notice cannot be written** until the owner supplies legal entity name,
-   grievance-officer contact and postal address (RULES P-series, DPDP). Ships with the app
-   or the app does not ship.
+### THE NEXT SESSION — finish Razorpay (Phase 9b), in this order
 
-### What is next in the build queue
+The foundation is on both branches (D75 pending — see step 6). What is left is wiring,
+proof and paperwork. Do it in this order; each step is one commit.
 
-Five things finished on 2026-08-14:
+**1. Mount the payment controls on `/plans`.** ← start here
+   `src/app/(app)/plans/page.tsx` already imports `getPaymentState`, `isConfigured` and
+   `PaymentControls` but does not render them (three lint warnings say so). Add:
+   - `const [state, pay] = await Promise.all([getTierState(user), getPaymentState(user.id)]);`
+   - `const showPayments = pay.hasSubscription || (isConfigured() && TIERS_ENFORCED);`
+   - Replace the closing "No payment method is connected…" paragraph with:
+     `{showPayments ? <PaymentControls initial={{…from pay}} configured={isConfigured()} /> : <p>…that paragraph…</p>}`
+   The gate matters: showing "Get Leader" while every Leader tool is open to everyone is
+   selling something the coach already has — a dark pattern with a price tag, on a Trust
+   Zone screen. A paying Leader sees their controls regardless, so cancel is never hidden
+   from somebody being charged.
 
-- **Feature A (Goal Sheet)** — sheet UI, upline gate, accept / renegotiate,
-  blockers-become-actions, month-end review, first-prospect nudge. Only the dream photo
-  is outstanding, blocked on Firebase Storage being deny-all (D49).
-- **Portfolio Basic (F9)** — `growline.in/<slug>`, the last unbuilt piece of the v1 MVP.
-  Pro (the transformation gallery) still waits on Storage.
-- **The tier system (v2 §8), gates OPEN** — see blocker 4. Razorpay is the remaining
-  half. `TIERS_ENFORCED` in `src/modules/tiers/model.ts` is the flip; do not flip it
-  without reading D70.
-- **Feature B — Recognition Wall** — earned-only cards, one 👏, 14-day expiry, workspace
-  scoped, per-user opt-out. Deliberately built WITHOUT the F13/F14 card types that would
-  have inherited ⚠️ A, so it carries no unresolved authorisation (D71).
-- **Native-speaker translation review** — three fixes applied, three rejected by a second
-  reader, ten left unverified for a human to settle (D72).
+**2. Add `/api/payments/*` to the e2e signed-out sweep.** The webhook MUST be reachable
+   without a session (Razorpay has none) and MUST 400 on a bad signature. Add to
+   `e2e/tiers.spec.ts` or a new `e2e/payments.spec.ts`:
+   - `POST /api/payments/webhook` with no signature → 400
+   - `POST /api/payments/webhook` with a body signed by `RAZORPAY_WEBHOOK_SECRET` from
+     `.env` → 200 (set the secret in `.env` for the test; it is not a real key)
+   - `POST /api/payments/subscribe` signed-in with keys blank → 503 "not switched on"
+   The lesson from D68 applies: any public surface needs a test that visits it with no
+   session, because nothing else in the stack can tell you the proxy is eating it.
 
-In order:
+**3. Settings "My plan" card should read from `getPaymentState`** when
+   `pay.hasSubscription` — show plan, cancelled/grace state, and a link to `/plans`. Today
+   it only reads the tier. Small change in `src/app/(app)/settings/page.tsx`.
 
-1. **v2.6 Phase 9b — Razorpay.** Mandate at paid conversion, charge webhooks, the
-   two-tap cancel flow (Trust Zone, G1), promo codes for club launches. Needs keys. When
-   it lands, the flip is a set of three (D70). Nothing else in Phase 9 remains.
-2. **v2.5 Phase 8 Pro portfolio** — needs Storage + a thumbnail function.
-3. **v2.7 Phase 10 — polish, Capacitor Android, Play Store.** Needs FCM; Web Push cannot
-   reach a native app (⚠️ B).
+**4. Admin funnel: fill the "Paying Leader" row.** `src/app/admin/subscriptions/page.tsx`
+   has the row with a "Razorpay is not connected" note; `tierFunnel()` in
+   `src/modules/tiers/queries.ts` already counts `source === "paid"` records. Once step 1
+   lands the number is real — drop the note when `isConfigured()`.
 
-### One lesson from 2026-08-14 worth not relearning
+**5. Promo codes for club launches (v2 §8).** NOT built. Design before code:
+   - `promoCodes/{code}` — `{ leaderDays: number, lockedPlan?: PlanKey, maxUses, uses,
+     expiresKey }`; admin-created only.
+   - Redeem = extend the Leader trial (`tiers/{uid}.trialEndsKey`) by `leaderDays`,
+     `source: "granted"`. Never touches Razorpay — a promo is a longer free run, and the
+     paid conversion afterwards is the normal path.
+   - One redemption per coach per code, structural (`promoRedemptions/{code}__{uid}` with
+     `create()`), same shape as claps and referral codes.
+   - Admin page to mint codes; a field on `/plans` to enter one. Trust Zone.
+   Unit-test the extension arithmetic through `day.ts` (RULES E1).
 
-The portfolio shipped fully working, fully typed, with 24 passing unit tests — and was
-**completely unreachable**, because `src/proxy.ts` redirected every session-less request
-to `/login` and a coach's page lives at the root. Nothing in the build, the typecheck or
-the unit suite could see it. Only an e2e test that opened the page in a signed-out browser
-found it.
+**6. Write D75 into `DECISIONS.md`.** The design is in the commit message of `357fe67`
+   and the file headers of `src/modules/payments/*` — the entry should carry: why no SDK,
+   the fail-closed direction of `isPaidLeader`, cancel-at-cycle-end, structural
+   idempotency via `webhookEvents/{id}`, raw-body-before-parse, and that payments FEED
+   the tier record rather than being a second answer. Then update `STATUS.md`: Phase 9
+   moves to DONE-pending-keys, and add `RAZORPAY_*` (5 vars) to the launch-blocker list
+   next to `CRON_SECRET`.
 
-**Any public surface needs a test that visits it with no session.** That is the only
-instrument that works.
+**7. The flip — OWNER decision, do not do it unasked.** When keys are in the environment
+   and the owner says go: `TIERS_ENFORCED = true` in `src/modules/tiers/model.ts`, remove
+   the launch-open banner from `/plans`, remove the `start-trial` 409 in
+   `src/app/api/tiers/route.ts`. It is a set of three (D70). The unit test that pins the
+   constant will fail and name D70 — that is it working.
+
+---
+
+### After Razorpay — the remaining build queue, in order
+
+1. **v2.5 Phase 8 Pro portfolio** — transformation gallery, testimonials, achievements,
+   3 themes, QR poster. **Blocked on Firebase Storage** being enabled (deny-all today,
+   D49) plus a thumbnail Cloud Function. Building it on data-URLs would repeat the
+   D3/D49 mistake. Ask the owner to enable Storage first.
+2. **Goal Sheet dream photo** — same Storage dependency; a small add once Storage exists.
+3. **v2.7 Phase 10** — onboarding tour (3 screens, skippable), empty states, low-end
+   device pass, Capacitor Android with **FCM** (Web Push cannot reach a native app —
+   ⚠️ B), Play Store listing. FCM is the prerequisite; it is not built.
+4. **Translation polish** — ten unverified proposals listed in `STATUS.md` under
+   🚫 BLOCKED, for a human native speaker to settle. Do not apply them unverified (D72).
+5. **Housekeeping**, any time: fold `src/modules/DECISIONS-new-modules.md` into
+   `DECISIONS.md` (⚠️ C); collapse the three `timingSafeEqual` copies into
+   `src/modules/shared-new/cron.ts` (⚠️ D); remove the stray worktree at
+   `.claude/worktrees/continue-previous-3413cb`.
+
+---
+
+### The launch blockers — none of these is code, and all of them need the owner
+
+1. **Nobody has ever run this against real Firebase.** The emulator invents missing
+   composite indexes; production throws `FAILED_PRECONDITION` the first time a coach opens
+   the screen. `npm run verify:indexes` with the emulator host vars UNSET, against the
+   real project, before launch. Most likely launch-day outage.
+2. **Firebase project provisioning** — Blaze plan, Phone auth on, SMS to Indian numbers
+   confirmed, service account in `.env`. See "Blocking cutover" in `HANDOFF.md`.
+3. **`CRON_SECRET`** — blank; all nine scheduled functions fail closed. Now user-visible
+   since the Phase-2 features are authorised (D74): empty boards look broken.
+4. **`npm run backfill:prospect-activity`** once on production before the first purge
+   (D69). `--check` exits non-zero while any prospect lacks `lastActivityAt`.
+5. **`RAZORPAY_*` — five vars** (`.env.example` documents them). Two are secrets. Plans
+   are created once in the Razorpay dashboard; the webhook URL is
+   `/api/payments/webhook`, events `subscription.*`.
+6. **Privacy notice** — needs legal entity name, grievance-officer contact, postal
+   address from the owner. Ships with the app or the app does not ship.
 
 ### Decisions only the owner can make
 
-These are in `STATUS.md` under 🚫 BLOCKED and none of them is an engineering call:
+- ~~Do the Phase-2 features ship?~~ **DECIDED: yes (D74).** S7 still parks the rest of §8.
+- Storage on now? (unblocks Pro portfolio + dream photo)
+- FCM now, or with the Capacitor build?
+- Who produces the 8-item Jewel Asset Pack? Not derivable from code.
+- **The tier flip** (step 7 above) — needs keys first.
 
-- ~~Do F13 / F14 / F20 / the quick-wins ship?~~ **DECIDED 2026-08-14: they ship (D74).**
-  RULES S7 still parks the rest of §8 — one exception is not the rule.
-- Storage on now, or does Portfolio wait?
-- FCM now, or deferred to the Capacitor build?
-- Who produces the 8-item Jewel Asset Pack? It is not derivable from code.
+---
+
+### What was finished on 2026-08-14 (so you do not re-derive it)
+
+- **Feature A Goal Sheet** — complete except the dream photo (Storage).
+- **Portfolio Basic (F9)** — `growline.in/<slug>`, wired into every report.
+- **Tier system, gates OPEN** behind `TIERS_ENFORCED = false` (D70).
+- **Feature B Recognition Wall** — earned-only, one 👏, 14-day, workspace-scoped (D71).
+- **Translation review** — 3 applied, 3 rejected, 10 for a human (D72).
+- **Retention purge** now measures real inactivity, not record age (D69).
+- **Offline queue** — the "flaky" e2e was a real capture-losing bug; fixed (D73).
+- **Phase-2 features authorised** and pinned by a test (D74).
+- **Razorpay foundation** — model, client, store, 4 routes, controls, 23 tests. Not yet
+  mounted (step 1 above).
+- CI: all 8 rules suites block; `functions/` typechecked; e2e starts its own server;
+  `e2e:reset` re-seeds.
+
+### Two lessons from 2026-08-14 worth not relearning
+
+**Any public surface needs a test that visits it with no session.** The portfolio shipped
+fully typed with 24 green tests and was completely unreachable — `src/proxy.ts` sent every
+session-less request to `/login`. Only an e2e in a signed-out browser found it (D68).
+
+**"Passes alone, fails in the suite" is not automatically flaky.** The offline-capture spec
+was filed that way twice. The trace showed one aborted POST and no retry — a real bug that
+lost captures on a weak signal, in production, needing no test to happen (D73). Pull the
+trace before calling anything flaky.
 
 ### House rules that bite hardest here
 
-`RULES.md` is the full list; these are the four that have already cost a session each:
+`RULES.md` is the full list; these are the ones that have already cost a session each:
 
 - **E1** — never `new Date()` for a day boundary. IST is UTC+5:30; go through `day.ts`.
 - **E2** — never import `./db` or `@/lib/collections` into anything a `"use client"` file
-  touches.
+  touches. Split pure model from queries (every module here does this).
 - **E5** — one session per v2 §11 item. Name the files. Never refactor completed work
   without asking.
 - **E7** — push after every discrete change, not once at the end. Including before asking
   a question.
+- **G1** — money, cancel, consent and privacy screens are Trust Zones: flat, calm, no
+  celebration, and every money sentence says what happens to the coach's data.
+- **L7** — nothing in this codebase may hold a card, UPI or bank detail. The subscription
+  record type has no field for one, and a test asserts that.
 
 ---
 
