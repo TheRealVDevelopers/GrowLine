@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { computeAllBoards } from "@/modules/leaderboards/compute";
+import { checkCronSecret } from "@/modules/shared-new/cron";
 
 /**
  * Rebuilds every board (F13). Called by a scheduler, never by a browser.
@@ -14,28 +15,10 @@ import { computeAllBoards } from "@/modules/leaderboards/compute";
  * on demand, as often as somebody likes.
  */
 
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
 export async function POST(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    return NextResponse.json(
-      { error: "Boards are not configured on this server." },
-      { status: 503 }
-    );
-  }
-
-  const header =
-    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
-    req.headers.get("x-cron-secret") ??
-    "";
-  if (!timingSafeEqual(header, secret)) {
-    return NextResponse.json({ error: "Not allowed" }, { status: 401 });
+  const guard = checkCronSecret(req, "Boards");
+  if (!guard.ok) {
+    return NextResponse.json({ error: guard.error }, { status: guard.status });
   }
 
   const result = await computeAllBoards();

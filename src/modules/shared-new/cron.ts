@@ -1,10 +1,16 @@
 /**
  * The guard on every scheduler-called route in these modules.
  *
- * Written once here rather than a third time inline: `/api/leaderboards/rebuild` and
- * `/api/notifications/daily` each carry their own copy, and a security check that
- * exists in three places is a security check that will be fixed in two of them.
- * (The existing two are not touched — they belong to work already merged.)
+ * One copy, used by every scheduler-called route. `/api/leaderboards/rebuild` and
+ * `/api/notifications/daily` each carried their own inline duplicate — this file's
+ * original note said a check living in three places is a check that will be fixed in
+ * two of them, and then left the other two alone because they belonged to merged work.
+ * They were folded in on 2026-08-19, so there is now exactly one implementation.
+ *
+ * NOT the same thing as the Razorpay webhook's signature check, which compares an HMAC
+ * with `node:crypto`'s `timingSafeEqual` over buffers. That one verifies a signature
+ * over a body; this one compares a shared secret. Merging them would be a coincidence of
+ * shape, not of purpose.
  *
  * FAILS CLOSED with no secret configured. These endpoints are not a data leak, but
  * each one makes the server read a large slice of the organisation on demand, as

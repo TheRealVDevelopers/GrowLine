@@ -6,6 +6,7 @@ import { dayKey, hourInZone } from "@/lib/day";
 import { MORNING_HOURS, followupNotificationBody } from "@/lib/followup";
 import { followupCounts } from "@/lib/followup-queries";
 import { isPushConfigured, sendToUser } from "@/lib/push";
+import { checkCronSecret } from "@/modules/shared-new/cron";
 
 /**
  * The morning follow-up reminder (F5).
@@ -18,22 +19,11 @@ import { isPushConfigured, sendToUser } from "@/lib/push";
  * recording anything, which is how this is verified without a live push service.
  */
 export async function POST(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    // Fail closed. Without a secret this endpoint would let anyone on the internet
-    // trigger a push to every coach.
-    return NextResponse.json(
-      { error: "Reminders are not configured on this server." },
-      { status: 503 }
-    );
-  }
-
-  const header =
-    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
-    req.headers.get("x-cron-secret") ??
-    "";
-  if (!timingSafeEqual(header, secret)) {
-    return NextResponse.json({ error: "Not allowed" }, { status: 401 });
+  // Fails closed with no secret configured. Without one this endpoint would let anyone
+  // on the internet trigger a push to every coach.
+  const guard = checkCronSecret(req, "Reminders");
+  if (!guard.ok) {
+    return NextResponse.json({ error: guard.error }, { status: guard.status });
   }
 
   const dryRun = new URL(req.url).searchParams.get("dryRun") === "1";
@@ -127,9 +117,3 @@ export async function POST(req: Request) {
 }
 
 /** Constant-time compare so the secret can't be probed a character at a time. */
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}

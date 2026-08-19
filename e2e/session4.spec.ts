@@ -205,13 +205,25 @@ test("a refused microphone lands on a screen that routes to the tap-in log", asy
 test("the scheduled endpoints refuse anybody who cannot prove they are the scheduler", async ({
   page,
 }) => {
-  // 503 with no secret configured, 401 with one and a missing header. Never 200: one
-  // reads the whole organisation, the other deletes recordings.
-  const silence = await page.request.post("/api/silence");
-  expect([401, 503]).toContain(silence.status());
-
-  const purge = await page.request.post("/api/voice-logs/purge");
-  expect([401, 503]).toContain(purge.status());
+  // 503 with no secret configured, 401 with one and a missing header. Never 200: these
+  // read the whole organisation, delete recordings, or push to every coach.
+  //
+  // All six go through `checkCronSecret`. The last two carried their own inline copies
+  // of the guard until 2026-08-19; they are listed here because a shared helper is only
+  // an improvement if the routes that adopted it are still refusing strangers.
+  for (const path of [
+    "/api/silence",
+    "/api/voice-logs/purge",
+    "/api/duplication/rebuild",
+    "/api/qualifications/evaluate",
+    "/api/leaderboards/rebuild",
+    "/api/notifications/daily",
+  ]) {
+    const res = await page.request.post(path);
+    expect([401, 503], `${path} must refuse a caller with no cron secret`).toContain(
+      res.status()
+    );
+  }
 });
 
 test("the voice-note writes refuse a signed-out client", async ({ page }) => {
