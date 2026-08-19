@@ -2294,3 +2294,131 @@ They now ship, so they have to work for a real coach:
 
 That third point is the substance of this decision. Keeping the features converts a
 config gap into a user-visible failure, so `CRON_SECRET` moves up the launch list.
+
+---
+
+## D75
+
+**Razorpay subscriptions: no SDK, one answer to "is this coach paying", and a webhook
+that is safe to call from the open internet.**
+
+Phase 9b (v2 §8). The foundation landed in `357fe67` with its reasoning only in a commit
+message and some file headers; this is that reasoning in the place RULES E6 asks for,
+plus the four things the follow-up session settled.
+
+Files: `src/modules/payments/{model,razorpay,queries,PaymentControls}.ts(x)`,
+`src/app/api/payments/{subscribe,confirm,cancel,webhook}/route.ts`,
+`e2e/payments.spec.ts`, `tests/payments.test.ts`.
+
+### No SDK
+
+Razorpay's subscription surface is three REST calls and one HMAC. A package for a `fetch`
+wrapper would add a dependency whose upgrades this team tracks forever, and give the unit
+suite something to mock instead of something to test. `fetch` and `node:crypto` are
+already here. `src/modules/payments/razorpay.ts` is the whole client.
+
+### `isPaidLeader` fails CLOSED, in every branch
+
+A false negative costs a coach a Leader tool until the next webhook lands, minutes later.
+A false positive gives away a paid tier, silently, for a billing cycle. Those are not
+symmetric, so every branch that is unsure answers false — including any status Razorpay
+invents after this was written. `created`, `authenticated`-but-unknown, and anything
+novel all mean "not paying".
+
+Two branches deliberately answer true where a naive reading says no:
+
+- **Cancelled but paid-up.** Cancelling stops the NEXT charge. A coach keeps Leader
+  through `currentEndAt`, because clawing back a month somebody paid for is a dark
+  pattern in reverse and v2 §8 says never lock a coach out of their business.
+- **In grace.** A failed charge opens five days (v1 F10, `GRACE_DAYS`) before Leader
+  tools pause. The window is stamped on FIRST entry and a repeated `pending` does not
+  extend it — otherwise a retrying gateway grants indefinite free Leader.
+
+### Cancel is at cycle end, and cancel is two taps
+
+`markCancelled` writes locally BEFORE the Razorpay call, so the coach's screen is honest
+the instant they tap even if Razorpay is slow or down; the webhook then agrees. If the
+Razorpay call fails they get an error and can tap again — the local mark is idempotent.
+
+Two taps, and the second says exactly what it does. No "are you sure?" modal, no guilt
+copy, no discount offer to stay: a retention flow ON the cancel button is precisely the
+dark pattern v1 §4.7 forbids.
+
+### Idempotency is structural, not a flag
+
+`webhookEvents/{eventId}` — the document's EXISTENCE is "already processed". Written with
+`create()` FIRST, before any other work, so two concurrent deliveries of the same event
+cannot both pass the check: one `create` fails with ALREADY_EXISTS and that delivery
+returns without touching anything. A boolean field with a read-then-write around it would
+have a race exactly the width of a Razorpay retry burst.
+
+Out-of-order delivery is a separate guard: `shouldApply` refuses to move an ended
+subscription back to active, so a late `activated` cannot resurrect something cancelled.
+
+### Raw body before parse
+
+`req.text()`, then verify, then `JSON.parse`. The signature is over the exact bytes
+Razorpay sent, and `JSON.parse` + `JSON.stringify` does not round-trip byte-for-byte —
+key order, whitespace and number formatting all move. Verifying a re-serialised body
+would fail on every real event and pass on nothing. The comparison is `timingSafeEqual`
+on equal-length buffers.
+
+Once the signature verifies, the route returns 200 whatever happens next — duplicate
+event, unknown subscription, unhandled type. Razorpay retries any non-2xx for days, and
+none of those is fixed by sending it again.
+
+### Payments FEED the tier record; they are not a second answer
+
+`applySubscription` ends by writing `tiers/{userId}`, the document `effectiveTier`
+already reads. There is exactly one place in this codebase that answers "is this coach a
+Leader today", and payments is an input to it rather than a rival source the app has to
+reconcile. Downgrade is that record changing — `{ tier: "starter", source: "paid" }` —
+and not one document is deleted anywhere.
+
+### The four things the follow-up session settled
+
+1. **The controls are gated so they cannot sell what is free.** `/plans` renders
+   `PaymentControls` when `pay.hasSubscription || (isConfigured() && TIERS_ENFORCED)`.
+   Offering "Get Leader" while every Leader tool is open to everyone would be charging
+   for something the coach already has — the buyable-Elite dark pattern with a price tag,
+   on a Trust Zone screen. The `hasSubscription` half is the important half: a coach who
+   IS being charged sees their plan and their cancel button whatever the flag says, so no
+   config constant can ever hide a cancel path from somebody being billed.
+
+2. **The webhook has a signed-out test, because Razorpay has no session.** D68's lesson,
+   applied to the surface where it would cost the most. A webhook eaten by
+   `src/proxy.ts` answers 307, Razorpay reads a non-2xx, retries for days and gives up —
+   and the visible symptom is a coach who paid and never became a Leader, in production,
+   with the money already taken. `e2e/payments.spec.ts` visits it in a signed-out browser
+   and asserts 400 FROM THE ROUTE; the contrast that makes it meaningful is that
+   `/settings` signed-out is 307 to `/login`. The other three routes are asserted to
+   refuse a stranger themselves, since the proxy matcher excludes `/api` entirely.
+
+3. **Settings tells a paying coach what they are paying.** The "My plan" card read only
+   the tier record, so a coach with a live mandate saw "no payment method is connected,
+   and nothing charges by itself" — the money surprise v1 §4.7 exists to prevent. The
+   cancelled sentence moved into `cancelledExplainer()` in the model because two screens
+   now say it, and two copies of a money sentence drift.
+
+4. **The funnel stopped counting promo Leaders as revenue.** `tierFunnel` counted
+   everything non-trial as paying. `granted` is the promo source, and a promo is by
+   definition a Leader who is not paying, so the row would have overstated revenue the
+   day promo codes shipped. `paid` and `granted` are now counted apart.
+
+### What is NOT built
+
+Promo codes (v2 §8's club-launch codes). Designed in the handoff, not written. When they
+are, `granted` is their source and the funnel already keeps them out of revenue.
+
+### RULES L7, as a type
+
+There is no field on `SubscriptionRecord` in which a card, UPI id or bank detail could be
+stored, and a unit test sweeps the key names for `card|upi|vpa|bank|account|ifsc|token|pan`
+to keep it that way. The coach types their UPI id into a Razorpay-owned iframe; this
+server receives three ids and a signature and re-verifies even those against Razorpay.
+
+### The flip is still an owner decision, and still a set of three (D70)
+
+`TIERS_ENFORCED = true`, the launch-open banner off `/plans`, the `start-trial` 409 out of
+`src/app/api/tiers/route.ts`. Keys first. The unit test that pins the constant will fail
+and name D70; that is it working.

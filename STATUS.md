@@ -241,10 +241,22 @@ check; three copies means three chances to get it wrong once.
        `TIERS_ENFORCED = false` in `src/modules/tiers/model.ts` is the one flip; the unit
        suite pins both positions and the e2e has a real Starter set a target and send a
        thread through the real routes. The v1 60-day countdown is deleted from Home and
-       Settings. **Still missing: Razorpay** — mandate at paid conversion, webhooks, the
-       cancel flow, promo codes. The flip is a set of three (constant, /plans banner,
-       start-trial refusal) and is an OWNER decision that needs keys in the environment.
-       This is also the gate the whole business model depends on, and it does not exist.
+       Settings.
+
+       **Razorpay: DONE pending keys, 2026-08-19 (D75).** Model, client, store, four
+       routes, the checkout/cancel controls, and the wiring: `PaymentControls` is mounted
+       on `/plans` behind `hasSubscription || (isConfigured() && TIERS_ENFORCED)` so it
+       cannot sell a tier whose tools are already free, Settings' "My plan" card reads the
+       real money state, and the admin funnel counts `paid` apart from `granted`.
+       `e2e/payments.spec.ts` visits every payments route in a signed-out browser (D68's
+       lesson — Razorpay has no session). 617 unit tests, 8 e2e.
+
+       **Still NOT built: promo codes** (v2 §8 club-launch codes). Designed in
+       CLAUDE.md's queue, not written; `granted` is their tier source and the funnel
+       already keeps them out of revenue.
+
+       The flip is a set of three (constant, /plans banner, start-trial refusal), is an
+       OWNER decision, and needs the five `RAZORPAY_*` vars in the environment first.
 4. [ ] **Phase 10 — onboarding tour, Capacitor Android, Play Store prep** — depends on: Tiers,
        and on **FCM** (Web Push cannot reach a native app).
 5. ~~[ ] **Feature A — Goal Sheet ("My Why")**~~ → **COMPLETE 2026-08-14**, moved to ✅ DONE.
@@ -466,6 +478,15 @@ cause never confirmed. Worth watching rather than closing.
   added on 2026-08-12 and all nine functions compile (verified in `functions/lib/`).**
 - Is `CRON_SECRET` provisioned in the real deployment, for the six new jobs *and* the two
   existing ones (`morningReminder`, `purgeStaleHealthData`)?
+- **The five `RAZORPAY_*` vars** — `KEY_ID`, `KEY_SECRET`, `WEBHOOK_SECRET`,
+  `PLAN_MONTHLY`, `PLAN_ANNUAL` (`.env.example` documents all five; two are secrets).
+  Payments are code-complete and fail closed without them: `isConfigured()` is false, so
+  `/plans` shows no purchase controls, `/api/payments/subscribe` answers 503 with a
+  sentence, and the admin funnel still says "Razorpay is not connected". Nothing breaks
+  and nothing is charged — but nobody can pay, which is the business model. The two plan
+  ids are created ONCE in the Razorpay dashboard; the webhook URL is
+  `/api/payments/webhook` on `subscription.*` events. Same standing as `CRON_SECRET`:
+  config, not code, and only the owner can supply it.
 
 **Architecture**
 - Storage: deferred until something forces it, or does v2.1b stay incomplete until Storage +
