@@ -451,7 +451,7 @@ export async function evaluateOpenQualifications(
  *
  * The scheduled evaluator is written but not deployed (its Cloud Function has to be
  * exported from an existing file this branch may not edit — see
- * DECISIONS-new-modules), so a tracker relying on it alone would show whatever the
+ * the N-series in DECISIONS.md), so a tracker relying on it alone would show whatever the
  * creation-time run wrote and nothing after that. Fifteen minutes bounds the cost the
  * other way: however many coaches open the screen, one qualification is evaluated at
  * most four times an hour, instead of once per visitor.

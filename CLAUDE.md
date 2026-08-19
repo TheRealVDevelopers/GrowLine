@@ -132,10 +132,9 @@ proof and paperwork. Do it in this order; each step is one commit.
    ⚠️ B), Play Store listing. FCM is the prerequisite; it is not built.
 4. **Translation polish** — ten unverified proposals listed in `STATUS.md` under
    🚫 BLOCKED, for a human native speaker to settle. Do not apply them unverified (D72).
-5. **Housekeeping**, any time: fold `src/modules/DECISIONS-new-modules.md` into
-   `DECISIONS.md` (⚠️ C); collapse the three `timingSafeEqual` copies into
-   `src/modules/shared-new/cron.ts` (⚠️ D); remove the stray worktree at
-   `.claude/worktrees/continue-previous-3413cb`.
+5. ~~**Housekeeping**~~ — **DONE 2026-08-19.** The N-series is folded into
+   `DECISIONS.md` (⚠️ C), all six cron routes go through `checkCronSecret` (⚠️ D), and
+   the stray worktree was already gone.
 
 ---
 

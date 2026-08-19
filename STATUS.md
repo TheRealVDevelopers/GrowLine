@@ -200,19 +200,20 @@ feature not existing.
 `DECISIONS.md` explicitly. It becomes blocking at Phase 10 — Capacitor Android has no other
 delivery path.
 
-**C. Two parallel decision logs, both claiming to be canonical.**
-`DECISIONS.md` (D1–D67) and `src/modules/DECISIONS-new-modules.md` (1,229 lines, N-series, on
-`feature/new-modules`). The second file's own header admits it: *"kept separate because every
-line added to it is a merge conflict."*
-→ **Recommendation:** fold the N-series into `DECISIONS.md` as part of resolving A. RULES E6
-assumes one record; two that don't talk to each other is how a rule gets lost.
+**~~C. Two parallel decision logs, both claiming to be canonical.~~ RESOLVED 2026-08-19.**
+The N-series is folded into `DECISIONS.md` as its own section and
+`src/modules/DECISIONS-new-modules.md` is deleted. Nothing was renumbered — the N-series
+never collided with the D-series, so every N-number cited in a code comment still
+resolves, which is what made the fold mechanical rather than risky. The one code
+reference (`src/modules/qualifications/evaluate.ts`) now names the section.
 
-**D. `CRON_SECRET` / `timingSafeEqual` implemented three times.**
-`src/app/api/notifications/daily/route.ts:130`, `src/app/api/leaderboards/rebuild/route.ts:17`,
-and `src/modules/shared-new/cron.ts:17-38` — the last self-documents that it only covers "the
-new" routes, not the two pre-existing ones.
-→ **Recommendation:** one shared checker, all six cron routes through it. This is a security
-check; three copies means three chances to get it wrong once.
+**~~D. `CRON_SECRET` / `timingSafeEqual` implemented three times.~~ RESOLVED 2026-08-19.**
+All six cron routes go through `checkCronSecret` in `src/modules/shared-new/cron.ts`; the
+two inline copies are gone and the helper no longer describes itself as covering only
+"the new" routes. The e2e that refuses strangers at these endpoints covered two of the
+six and now covers all six. Verified against a running server in both directions — a
+wrong bearer token gets 401 and the right one 200 — which the e2e's `[401, 503]` cannot
+distinguish.
 
 **E. E7 ("push after every change") is being violated right now.**
 `eslint.config.mjs` sits uncommitted with a complete, reasoned fix.
