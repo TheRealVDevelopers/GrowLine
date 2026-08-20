@@ -138,6 +138,39 @@ test("every page carries the manifest link, so the browser can find it", async (
   await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveCount(1);
 });
 
+/**
+ * The privacy notice, fetched with no session — which is how a prospect reaches it.
+ *
+ * It is linked from the QR capture form and from every wellness report, i.e. from the two
+ * places used exclusively by people who will never have an account. "privacy" is a
+ * RESERVED_SLUG so the portfolio matcher correctly refuses it, which means that without
+ * an entry in PUBLIC_PATHS the proxy would send it to /login — a legal notice that
+ * renders perfectly and cannot be read by anyone it was written for. That is D68 with a
+ * regulator attached.
+ *
+ * Both states are asserted, because both are correct depending on configuration.
+ */
+test("the privacy notice is either published publicly or absent — never behind /login", async ({
+  request,
+}) => {
+  const res = await request.get("/privacy", { maxRedirects: 0 });
+
+  // 307 to /login is the failure this test exists for.
+  expect(res.status(), "a legal notice must never redirect to login").not.toBe(307);
+  expect([200, 404]).toContain(res.status());
+
+  if (res.status() === 200) {
+    // Published: it must actually carry the four facts and the disclaimers.
+    const html = await res.text();
+    expect(html).toMatch(/grievance/i);
+    expect(html).toMatch(/not medical advice/i);
+  } else {
+    // Absent: the gate held because the grievance details are not configured, which is
+    // the state of this repository and of CI.
+    expect(res.status()).toBe(404);
+  }
+});
+
 test("every other payments route refuses a stranger", async ({ request }) => {
   for (const path of [
     "/api/payments/subscribe",

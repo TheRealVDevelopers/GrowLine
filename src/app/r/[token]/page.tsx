@@ -12,6 +12,7 @@ import { whatsappNumber } from "@/lib/prospect";
 import { Avatar } from "@/components/Avatar";
 import SnapshotMetrics from "@/components/SnapshotMetrics";
 import RemoveMyDetails from "./RemoveMyDetails";
+import PrivacyLink from "@/modules/privacy/PrivacyLink";
 import { getOwnPortfolio } from "@/modules/portfolio/queries";
 import { touchProspect } from "@/modules/retention/activity";
 
@@ -153,6 +154,10 @@ export default async function PublicReportPage({ params }: Params) {
       <footer className="mt-8 flex flex-col gap-3 border-t border-hairline pt-6 text-sm text-text-dim">
         <p>{DISCLAIMER}</p>
         <p>{NOT_A_DOCTOR}</p>
+        {/* Next to the erasure control on purpose: "what is held about me" and "remove
+            it" are the same question, and a person who has just read one wants the
+            other within reach (v2 §5.4). */}
+        <PrivacyLink />
         {!viewerOwnsProspect && <RemoveMyDetails token={report.token} />}
       </footer>
     </main>

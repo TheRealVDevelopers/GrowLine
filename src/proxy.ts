@@ -15,6 +15,13 @@ const PUBLIC_PATHS = [
   /^\/c(\/|$)/,
   /^\/r(\/|$)/,
   /^\/demo$/,
+  // The privacy notice is read by prospects who have no account and never will —
+  // it is linked from the QR form and from every report page. "privacy" is a
+  // RESERVED_SLUG, so `isPortfolioPath` correctly refuses to treat it as a coach's
+  // page, which means without this line it would redirect to /login: a legal notice
+  // that exists, renders, and cannot be read by the people it was written for (D68).
+  // It 404s of its own accord until the grievance details are configured.
+  /^\/privacy$/,
 ];
 
 /**

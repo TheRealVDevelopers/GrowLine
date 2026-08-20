@@ -3926,3 +3926,139 @@ complete fix is a decision about **who owns `remindersSent`** — a partial one 
 `arrayUnion` in the evaluator would still clobber a coach's FIRST band, which is the
 common case, while reading as though it were solved.
 
+
+---
+
+## D77
+
+**App Check ships as a client half that does nothing, because the console half would be an
+outage if it went first.**
+
+Owner asked (2026-08-20) to "enable App Check and deploy the rules". Neither is possible
+from a session with no credentials: App Check is console-only, and `firebase deploy` needs
+an authenticated CLI. What *is* code is the client attestation, and it turns out that half
+has to land first regardless of who does the other.
+
+Files: `src/lib/app-check.ts`, `src/lib/firebase.ts`, `tests/app-check.test.ts`,
+`.env.example`.
+
+### What it defends is the bill, not the data
+
+`firestore.rules` already defends the data. The repository is public and a Firebase web
+config ships in every browser bundle by design, so the project id is knowable by anyone
+who wants it. With Phone auth enabled that is enough to drive OTP sends at the project,
+and SMS to Indian numbers is billed per message. This is the only item on the cutover list
+that costs money to skip.
+
+### The ordering, which is the whole decision
+
+Enforcement in the console with no attesting client rejects every Auth and Firestore
+request — the app goes down for everyone the moment the toggle flips. So the sequence is:
+client ships inert → register reCAPTCHA Enterprise → watch the App Check metrics page show
+real traffic attesting → *then* enforce. Written into `HANDOFF.md`, because it is the kind
+of ordering that looks like bureaucracy right up until somebody flips it the other way.
+
+### Fails open in three directions
+
+A wrong guard here costs everybody's login, so all three are explicit and tested:
+
+- **Unconfigured** — no site key, nothing happens. Today's state and CI's, which is what
+  makes shipping this a no-op until somebody sets a key.
+- **Emulators** — skipped whenever an emulator host is set. A real reCAPTCHA key cannot
+  attest `127.0.0.1`, and without this the e2e suite would begin failing at login the day
+  a developer added a key to their `.env`.
+- **Throws** — caught and logged. A bad key must not be a blank login screen.
+
+The decision is a pure function taking its environment as an argument, so the three
+branches are unit tests rather than conditions tangled into an initialiser only a browser
+can exercise. It attaches in `firebaseApp()`, the single function `firebaseAuth()` and
+`firebaseDb()` both pass through.
+
+### The SDK is imported dynamically, and that was measured not assumed
+
+The first version imported `firebase/app-check` statically. Measuring the login page's
+initial JavaScript both ways:
+
+| | login initial JS |
+|---|---|
+| static import | 1220 KB |
+| dynamic import | **552 KB** |
+
+668 KB on every page load, for a feature doing nothing. v1 §4.4 names a ₹10K Android on
+slow data as the target device; that is seconds of load time bought for zero benefit.
+
+The cost accepted in exchange is that startup becomes asynchronous, leaving a window
+before attestation is ready. Nothing in this app makes a Firebase call in that window —
+the first is the OTP send, which cannot happen until a coach has typed a number and
+pressed a button.
+
+---
+
+## D78
+
+**The privacy notice is published or absent. There is no third state.**
+
+v2 §5.4, DPDP Act 2023 and its 2025 Rules. The longest-standing launch blocker in
+`STATUS.md`, and the only one where the blocking part was never code.
+
+Files: `src/modules/privacy/{model.ts,PrivacyLink.tsx}`, `src/app/privacy/page.tsx`,
+`src/proxy.ts`, `tests/privacy.test.ts`, `e2e/payments.spec.ts`, `.env.example`.
+
+### Four facts are not derivable from code
+
+The legal entity, a named grievance officer, their email, a postal address. Everything
+else in a privacy notice — what is collected, why, who sees it, how long it lives, how to
+have it removed — is a fact about this codebase, and is now written.
+
+So the route 404s until all four are configured, exactly as the admin panel and demo mode
+do. A notice reading "grievance officer: TBD" is worse than no notice: it is a document
+that looks like a legal commitment while failing the single duty it exists to discharge,
+and it is the kind of thing that gets screenshotted. All-or-nothing, because three out of
+four is still unusable. The email is checked for an `@` — the cheapest possible guard
+against a placeholder reaching production.
+
+`PrivacyLink` renders nothing while the notice is unpublished, so no screen offers a
+prospect a dead end at the moment they are being asked for their height and weight.
+
+### It had to be added to PUBLIC_PATHS, and that is D68 with a regulator attached
+
+`privacy` is a `RESERVED_SLUG`, so `isPortfolioPath` correctly refuses to treat it as a
+coach's page — which means the proxy would have sent it to `/login`. A legal notice that
+renders perfectly, passes every unit test, and is unreachable by the prospects it was
+written for. Found before shipping this time, and pinned by a signed-out e2e that asserts
+the response is 200 or 404 and *never* a 307.
+
+### The numbers are imported, not typed
+
+`180 days` comes from the purge job's own `RETENTION_DAYS`; `90 days` from the report
+token's `REPORT_TTL_DAYS`. A notice promising a deletion the code does not perform is a
+false statement to a regulator, and nothing else in the suite compares prose to behaviour.
+A first draft wrote both as fresh literals under a comment claiming they were stated
+once — which would have made the notice a third copy, and the one that goes stale
+silently.
+
+`REPORT_TTL_DAYS` is imported by the page rather than re-exported through the privacy
+model: `@/lib/report` reaches the Firestore admin client, and routing it through the model
+made the publication gate unimportable from anything a client component touches (RULES
+E2). The unit suite caught it on the admin boot guard.
+
+### It describes the product that exists
+
+Three things a comfortable notice would omit, and this one states:
+
+- a report link is a **bearer credential** — anyone holding it can open it (RULES P3);
+- activity counts flow **upward regardless** of the sharing toggle, which is the part a
+  prospect would not expect;
+- the app refuses to calculate cholesterol, blood pressure, sugar or disease risk, named
+  explicitly, because that is the reassurance somebody handing over a weight actually
+  wants (RULES L2).
+
+Tests assert the affirmative disclaimers rather than merely the absence of claims: silence
+about "medical advice" is not a denial of it.
+
+### Outstanding
+
+**Kannada and Hindi.** v2 §5.4 requires all three languages and only English exists.
+Machine-translating a legal document is not acceptable, and D72 already forbids shipping
+unverified translations, so this needs a human. Recorded in `STATUS.md` rather than
+quietly treated as done.

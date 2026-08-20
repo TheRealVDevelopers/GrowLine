@@ -581,8 +581,18 @@ investigated from the trace rather than watched until somebody stops noticing.
 - Who produces the 8-item Jewel Asset Pack? Not derivable from code.
 
 **Compliance**
-- Owner must supply: **legal entity name, grievance-officer contact, postal address** — the
-  privacy notice cannot be written without them.
+- ~~Owner must supply: legal entity name, grievance-officer contact, postal address — the
+  privacy notice cannot be written without them.~~ **The notice is WRITTEN and shipped
+  2026-08-20 (D78); it publishes itself the moment four values are set.** Everything
+  derivable from code is in it. Set `PRIVACY_ENTITY_NAME`, `PRIVACY_GRIEVANCE_OFFICER`,
+  `PRIVACY_GRIEVANCE_EMAIL` and `PRIVACY_POSTAL_ADDRESS` and `/privacy` goes live along
+  with every link to it; until then the route 404s and no screen links to it, because a
+  notice with a gap is worse than none. DPDP Rules 2025 require a NAMED human as
+  grievance officer and a postal address — an email alone does not satisfy it.
+- **Kannada and Hindi versions of the privacy notice.** v2 §5.4 requires all three
+  languages; only English exists. Machine translation of a legal document is not
+  acceptable and D72 forbids shipping unverified translations, so this needs a human
+  translator. Blocking for a Kannada- or Hindi-speaking pilot club, not for an English one.
 - ~~**Native-speaker review** of the four UI translations~~ — **DONE 2026-08-14 (D72).**
   No rule violations; all four rated genuinely spoken register. Three changes applied
   (Hindi क्यूआर→QR, Telugu ముందుకు పంపండి→ఫార్వర్డ్ చేయండి, Kannada ಸ್ವಾಸ್ಥ್ಯ→ಆರೋಗ್ಯ); three

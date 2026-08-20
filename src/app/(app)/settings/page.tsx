@@ -10,6 +10,7 @@ import ProfileSection from "./ProfileSection";
 import ReminderToggle from "./ReminderToggle";
 import PrivacyToggle from "./PrivacyToggle";
 import LogoutButton from "./LogoutButton";
+import PrivacyLink from "@/modules/privacy/PrivacyLink";
 import ThemeToggle from "@/components/ThemeToggle";
 import { getTranslate } from "@/lib/locale-server";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -109,6 +110,12 @@ export default async function SettingsPage() {
           {user.referralCode}
         </p>
       </section>
+
+      {/* v2 §5.4 asks for the notice from Settings too — this is where a coach looks
+          when they want to know what the app does with their people's details. */}
+      <p className="text-sm text-text-dim">
+        <PrivacyLink />
+      </p>
 
       <LogoutButton />
 
