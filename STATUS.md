@@ -465,6 +465,32 @@ distinguish.
     anything. Note that `RESERVED_SLUGS` in `src/modules/portfolio/model.ts` already reserves
     the route name `manifest`, so nothing has to move to make room for it.
 
+16b. **HIGH — a person's data cannot be deleted on request, and the notice had to be
+    reworded to stop promising it.** Found 2026-08-20 by a data-inventory pass over every
+    collection. Three separate gaps, all real:
+
+    - **`deleteProspect` has exactly ONE caller in the repo** — the prospect's own
+      `/api/public/report/[token]/remove` route. There is no coach-facing delete: no
+      `DELETE` method on any prospect route, no UI. A coach literally cannot remove
+      somebody who asks them to.
+    - **That one route 404s once the report link expires** (`isReportExpired`), so the
+      self-serve control works for 90 days and then stops. After that a prospect has no
+      mechanism at all.
+    - **A QR self-filler may never receive a link**, by design — the capture route
+      withholds the token so the coach makes first contact. If the coach never sends the
+      report, that person's name, phone, age, height and weight sit in Firestore with no
+      link and no way to reach the control.
+
+    Plus: **no coach account deletion and no data export anywhere.** `auth.deleteUser()`
+    is never called and the only `users().doc().delete()` calls are in test cleanup.
+
+    The privacy notice said name and phone were "kept until the coach deletes you or you
+    ask for removal". The first half was **false** and is now corrected — the notice
+    states they are kept indefinitely, that the self-serve control works only while the
+    link does, and that the grievance officer is the route otherwise. **A DPDP erasure
+    right currently has a human process behind it, not a button.** Building one is a
+    product decision; the notice not lying about it was not.
+
 17. **MEDIUM — "five languages" is 28 strings, and that is ~11% of the interface.**
     *Measured 2026-08-20 with `npx tsx scripts/audit-i18n.ts`: **232 distinct hardcoded
     English strings across 79 files** against 28 dictionary keys — a translatable share of

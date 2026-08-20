@@ -88,7 +88,10 @@ export default function PrivacyPage() {
         </p>
         <List
           items={[
-            ["Your name and phone number", "so the coach can contact you. Kept until the coach deletes you or you ask for removal."],
+            [
+              "Your name and phone number",
+              "so the coach can contact you. These are kept for as long as the coach uses Growline — nothing deletes them automatically, and the health figures below are deleted on their own schedule while these are not.",
+            ],
             [
               "Your age, gender, height and weight, if you gave them",
               `used once to produce your wellness estimates. Automatically deleted after ${HEALTH_RETENTION_DAYS} days without contact, along with everything calculated from them. Your name and number are not deleted by that job.`,
@@ -120,8 +123,8 @@ export default function PrivacyPage() {
             ["It shows your first name only", "never your phone number."],
             ["It is not indexed by search engines", "and carries no referrer."],
             [
-              "You can remove it yourself",
-              "every report page carries a control that deletes the report and the health figures behind it. You do not need an account, and you do not need to ask the coach.",
+              "You can remove it yourself, while the link works",
+              `every report page carries a control that deletes the report and everything behind it — including your name and phone number. You do not need an account and you do not need to ask the coach. It works for as long as the link does: once the ${REPORT_LINK_DAYS} days are up the link is dead and so is that control, and you would need to write to the grievance officer above instead.`,
             ],
           ]}
         />
@@ -190,7 +193,10 @@ export default function PrivacyPage() {
           items={[
             ["Tell you what we hold about you", "and why."],
             ["Correct anything that is wrong", "or incomplete."],
-            ["Delete it", "if you were added by a coach, the removal control on your report does this immediately and without asking anyone."],
+            [
+              "Delete it",
+              "if you have a working report link, the control on that page does it immediately and without asking anyone. Otherwise — if the link has expired, or a coach saved your details and never sent you one — write to the grievance officer above and we will do it.",
+            ],
             ["Complain", "to our grievance officer above, and to the Data Protection Board of India if we do not resolve it."],
           ]}
         />
