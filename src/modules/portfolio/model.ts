@@ -42,7 +42,7 @@ export const RESERVED_SLUGS = new Set([
   "voice-log", "who-to-call", "portfolio", "plans", "wall",
   // Next.js and web conventions
   "_next", "static", "public", "favicon", "robots", "sitemap", "manifest",
-  "assets", "images", "fonts", "sw", "well-known",
+  "assets", "images", "icons", "fonts", "sw", "well-known",
   // Words a growing product takes
   "about", "blog", "help", "support", "pricing", "plans", "terms", "privacy",
   "legal", "contact", "careers", "press", "download", "app", "web", "home",

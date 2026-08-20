@@ -442,8 +442,17 @@ distinguish.
     thing the referral rule exists to prevent. `npm run backfill:workspaces -- --check`
     exits non-zero while anyone is unassigned, which is what makes this enforceable.
 
-16. **HIGH — the app is not installable: there is no web app manifest.** Found by the
-    2026-08-19 feature audit; recorded nowhere before it. `public/sw.js` exists and caches
+16. ~~**HIGH — the app is not installable: there is no web app manifest.**~~ **FIXED
+    2026-08-20.** `src/app/manifest.ts` (Next metadata route, so the `<link rel="manifest">`
+    cannot drift from the file), five icons generated from one SVG source by
+    `scripts/make-icons.ts`, Apple metadata in the layout because iOS ignores the manifest,
+    and `icons` added to `RESERVED_SLUGS`. Verified by Chromium's own parser over CDP —
+    0 errors, 4 icons with correct purposes, 3 shortcuts — plus 8 unit tests pinning the
+    fields Chrome requires and 2 signed-out e2e tests (D68: a manifest redirected to
+    /login returns HTML with a 200 and silently kills installation). Original finding
+    below, kept because it is why the tests exist.
+
+    Found by the 2026-08-19 feature audit; recorded nowhere before it. `public/sw.js` exists and caches
     routes for the weak-signal case, so the offline half of the PWA works — but there is no
     `manifest.json`, no `src/app/manifest.ts`, and no `manifest` link in the root layout.
     Without one Android offers no "Add to home screen", there is no standalone display mode,

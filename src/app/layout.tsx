@@ -28,6 +28,29 @@ export const metadata: Metadata = {
   // Relative og:image URLs need an absolute base or they resolve to localhost off
   // Vercel, leaving forwarded snapshot links with no preview card.
   metadataBase: new URL(configuredSiteUrl() ?? "https://growline.in"),
+
+  /**
+   * iOS does not read the web app manifest. Everything Android takes from
+   * `app/manifest.ts` — the standalone window, the name, the home-screen icon — Safari
+   * takes from these tags instead, so leaving them out would make the app installable
+   * on Android only. The target device is a mid-range Android (v1 §3), so this is the
+   * minor platform; it is here because a coach's upline showing the app on an iPhone is
+   * exactly the moment it must not look unfinished.
+   */
+  appleWebApp: {
+    capable: true,
+    title: "Growline",
+    // The app paints its own near-black ground, so the status bar should sit on top of
+    // it rather than in a separate strip.
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export const viewport: Viewport = {

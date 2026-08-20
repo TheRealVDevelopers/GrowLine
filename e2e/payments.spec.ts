@@ -94,6 +94,50 @@ test("a wrong signature is refused too", async ({ request }) => {
   expect(res.status()).toBe(400);
 });
 
+/**
+ * The manifest and its icons, fetched with no session — which is the only way a browser
+ * ever fetches them.
+ *
+ * Same D68 lesson as the webhook above, with a quieter failure. A manifest redirected to
+ * /login returns HTML with a 200, Chrome parses it, finds no name and no icons, and
+ * simply does not offer installation. There is no error anywhere: the install button is
+ * absent, and absent looks identical to "this browser doesn't support it".
+ */
+test("the manifest and its icons are reachable with no session", async ({ request }) => {
+  const res = await request.get("/manifest.webmanifest");
+  expect(res.status()).toBe(200);
+  expect(res.headers()["content-type"] ?? "").toMatch(/manifest\+json|application\/json/);
+
+  // Parsed, not just fetched: HTML from a /login redirect would still be a 200.
+  const m = (await res.json()) as {
+    name?: string;
+    start_url?: string;
+    display?: string;
+    icons?: { src: string; sizes: string; purpose?: string }[];
+  };
+  expect(m.name).toBeTruthy();
+  expect(m.start_url).toBe("/");
+  expect(m.display).toBe("standalone");
+  expect(m.icons?.length ?? 0).toBeGreaterThanOrEqual(4);
+
+  // Every icon it promises must be served, signed out, as an image. A 404 here is an
+  // install that fails with no message.
+  for (const icon of m.icons ?? []) {
+    const img = await request.get(icon.src);
+    expect(img.status(), `${icon.src} must be reachable`).toBe(200);
+    expect(img.headers()["content-type"] ?? "").toMatch(/image\/png/);
+  }
+});
+
+test("every page carries the manifest link, so the browser can find it", async ({ page }) => {
+  // The metadata route emits the tag; this asserts it actually reaches the login page,
+  // which is the first page an about-to-install coach ever sees.
+  await page.goto("/login");
+  const href = await page.locator('link[rel="manifest"]').first().getAttribute("href");
+  expect(href).toBeTruthy();
+  await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveCount(1);
+});
+
 test("every other payments route refuses a stranger", async ({ request }) => {
   for (const path of [
     "/api/payments/subscribe",
