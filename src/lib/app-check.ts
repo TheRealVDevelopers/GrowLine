@@ -19,20 +19,23 @@ import type { FirebaseApp } from "firebase/app";
  * and the console flip happens afterwards once the App Check metrics page shows real
  * traffic attesting. `HANDOFF.md` carries the ordered runbook.
  *
- * ## Fails open, in all three directions
+ * ## Fails open, in all four directions
  *
  * 1. **Unconfigured** — no site key, nothing happens. This is the state the repository is
  *    in today and on CI, so shipping this changes nothing until somebody sets the key.
  * 2. **Emulators** — a real reCAPTCHA key cannot attest `127.0.0.1`, so App Check is
  *    skipped whenever an emulator host is set. Without this the 64-test e2e suite would
  *    start failing at login the day a key is added to a developer's `.env`.
- * 3. **Throws** — a bad key or a blocked network must not take the login screen down with
+ * 3. **Misconfigured provider** — an unrecognised provider value skips and names the
+ *    variable, rather than guessing. Guessing produces an attestation failure that
+ *    identifies neither the console setting nor the environment variable.
+ * 4. **Throws** — a bad key or a blocked network must not take the login screen down with
  *    it. The error is logged and the app carries on. Once enforcement is on the requests
  *    will fail anyway, but they fail with a Firebase error a support person can read
  *    rather than a white screen.
  *
  * The planning is split from the doing so the guard — the part that must never
- * regress — is a pure function with a unit test, rather than three conditions tangled
+ * regress — is a pure function with a unit test, rather than four conditions tangled
  * into an initialiser that can only be exercised with a browser.
  */
 
@@ -40,7 +43,7 @@ import type { FirebaseApp } from "firebase/app";
 export type AppCheckProviderKind = "enterprise" | "v3";
 
 export type AppCheckPlan =
-  | { action: "skip"; reason: string }
+  | { action: "skip"; reason: string; misconfigured?: true }
   | {
       action: "init";
       provider: AppCheckProviderKind;
@@ -77,11 +80,30 @@ export function planAppCheck(env: AppCheckEnv, hasWindow: boolean): AppCheckPlan
     return { action: "skip", reason: "emulators in use" };
   }
 
-  // Default to Enterprise: it is what Firebase steers new projects to, and it is what
-  // the cutover runbook tells the owner to register. The escape hatch exists because a
-  // console set up with classic v3 and a client using the Enterprise provider fails
-  // attestation with an error that names neither side.
-  const provider: AppCheckProviderKind = env.provider === "v3" ? "v3" : "enterprise";
+  /*
+   * Enterprise is the default because it is what the cutover runbook registers. An
+   * unrecognised value is NOT quietly coerced to it.
+   *
+   * The first version of this did coerce, which meant a typo in
+   * NEXT_PUBLIC_FIREBASE_APPCHECK_PROVIDER — a value inlined at BUILD time, so baked
+   * into the bundle and not fixable without a redeploy — would attest against the wrong
+   * reCAPTCHA and fail with an error naming neither the console setting nor the
+   * variable. That is precisely the failure the escape hatch exists to prevent, so
+   * guessing here defeats the point of having it.
+   *
+   * Skipping instead costs nothing before enforcement is on, because App Check was going
+   * to be off anyway. After enforcement both outcomes are an outage — but this one prints
+   * the name of the variable that caused it.
+   */
+  const raw = (env.provider ?? "").trim();
+  if (raw !== "" && raw !== "enterprise" && raw !== "v3") {
+    return {
+      action: "skip",
+      misconfigured: true,
+      reason: `NEXT_PUBLIC_FIREBASE_APPCHECK_PROVIDER is ${JSON.stringify(raw)}; it must be "enterprise" or "v3"`,
+    };
+  }
+  const provider: AppCheckProviderKind = raw === "v3" ? "v3" : "enterprise";
 
   const debug = (env.debug ?? "").trim();
   return { action: "init", provider, siteKey, debugToken: debug === "" ? null : debug };
@@ -134,7 +156,13 @@ let started = false;
  */
 export async function startAppCheck(app: FirebaseApp): Promise<AppCheckPlan> {
   const plan = planAppCheck(appCheckEnv(), typeof window !== "undefined");
-  if (plan.action === "skip" || started) return plan;
+  if (plan.action === "skip") {
+    // Silence is right for the ordinary skips — unconfigured and emulators are the
+    // normal states. A misconfiguration is not, and it is invisible otherwise.
+    if (plan.misconfigured) console.warn(`App Check not started: ${plan.reason}`);
+    return plan;
+  }
+  if (started) return plan;
 
   // Set before the guard flips, so a second synchronous call cannot start a second
   // import while the first is still in flight.

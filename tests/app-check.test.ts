@@ -67,10 +67,29 @@ describe("when it is wanted", () => {
   });
 
   test("Enterprise is the default, because that is what the runbook registers", () => {
-    for (const provider of [undefined, "", "enterprise", "anything-else"]) {
+    for (const provider of [undefined, "", "  ", "enterprise"]) {
       const plan = planAppCheck(env({ provider }), true);
       assert.equal(plan.action, "init");
       if (plan.action === "init") assert.equal(plan.provider, "enterprise", String(provider));
+    }
+  });
+
+  test("an unrecognised provider skips and names the variable, rather than guessing", () => {
+    /*
+     * The first version coerced anything unrecognised to "enterprise". These values are
+     * inlined at BUILD time, so a typo is baked into the bundle: the app would then
+     * attest against the wrong reCAPTCHA and fail with an error identifying neither the
+     * console setting nor the variable. Guessing defeats the entire point of the
+     * escape hatch existing.
+     */
+    for (const provider of ["Enterprise", "V3", "recaptcha", "enterprize", "true"]) {
+      const plan = planAppCheck(env({ provider }), true);
+      assert.equal(plan.action, "skip", `provider ${provider} should not initialise`);
+      if (plan.action === "skip") {
+        assert.equal(plan.misconfigured, true);
+        assert.match(plan.reason, /NEXT_PUBLIC_FIREBASE_APPCHECK_PROVIDER/);
+        assert.match(plan.reason, new RegExp(provider));
+      }
     }
   });
 

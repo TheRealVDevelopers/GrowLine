@@ -474,6 +474,20 @@ distinguish.
     localisation" (v1 §8) will be read to mean. Decide before a pilot whether to finish the
     dictionaries or describe the feature honestly as partial.
 
+**Not robust to a long-lived emulator (found 2026-08-20):**
+`e2e/threads.spec.ts:46` ("a broadcast reaches the line") asserts on
+`getByTestId("sent-ack").first()`. After a day of repeated local runs — each of which
+sends another broadcast — `.first()` resolves to an older thread and the test reads
+"0 acknowledged" forever. It failed deterministically in that state and passed
+immediately after `npm run e2e:reset`, so it is accumulated fixture state, not a race and
+not a product bug.
+
+CI is unaffected: `ci-integration.sh` runs `e2e:reset` before every suite, so the
+collection is always fresh there. It only bites a developer whose emulator has been up a
+while, and it bites as a confident-looking product failure. Recorded rather than patched:
+the fix is to assert on the thread the test just sent rather than on whichever is first,
+and that is a change to a passing spec somebody else wrote (RULES E5).
+
 **Flaky, not broken:** `e2e/realtime.spec.ts` failed once in a full run and passed alone
 and on the very next full run (43/43). Shared emulator state and ordering, same family as
 D44. Watch it; do not "fix" it by weakening the assertion.
