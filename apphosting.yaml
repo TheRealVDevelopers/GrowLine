@@ -2,40 +2,39 @@
 #
 # App Hosting, not classic Hosting. Classic Hosting serves static files, and this app is
 # not static: nine pages force a dynamic render, `src/proxy.ts` is middleware, and every
-# API route runs the Admin SDK. v2 §3 names App Hosting for exactly this reason, with a
-# Vercel-front fallback pre-approved if it does not work out.
+# API route runs the Admin SDK. Classic Hosting also cannot run this app at all — its
+# framework integration pins `12 - 16.0` against `next@16.3.0` (D79). v2 §3 names App
+# Hosting for exactly this reason, with a Vercel-front fallback pre-approved.
 #
 # ## This file does not deploy anything by itself
 #
-# App Hosting builds from a git push, not from `firebase deploy`. A backend has to be
-# created once, interactively, because it needs a GitHub connection and a region:
+# App Hosting builds from a git push, not from `firebase deploy`. The backend is created
+# once in the console (Build → App Hosting → Get started), which also enables the Cloud
+# Build / Cloud Run / Artifact Registry / Secret Manager APIs the build needs. After that
+# every push to the tracked branch builds and rolls out. `firebase deploy --only hosting`
+# is not the command here and `firebase.json` has no hosting block on purpose.
 #
-#     firebase apphosting:backends:create --project grow--line
+# ## Every `secret:` below must already exist, or the rollout fails
 #
-# After that every push to the tracked branch builds and rolls out. `firebase deploy
-# --only hosting` is not the command here and `firebase.json` has no hosting block on
-# purpose — adding one would configure the wrong product.
+# A `secret:` entry is a hard reference. If the secret is absent from Secret Manager the
+# release fails — not the page that needed it, the whole rollout. So this file declares
+# exactly ONE secret: the credential without which the process refuses to boot at all.
+# Everything else is commented out, paired with the one thing it turns on, and each pair
+# is uncommented in the same change that creates the secret:
 #
-# ## Two things must be settled before the first build succeeds
+#     firebase apphosting:secrets:set CRON_SECRET --project grow--line
 #
-# 1. **The build command below is not decoration.** A clean checkout of this repository
-#    fails `npm run build`: Next compiles, then type-checks the whole tsconfig `include`,
-#    which reaches `scripts/migrate-to-firestore.ts`, which imports a Prisma client that
-#    is generated rather than committed. Verified by deleting `src/generated` and
-#    building. `.github/workflows/ci.yml` solves this with an explicit `npx prisma
-#    generate` step; this mirrors it so CI and deploy build the same way.
+# The alternative — declare all fifteen up front — makes the first deploy fail fifteen
+# times in a row on configuration nobody has decided yet, and each retry costs a push.
+# A feature that is switched off is visibly switched off in this file.
 #
-# 2. **FIREBASE_SERVICE_ACCOUNT is required by this codebase, and App Hosting would
-#    rather you did not use one.** `src/lib/firebase-admin.ts` refuses to start without
-#    either a service-account credential or both emulator hosts — a deliberate guard
-#    (D45) against a half-configured process. App Hosting instead runs with Application
-#    Default Credentials, so the idiomatic setup is `initializeApp()` with no key at all.
+# ## The build command is not decoration
 #
-#    Configured here the working way: the credential goes into Secret Manager and the
-#    guard is satisfied unchanged. That is deployable today with no code change. The
-#    cleaner long-term shape is to teach the guard to accept ADC so no key material
-#    exists anywhere — a change to a deliberately strict security guard, which wants its
-#    own decision record rather than being slipped in beside a config file.
+# A clean checkout of this repository fails `npm run build`: Next compiles, then
+# type-checks the whole tsconfig `include`, which reaches `scripts/migrate-to-firestore.ts`,
+# which imports a Prisma client that is generated rather than committed. Verified by
+# deleting `src/generated` and building. `.github/workflows/ci.yml` solves this with an
+# explicit `npx prisma generate` step; this mirrors it so CI and deploy build the same way.
 
 runConfig:
   # A pilot club is a few dozen coaches. Start small and let it scale rather than paying
@@ -47,7 +46,6 @@ runConfig:
   memoryMiB: 512
 
 scripts:
-  # See note 1 above. Without `prisma generate` this build fails on a clean clone.
   buildCommand: npx prisma generate && npm run build
 
 env:
@@ -58,6 +56,12 @@ env:
   # only at RUNTIME is baked in as `undefined` and the browser silently talks to the
   # wrong project — nothing errors, the realtime row simply never arrives. The CI
   # workflow carries the same warning for the same reason.
+  #
+  # The web API key and app id are public by design — they identify the project, they
+  # authorise nothing; access is controlled by Security Rules. They are still left blank
+  # here rather than committed, because this file is a public README for the deployment
+  # and a key in it invites someone to reuse it as a template. Fill them in the App
+  # Hosting console under this backend's settings.
   # ---------------------------------------------------------------------------
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
     value: grow--line
@@ -67,10 +71,6 @@ env:
     value: grow--line.firebaseapp.com
     availability: [BUILD, RUNTIME]
 
-  # The web API key and app id are public by design — they identify the project, they
-  # authorise nothing. Access is controlled by Security Rules. They are still not
-  # committed here: fill them in the App Hosting console, or add them as plain values
-  # once this file is not the first thing a reader sees.
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
     value: ""
     availability: [BUILD, RUNTIME]
@@ -79,8 +79,9 @@ env:
     value: ""
     availability: [BUILD, RUNTIME]
 
-  # Required, and link previews are wrong without it (report cards resolve relative
-  # og:image URLs against this).
+  # Required, and link previews are wrong without it — report cards resolve relative
+  # og:image URLs against this. Set it to the backend's real URL after the first deploy
+  # tells you what that is; it is a chicken-and-egg only once.
   - variable: NEXT_PUBLIC_SITE_URL
     value: ""
     availability: [BUILD, RUNTIME]
@@ -96,7 +97,7 @@ env:
     availability: [BUILD, RUNTIME]
 
   # Web Push. Without the pair, isPushConfigured() is false and the morning follow-up
-  # notification silently never sends.
+  # notification silently never sends. The private half is a secret, below.
   - variable: NEXT_PUBLIC_VAPID_PUBLIC_KEY
     value: ""
     availability: [BUILD, RUNTIME]
@@ -108,76 +109,104 @@ env:
     availability: [BUILD]
 
   # ---------------------------------------------------------------------------
-  # SECRETS — Cloud Secret Manager, never values in this file.
+  # THE ONE REQUIRED SECRET
   #
-  # Create each once:
-  #     firebase apphosting:secrets:set SESSION_SECRET --project grow--line
+  # `src/lib/firebase-admin.ts` refuses to start without either a service-account
+  # credential or both emulator hosts — a deliberate guard (D45) against a
+  # half-configured process. App Hosting would rather you used Application Default
+  # Credentials and no key at all, which is the cleaner shape and wants its own decision
+  # record rather than being slipped in beside a config change. Until then, the whole
+  # service-account JSON goes in Secret Manager as one secret:
   #
-  # RUNTIME only. None of these is read during the build, and a secret exposed to the
-  # build is a secret in the build logs.
+  #     firebase apphosting:secrets:set FIREBASE_SERVICE_ACCOUNT --project grow--line
+  #
+  # RUNTIME only. It is not read during the build, and a secret exposed to the build is
+  # a secret in the build logs.
   # ---------------------------------------------------------------------------
-  - variable: SESSION_SECRET
-    secret: SESSION_SECRET
-    availability: [RUNTIME]
-
-  # See note 2 above. The whole service-account JSON, as one secret.
   - variable: FIREBASE_SERVICE_ACCOUNT
     secret: FIREBASE_SERVICE_ACCOUNT
     availability: [RUNTIME]
 
-  # Without this all nine scheduled functions fail closed: empty leaderboards, no
-  # morning reminders, no health-data purge, qualifications that never evaluate.
-  - variable: CRON_SECRET
-    secret: CRON_SECRET
-    availability: [RUNTIME]
+  # ---------------------------------------------------------------------------
+  # SWITCHED OFF — uncomment each pair in the change that creates its secret.
+  #
+  # Every one of these fails CLOSED. Nothing below is needed for the app to serve, sign
+  # a coach in, capture a prospect, or send a report. What each one costs while it is
+  # commented out is stated so the absence is never a mystery in production.
+  # ---------------------------------------------------------------------------
 
-  - variable: ADMIN_UIDS
-    secret: ADMIN_UIDS
-    availability: [RUNTIME]
+  # Without it all nine scheduled functions refuse every request: empty leaderboards, no
+  # morning follow-up reminder, no 180-day health purge, qualifications that never
+  # evaluate. Boards look broken rather than empty, so this is the first one to add.
+  # - variable: CRON_SECRET
+  #   secret: CRON_SECRET
+  #   availability: [RUNTIME]
 
-  - variable: VAPID_PRIVATE_KEY
-    secret: VAPID_PRIVATE_KEY
-    availability: [RUNTIME]
-  - variable: VAPID_SUBJECT
-    secret: VAPID_SUBJECT
-    availability: [RUNTIME]
+  # Comma-separated Firebase UIDs. Empty means /admin is closed to everyone, including
+  # you — which is the correct default for a URL that is otherwise one guess away.
+  # - variable: ADMIN_UIDS
+  #   secret: ADMIN_UIDS
+  #   availability: [RUNTIME]
+
+  # Web Push, private half. Without it isPushConfigured() is false and the morning
+  # reminder is never sent — silently, by design, rather than erroring per user.
+  # - variable: VAPID_PRIVATE_KEY
+  #   secret: VAPID_PRIVATE_KEY
+  #   availability: [RUNTIME]
+  # - variable: VAPID_SUBJECT
+  #   secret: VAPID_SUBJECT
+  #   availability: [RUNTIME]
 
   # Payments. All five or none — isConfigured() is the single switch, and with any of
-  # them missing the money routes refuse cleanly and say so (RULES L7: no card, UPI or
-  # bank detail is ever stored by this app, only these ids).
-  - variable: RAZORPAY_KEY_ID
-    secret: RAZORPAY_KEY_ID
-    availability: [RUNTIME]
-  - variable: RAZORPAY_KEY_SECRET
-    secret: RAZORPAY_KEY_SECRET
-    availability: [RUNTIME]
-  - variable: RAZORPAY_WEBHOOK_SECRET
-    secret: RAZORPAY_WEBHOOK_SECRET
-    availability: [RUNTIME]
-  - variable: RAZORPAY_PLAN_MONTHLY
-    secret: RAZORPAY_PLAN_MONTHLY
-    availability: [RUNTIME]
-  - variable: RAZORPAY_PLAN_ANNUAL
-    secret: RAZORPAY_PLAN_ANNUAL
-    availability: [RUNTIME]
+  # them missing the money routes refuse cleanly and say so. Until all five are set,
+  # /plans shows the launch-open banner and no payment controls, which is the honest
+  # state of a product that is not charging anyone yet.
+  #
+  # RULES L7: no card, UPI or bank detail is ever stored by this app. These are ids and
+  # signing keys; the subscription record has no field for an instrument, and a test
+  # asserts that.
+  # - variable: RAZORPAY_KEY_ID
+  #   secret: RAZORPAY_KEY_ID
+  #   availability: [RUNTIME]
+  # - variable: RAZORPAY_KEY_SECRET
+  #   secret: RAZORPAY_KEY_SECRET
+  #   availability: [RUNTIME]
+  # - variable: RAZORPAY_WEBHOOK_SECRET
+  #   secret: RAZORPAY_WEBHOOK_SECRET
+  #   availability: [RUNTIME]
+  # - variable: RAZORPAY_PLAN_MONTHLY
+  #   secret: RAZORPAY_PLAN_MONTHLY
+  #   availability: [RUNTIME]
+  # - variable: RAZORPAY_PLAN_ANNUAL
+  #   secret: RAZORPAY_PLAN_ANNUAL
+  #   availability: [RUNTIME]
 
   # The privacy notice publishes itself only when all four are present; until then
   # /privacy 404s and nothing links to it. These are not secret — they go on a public
-  # page — but they are per-deployment facts, so they live here rather than in code.
-  - variable: PRIVACY_ENTITY_NAME
-    secret: PRIVACY_ENTITY_NAME
-    availability: [RUNTIME]
-  - variable: PRIVACY_GRIEVANCE_OFFICER
-    secret: PRIVACY_GRIEVANCE_OFFICER
-    availability: [RUNTIME]
-  - variable: PRIVACY_GRIEVANCE_EMAIL
-    secret: PRIVACY_GRIEVANCE_EMAIL
-    availability: [RUNTIME]
-  - variable: PRIVACY_POSTAL_ADDRESS
-    secret: PRIVACY_POSTAL_ADDRESS
-    availability: [RUNTIME]
+  # page — but they are per-deployment legal facts, so they live in Secret Manager
+  # rather than in this file where a fork would inherit somebody else's grievance
+  # officer. All four are needed before the app may be shown to a real prospect.
+  # - variable: PRIVACY_ENTITY_NAME
+  #   secret: PRIVACY_ENTITY_NAME
+  #   availability: [RUNTIME]
+  # - variable: PRIVACY_GRIEVANCE_OFFICER
+  #   secret: PRIVACY_GRIEVANCE_OFFICER
+  #   availability: [RUNTIME]
+  # - variable: PRIVACY_GRIEVANCE_EMAIL
+  #   secret: PRIVACY_GRIEVANCE_EMAIL
+  #   availability: [RUNTIME]
+  # - variable: PRIVACY_POSTAL_ADDRESS
+  #   secret: PRIVACY_POSTAL_ADDRESS
+  #   availability: [RUNTIME]
 
-# NOT set here, deliberately: FIRESTORE_EMULATOR_HOST and FIREBASE_AUTH_EMULATOR_HOST.
-# Either one present in production makes the Admin SDK stop verifying tokens while data
-# goes somewhere else entirely. The boot guard in src/lib/firebase-admin.ts throws on
-# every half-set combination, which is the behaviour you want if one ever leaks in.
+# NOT declared here, deliberately:
+#
+# SESSION_SECRET — `.env.example` still lists it, but nothing in `src/` reads it. It is
+# a leftover from the custom-JWT auth that Firebase Auth replaced in v2.1a. It was
+# declared as a required secret in the first draft of this file, which would have failed
+# the very first rollout over a variable no code has read since the migration.
+#
+# FIRESTORE_EMULATOR_HOST / FIREBASE_AUTH_EMULATOR_HOST — either one present in
+# production makes the Admin SDK stop verifying tokens while data goes somewhere else
+# entirely. The boot guard in src/lib/firebase-admin.ts throws on every half-set
+# combination, which is the behaviour you want if one ever leaks in.
