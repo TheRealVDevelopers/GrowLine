@@ -465,7 +465,14 @@ distinguish.
     anything. Note that `RESERVED_SLUGS` in `src/modules/portfolio/model.ts` already reserves
     the route name `manifest`, so nothing has to move to make room for it.
 
-17. **MEDIUM — "five languages" is 28 strings.** `src/lib/dictionaries/` holds `en`, `hi`,
+17. **MEDIUM — "five languages" is 28 strings, and that is ~11% of the interface.**
+    *Measured 2026-08-20 with `npx tsx scripts/audit-i18n.ts`: **232 distinct hardcoded
+    English strings across 79 files** against 28 dictionary keys — a translatable share of
+    **10.8%**, and the scan deliberately undercounts (it reads JSX text nodes only, not
+    placeholders, aria-labels, or copy passed as props). The worst files are
+    `modules/goals/GoalSheetForm.tsx` (14), the home screen (12) and
+    `modules/qualifications/CreateForm.tsx` (8). Re-run the script to watch the number
+    move.* Original finding: `src/lib/dictionaries/` holds `en`, `hi`,
     `kn`, `ta`, `te`, and each dictionary has **28 keys**. The switcher works and the report
     fonts render every script correctly, so the plumbing is real — but the overwhelming
     majority of the interface is English-only, and a coach who picks Kannada sees a handful
