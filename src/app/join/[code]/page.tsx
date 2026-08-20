@@ -1,6 +1,26 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { getUserByReferralCode } from "@/lib/users";
 import { Avatar } from "@/components/Avatar";
+
+/**
+ * Not indexed, for the same reason `/c/{code}` and `/r/{token}` are not.
+ *
+ * This page renders a coach's NAME and PHOTO to anybody holding a referral code, and
+ * referral codes are short and shared widely — WhatsApp, posters, club walls. Its two
+ * sibling public routes both set this and this one did not, so a shared invite link was
+ * enough to put a coach's face and name into a search index.
+ *
+ * The distinction that makes this a defect rather than a preference: the public portfolio
+ * IS deliberately indexed, because a coach chose to publish it and wants to be findable.
+ * Nobody chooses this page. Being recruited is not a decision to appear in search results.
+ *
+ * Found by the data-inventory pass on 2026-08-20, which noticed the asymmetry between the
+ * three public routes. Nothing else would have: it is the absence of a line.
+ */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function JoinPage({
   params,
