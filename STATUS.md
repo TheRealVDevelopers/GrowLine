@@ -491,6 +491,40 @@ distinguish.
     right currently has a human process behind it, not a button.** Building one is a
     product decision; the notice not lying about it was not.
 
+16c. **HIGH — the 180-day health purge misses any prospect captured without a height.**
+    `functions/src/index.ts:145` filters `.where("heightCm", "!=", null)`. In Firestore,
+    `!=` also excludes documents where the field is **absent** — and capture requires only
+    name and phone (`src/lib/prospect.ts:42-47`, "Only name and phone are required"). So a
+    prospect saved with a weight but no height is never selected and their health data
+    lives forever, silently, while the privacy notice promises deletion at 180 days.
+
+    **Recorded, deliberately not fixed.** This is an UNDER-deletion bug, so the current
+    behaviour is the safe one: getting the fix wrong deletes data that should have been
+    kept, in the one job in this codebase that destroys user data irreversibly, in a
+    separately-deployed package. It wants an owner's attention and a careful test, not an
+    unattended patch. Two smaller gaps in the same job: `.limit(400)` per daily run with
+    no paging or alerting, so any backlog above 400 drains silently past the window; and a
+    prospect with no `lastActivityAt` is never purged at all until
+    `npm run backfill:prospect-activity` has run on production (still an unrun blocker).
+
+16d. **MEDIUM — `prospects.notes` is 2,000 free-text characters with no retention limit.**
+    The health purge nulls height, weight, age and gender; it does not touch `notes`. A
+    coach who typed "wants to lose 15 kg, diabetic mother" has written health data into
+    the one prospect field nothing ever deletes — and when `shareProspects` is on, the
+    Security Rules grant is the **whole document** to **every ancestor** in `uplinePath`,
+    not just the direct upline, because rules cannot do field-level reads. Both facts are
+    now stated in the privacy notice; neither is fixed in code.
+
+16e. ~~**Voice logging told coaches their audio stayed on the phone.**~~ **FIXED
+    2026-08-20.** `Recorder.tsx` uses `webkitSpeechRecognition`, and on Chrome — including
+    Chrome on Android, the target device — the Web Speech API streams audio to Google's
+    servers. The copy said "Your phone does the listening". This file's own examples show
+    a coach speaking a prospect's name and phone number aloud, so that sentence was
+    wrong about the one thing it existed to establish. Copy corrected, and Google speech
+    recognition is now named as a recipient in the privacy notice. Also corrected there:
+    the recording is deleted but **the transcript is not** — `markCounted` nulls only
+    `audioBase64`, and a 140-character slice is separately copied into `dailyLogs.note`.
+
 17. **MEDIUM — "five languages" is 28 strings, and that is ~11% of the interface.**
     *Measured 2026-08-20 with `npx tsx scripts/audit-i18n.ts`: **232 distinct hardcoded
     English strings across 79 files** against 28 dictionary keys — a translatable share of

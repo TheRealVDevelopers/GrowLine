@@ -98,7 +98,7 @@ export default function PrivacyPage() {
             ],
             [
               "Estimates calculated from those numbers",
-              "BMI and its general range, an estimated body fat percentage, a basal metabolic rate, a healthy weight range, a daily water target and general calorie guidance. These are general wellness estimates and are not medical advice, not a diagnosis, and not a health assessment.",
+              "BMI and its general range, an estimated body fat percentage, a basal metabolic rate, a healthy weight range and a daily water target. These are general wellness estimates and are not medical advice, not a diagnosis, and not a health assessment.",
             ],
             ["Notes the coach types about your conversation", "visible to that coach."],
             ["Which stage of their follow-up list you are on", "and when they plan to contact you next."],
@@ -153,7 +153,10 @@ export default function PrivacyPage() {
             ["Your daily activity, targets and team position", "the business record the app exists to keep."],
             ["Anything you type into notes, messages to your team, or goals", "stored as written."],
             ["Photos you attach as proof of progress", "re-encoded when uploaded, which removes camera metadata such as location."],
-            ["Voice notes, if you use voice logging", "kept briefly and then deleted automatically; the numbers you confirm from them are kept."],
+            [
+              "Voice notes, if you use voice logging",
+              "the recording is deleted automatically after a short period. The text it was turned into, and the numbers you confirm from it, are kept — so treat the transcript as something that stays.",
+            ],
           ]}
         />
       </Section>
@@ -164,6 +167,10 @@ export default function PrivacyPage() {
             [
               "Google (Firebase)",
               "hosting, the database, and the SMS that verifies a phone number at sign-in.",
+            ],
+            [
+              "Google (speech recognition), only if a coach uses voice logging",
+              "the browser's speech feature sends what is spoken to Google to be turned into text, the same way a phone keyboard's microphone key does. A coach who would rather nothing left their phone can type their numbers in instead.",
             ],
             [
               "Razorpay, only if a coach subscribes",

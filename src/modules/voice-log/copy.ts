@@ -25,9 +25,24 @@ export const SUBTITLE =
 export const NOT_A_LOG_YET =
   "A recording on its own is not your log. Your team sees numbers, so you check them on the next screen and save — one tap.";
 
-/** Said once, plainly, because the microphone leaves the app. */
+/**
+ * Said once, plainly, because the microphone leaves the app — and it leaves further than
+ * this sentence used to admit.
+ *
+ * The old wording was "Your phone does the listening, the same as the mic key on your
+ * keyboard." The analogy was apt; the first clause was not. `Recorder.tsx` uses
+ * `webkitSpeechRecognition` (the Web Speech API), and on Chrome — including Chrome on
+ * Android, which is the target device — that STREAMS THE AUDIO TO GOOGLE'S SERVERS for
+ * recognition. Nothing on the phone does the listening.
+ *
+ * That matters more here than it would elsewhere: this file's own examples show a coach
+ * saying a prospect's name and phone number aloud. Telling them it stayed on the handset
+ * was the one thing the sentence existed to establish, and it was wrong.
+ *
+ * Corrected 2026-08-20 after a data-inventory pass over every outbound transfer.
+ */
 export const WHERE_THE_AUDIO_GOES =
-  "Your phone does the listening, the same as the mic key on your keyboard. The recording is kept on your account, readable by you and nobody else — not your upline.";
+  "What you say is sent to Google to be turned into text, the same as the mic key on your keyboard does. The recording and the text are kept on your account, readable by you and nobody else — not your upline. If you would rather nothing left your phone, tap the numbers in instead.";
 
 export const HOW_TO_SPEAK =
   'Say the number and the thing: "five shakes, two invites, three follow-ups". English numbers for now.';

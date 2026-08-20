@@ -73,6 +73,32 @@ describe("the numbers in the notice are the numbers the code enforces", () => {
   });
 });
 
+describe("all four surfaces v2 §5.4 names actually link the notice", () => {
+  /*
+   * The spec names four places, and the first pass shipped three — the manual capture
+   * flow was missed and nothing noticed, because a missing link renders as nothing and
+   * PrivacyLink renders as nothing when unpublished too. The two absences are
+   * indistinguishable by eye.
+   *
+   * Checked as imports rather than by rendering: PrivacyLink is a server component
+   * reading server configuration, so a DOM test would need a server, and the thing worth
+   * pinning is that each surface reaches for it at all.
+   */
+  const SURFACES: [string, string][] = [
+    ["the QR self-fill form", "src/app/c/[code]/page.tsx"],
+    ["the wellness report page", "src/app/r/[token]/page.tsx"],
+    ["Settings", "src/app/(app)/settings/page.tsx"],
+    ["the manual capture flow (Mode A)", "src/app/(app)/prospects/new/page.tsx"],
+  ];
+
+  for (const [what, file] of SURFACES) {
+    test(`${what} links it`, () => {
+      const src = readFileSync(file, "utf8");
+      assert.match(src, /PrivacyLink/, `${file} does not link the privacy notice`);
+    });
+  }
+});
+
 describe("the notice does not describe a nicer product than the one running", () => {
   const src = readFileSync("src/app/privacy/page.tsx", "utf8");
 
@@ -98,6 +124,21 @@ describe("the notice does not describe a nicer product than the one running", ()
     // a person handing over a weight actually wants.
     assert.match(src, /cholesterol/i);
     assert.match(src, /blood pressure/i);
+  });
+
+  test("it does not claim a calculation the app deliberately refuses to make", () => {
+    /*
+     * The notice listed "general calorie guidance" among the estimates. wellness.ts
+     * deliberately does NOT produce maintenance calories — capture collects no activity
+     * level, so any figure would apply an invented multiplier, and the restraint is
+     * documented at the top of that file.
+     *
+     * Over-declaring in a privacy notice is a smaller sin than under-declaring, but it
+     * is still a false statement about what is done with somebody's body measurements.
+     */
+    assert.doesNotMatch(src, /calorie/i);
+    const wellness = readFileSync("src/lib/wellness.ts", "utf8");
+    assert.match(wellness, /Maintenance calories are NOT produced/);
   });
 
   test("it states RULES L7 as a fact about the data model", () => {
