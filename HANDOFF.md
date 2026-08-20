@@ -329,8 +329,14 @@ money to skip.
 - **`FIREBASE_SERVICE_ACCOUNT`** — the server half. The boot guard (D45) requires both
   emulator hosts unset AND this set; get it wrong in one direction and half the app talks
   to production while the other half talks to nothing.
-- Confirm **App Hosting supports Next 16.3**. If not, v2 §3 pre-approves the Vercel-front
-  fallback with the reason recorded in `DECISIONS.md`.
+- **Classic Hosting is ruled out — see D79.** Not a preference: firebase-tools 15's
+  Next adapter declares `supportedRange = "12 - 16.0"` and this project is on 16.3.0, so
+  `semver.satisfies` is false and the CLI refuses the build. `firebase deploy --only
+  hosting` will never work here, and `firebase.json` has no hosting block on purpose.
+  App Hosting is configured in `apphosting.yaml` and runs the project's own `npm run
+  build`, so it is not version-pinned the same way. **Still unverified against a real
+  build** — if it fails on Next 16.3 too, v2 §3's Vercel-front fallback is the answer and
+  D79 is where the reason goes.
 - Blaze plan, and SMS delivery to Indian numbers confirmed with a real handset.
 
 ## Where this repo sits, and what needs a PC

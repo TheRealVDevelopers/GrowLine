@@ -4062,3 +4062,72 @@ about "medical advice" is not a denial of it.
 Machine-translating a legal document is not acceptable, and D72 already forbids shipping
 unverified translations, so this needs a human. Recorded in `STATUS.md` rather than
 quietly treated as done.
+
+---
+
+## D79
+
+**Classic Firebase Hosting cannot serve this app, and the tooling says so numerically.
+App Hosting is the only Firebase path.**
+
+`HANDOFF.md` has carried an open question since v2 §3 was adopted: *"confirm whether App
+Hosting actually supports Next.js 16.3 — if not, v2 §3 pre-approves the Vercel-front
+fallback."* Asked to deploy to Firebase Hosting on 2026-08-20, so it got answered.
+
+Files: `apphosting.yaml`, `firebase.json` (deliberately unchanged).
+
+### Three paths, and two of them are closed
+
+**1. Classic Hosting, serving static files — impossible.** Hosting serves what is on disk.
+This app forces a dynamic render on nine pages, runs middleware in `src/proxy.ts`, and
+every API route uses the Admin SDK against Firestore. There is no static export of it.
+
+**2. Classic Hosting with the `webframeworks` experiment — refused by the tooling.** This
+is the older path that predates App Hosting: `firebase experiments:enable webframeworks`
+teaches `firebase deploy --only hosting` to build a Next app and put the SSR half behind
+Hosting on Cloud Functions. It is a real product and it does support Next SSR, so it was
+worth checking rather than dismissing.
+
+It does not support this Next. From the installed firebase-tools 15.26.0:
+
+```
+node_modules/firebase-tools/lib/frameworks/next/index.js
+    supportedRange = "12 - 16.0"
+```
+
+and this project is on `next@16.3.0`:
+
+```
+semver.satisfies("16.3.0", "12 - 16.0")  →  false
+```
+
+`12 - 16.0` is a semver range meaning `>=12.0.0 <=16.0.x`. 16.3.0 is outside it, so the
+CLI refuses the build rather than producing something subtly broken. Downgrading Next to
+16.0 to unlock a worse hosting product is not a trade worth making.
+
+**3. App Hosting — the remaining path, and the one v2 §3 already named.** It differs in
+the way that matters here: it does not carry its own pinned adapter version, it runs the
+project's own `npm run build` in a container. So the Next version is ours to choose rather
+than the CLI's to approve.
+
+### What this means operationally
+
+`firebase deploy --only hosting` is not a command that will ever work on this repository,
+and `firebase.json` has no `hosting` block on purpose — adding one configures the wrong
+product and produces a confusing failure rather than a clear one.
+
+App Hosting also does not deploy from `firebase deploy` at all. It builds from a git push
+against a backend created once, interactively, because it needs a GitHub connection and a
+region:
+
+```
+firebase apphosting:backends:create --project grow--line
+```
+
+### The fallback is still pre-approved, and is now one step closer to needed
+
+v2 §3 pre-approves Vercel front + Firebase backend if App Hosting does not work out, with
+the reason recorded here. That has not been exercised: App Hosting is configured
+(`apphosting.yaml`) and not yet run. If its build fails on Next 16.3 the way the
+webframeworks adapter does, the fallback is the answer and this entry is where the second
+half of the reason goes.
