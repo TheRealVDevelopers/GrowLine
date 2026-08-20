@@ -18,9 +18,9 @@
 #
 # A `secret:` entry is a hard reference. If the secret is absent from Secret Manager the
 # release fails — not the page that needed it, the whole rollout. So this file declares
-# exactly ONE secret: the credential without which the process refuses to boot at all.
-# Everything else is commented out, paired with the one thing it turns on, and each pair
-# is uncommented in the same change that creates the secret:
+# NO secrets: the app boots on Cloud Run's own attached credential (D80), and every
+# optional feature is commented out beside the one thing it turns on. Each pair is
+# uncommented in the same change that creates its secret:
 #
 #     firebase apphosting:secrets:set CRON_SECRET --project grow--line
 #
@@ -109,23 +109,25 @@ env:
     availability: [BUILD]
 
   # ---------------------------------------------------------------------------
-  # THE ONE REQUIRED SECRET
+  # NO REQUIRED SECRETS. This file deploys as-is.
   #
-  # `src/lib/firebase-admin.ts` refuses to start without either a service-account
-  # credential or both emulator hosts — a deliberate guard (D45) against a
-  # half-configured process. App Hosting would rather you used Application Default
-  # Credentials and no key at all, which is the cleaner shape and wants its own decision
-  # record rather than being slipped in beside a config change. Until then, the whole
-  # service-account JSON goes in Secret Manager as one secret:
+  # `src/lib/firebase-admin.ts` refuses to start without a credential — a deliberate
+  # guard (D45) against a half-configured process. It used to accept exactly two: the
+  # emulators, or a service-account JSON. On Cloud Run, which is what App Hosting
+  # deploys onto, a credential is ALREADY attached to the revision, so a key file here
+  # would be a second, longer-lived secret granting the same access — one more thing to
+  # store, rotate and leak, for nothing.
   #
-  #     firebase apphosting:secrets:set FIREBASE_SERVICE_ACCOUNT --project grow--line
+  # The guard now accepts Application Default Credentials when `K_SERVICE` proves it is
+  # inside Cloud Run (D80). So nothing goes in Secret Manager for the app to boot.
   #
-  # RUNTIME only. It is not read during the build, and a secret exposed to the build is
-  # a secret in the build logs.
+  # An explicit FIREBASE_SERVICE_ACCOUNT still wins if you ever set one — uncomment
+  # below and create the secret. Use it only to point this backend at a DIFFERENT
+  # project from the one hosting it; for the normal case ADC is both simpler and safer.
+  # - variable: FIREBASE_SERVICE_ACCOUNT
+  #   secret: FIREBASE_SERVICE_ACCOUNT
+  #   availability: [RUNTIME]
   # ---------------------------------------------------------------------------
-  - variable: FIREBASE_SERVICE_ACCOUNT
-    secret: FIREBASE_SERVICE_ACCOUNT
-    availability: [RUNTIME]
 
   # ---------------------------------------------------------------------------
   # SWITCHED OFF — uncomment each pair in the change that creates its secret.

@@ -4131,3 +4131,72 @@ the reason recorded here. That has not been exercised: App Hosting is configured
 (`apphosting.yaml`) and not yet run. If its build fails on Next 16.3 the way the
 webframeworks adapter does, the fallback is the answer and this entry is where the second
 half of the reason goes.
+
+---
+
+## D80
+
+**The boot guard accepts Application Default Credentials on Cloud Run, so deploying this
+app requires no secret at all.**
+
+`apphosting.yaml` declared fifteen `secret:` entries. A `secret:` in App Hosting is a hard
+reference: absent from Secret Manager, the **rollout** fails — not the feature, the whole
+release. So the first deploy would have failed on Razorpay keys and a grievance officer's
+postal address, decisions nobody has made yet, fifteen times, each retry costing a push.
+
+Fourteen were commented out first, each beside a note saying what stays switched off until
+it exists (`CRON_SECRET` missing means leaderboards look *broken*, not empty — worth
+knowing before someone debugs it). One was deleted outright: **`SESSION_SECRET`, which
+nothing in `src/` has read since Firebase Auth replaced the custom JWT in v2.1a.** It was
+marked required, so the very first rollout would have failed over a variable no code uses.
+`.env.example` still lists it; that is the next cleanup, not this one.
+
+That left `FIREBASE_SERVICE_ACCOUNT`, required because `src/lib/firebase-admin.ts` refuses
+to boot without a credential (D45). This entry removes that one too.
+
+### Why a key file on Cloud Run is worse than no key file
+
+App Hosting deploys onto Cloud Run, which attaches a service account to every revision.
+The Admin SDK finds it through Application Default Credentials with no configuration. A
+service-account JSON in Secret Manager therefore buys **nothing** and costs a second,
+longer-lived credential granting the same access — one more thing to store, rotate, leak
+in a log line, and forget about. The idiomatic setup on this platform is no key at all.
+
+### The gate is the entire safety of the change
+
+The guard exists to make a half-configured process fail at boot rather than at the first
+query. "No credential, no emulator → try ADC" would defeat it on a laptop, where ADC
+either does not exist (boot succeeds, every request fails later — precisely the failure
+D45 was written to move forward in time) or *does* exist and points at whichever project
+that person last used with `gcloud auth`, which is worse than either.
+
+So the ADC branch is reachable only when **`K_SERVICE`** is set. That is part of the Cloud
+Run container runtime contract — the platform sets it on every instance and nothing else
+does. Inside Cloud Run neither laptop failure is possible: the attached credential is the
+one the deployment was configured with.
+
+Deliberately not probed: `NODE_ENV` (set by `next start` on a laptop), `GCLOUD_PROJECT`
+(set by the Firebase CLI), `GOOGLE_APPLICATION_CREDENTIALS` (set by this repo's own
+rules-deploy workflow). None of them means "the platform attached a credential to this
+process". There is a test asserting each of those does not stand in for `K_SERVICE`.
+
+Precedence: **emulators > explicit credential > ADC**. An explicit
+`FIREBASE_SERVICE_ACCOUNT` still wins, because somebody who put one in the environment
+meant *that* account, and silently preferring the platform's would point a deployment at a
+different project than the operator configured. Emulator hosts beat both, because the SDK
+routes to them regardless of which credential resolves — a guard that disagreed with the
+thing it guards would be worse than no guard.
+
+### The part that made this testable
+
+`resolveTarget()` read `process.env` at module scope, on purpose (D45), which meant it
+could never be unit-tested: a test importing it exercises only the configuration its own
+process started with, and the interesting cases are the ones that must **throw**. It moved
+to `src/lib/firebase-target.ts` as a pure function of an env object, with no Admin SDK
+import — a decision, not a connection.
+
+Three configurations now boot and eight are refused, all of them stated once in
+`tests/firebase-target.test.ts`. That file is also the first test this guard has ever had,
+including for the state that motivated it: `FIREBASE_AUTH_EMULATOR_HOST` set alone, where
+the SDK swaps in the emulator token verifier (`algorithms: ['none']`) so a cookie signed
+with nothing, naming any uid, is accepted against a real project.
