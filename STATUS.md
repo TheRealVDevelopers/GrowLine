@@ -442,6 +442,26 @@ distinguish.
     thing the referral rule exists to prevent. `npm run backfill:workspaces -- --check`
     exits non-zero while anyone is unassigned, which is what makes this enforceable.
 
+16. **HIGH — the app is not installable: there is no web app manifest.** Found by the
+    2026-08-19 feature audit; recorded nowhere before it. `public/sw.js` exists and caches
+    routes for the weak-signal case, so the offline half of the PWA works — but there is no
+    `manifest.json`, no `src/app/manifest.ts`, and no `manifest` link in the root layout.
+    Without one Android offers no "Add to home screen", there is no standalone display mode,
+    and there is no app icon. v1 §10 asks for "an installable PWA … AND the same experience
+    in a desktop browser"; only the second half is true today. Cheap to fix (a manifest, a
+    set of icons, one `<link>`), and worth fixing before a pilot club is asked to install
+    anything. Note that `RESERVED_SLUGS` in `src/modules/portfolio/model.ts` already reserves
+    the route name `manifest`, so nothing has to move to make room for it.
+
+17. **MEDIUM — "five languages" is 28 strings.** `src/lib/dictionaries/` holds `en`, `hi`,
+    `kn`, `ta`, `te`, and each dictionary has **28 keys**. The switcher works and the report
+    fonts render every script correctly, so the plumbing is real — but the overwhelming
+    majority of the interface is English-only, and a coach who picks Kannada sees a handful
+    of translated labels on otherwise English screens. This is not a defect in what was
+    built; it is a gap between what the code does and what "Kannada / Hindi / Marathi UI
+    localisation" (v1 §8) will be read to mean. Decide before a pilot whether to finish the
+    dictionaries or describe the feature honestly as partial.
+
 **Flaky, not broken:** `e2e/realtime.spec.ts` failed once in a full run and passed alone
 and on the very next full run (43/43). Shared emulator state and ordering, same family as
 D44. Watch it; do not "fix" it by weakening the assertion.
