@@ -7,6 +7,7 @@ import {
   getFirestore,
   type Firestore,
 } from "firebase/firestore";
+import { startAppCheck } from "./app-check";
 
 /**
  * Browser-side Firebase: Auth, and — since v2.1b — a read-only Firestore.
@@ -32,7 +33,21 @@ const config = {
 let cachedAuth: Auth | null = null;
 
 export function firebaseApp(): FirebaseApp {
-  return getApps().length ? getApp() : initializeApp(config);
+  const app = getApps().length ? getApp() : initializeApp(config);
+  /*
+   * App Check attaches here rather than in each consumer, because this is the one
+   * function `firebaseAuth()` and `firebaseDb()` both go through — so attestation is in
+   * place before the first request instead of depending on a screen remembering to ask.
+   *
+   * It is a no-op today: with no site key configured it skips, and it skips again
+   * whenever an emulator host is set. See `app-check.ts` for why it fails open in all
+   * three directions, and why enabling enforcement in the console before this ships
+   * would be an outage rather than a security improvement.
+   */
+  // Not awaited: see app-check.ts. Blocking here would put a chunk download in front
+  // of the login screen to close a race that user interaction already prevents.
+  void startAppCheck(app);
+  return app;
 }
 
 export function firebaseAuth(): Auth {
