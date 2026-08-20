@@ -127,9 +127,9 @@ export default function PrivacyPage() {
         />
       </Section>
 
-      <Section title="What your coach's upline can and cannot see">
+      <Section title="What your coach’s upline can and cannot see">
         <p>
-          Coaches work in teams. By default, a coach&rsquo;s mentor sees <strong>numbers only</strong> —
+          Coaches work in teams. By default, a coach’s mentor sees <strong>numbers only</strong> —
           how many people were spoken to, invited or joined — and never your name or phone
           number.
         </p>
@@ -168,7 +168,7 @@ export default function PrivacyPage() {
             ],
             [
               "WhatsApp, only when a coach chooses to send something",
-              "messages are sent from the coach's own phone and their own WhatsApp account. Growline does not send messages on their behalf and has no access to their chats.",
+              "messages are sent from the coach’s own phone and their own WhatsApp account. Growline does not send messages on their behalf and has no access to their chats.",
             ],
           ]}
         />
