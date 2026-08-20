@@ -265,19 +265,73 @@ None of these announce themselves. Two would have passed every test that existed
 
 ## Blocking cutover (not the build)
 
-The Firebase migration cannot start from a cloud session alone. Someone with
-console access has to do these first — none of them are code:
+**The project now exists: `grow--line`** (note the DOUBLE hyphen — `grow-line` is a
+different string and will fail silently as a wrong project id). `.firebaserc` carries it
+as the `prod` alias, so every command below takes `-P prod` and nothing has to be typed
+from memory. `default` is still `growline-dev`, the emulator project, so a forgotten flag
+targets the emulator rather than production.
 
-1. Create the Firebase project and **enable the Blaze plan** (Cloud Functions,
-   Cloud Scheduler and App Hosting all require it; Spark cannot run any of them).
-2. Enable **Phone** as an Auth provider, and confirm SMS pricing and delivery for
-   Indian numbers.
-3. Put the web app config + a service-account key into `.env` (and confirm
-   whether App Hosting actually supports Next.js 16.3 — if not, v2 §3 pre-approves
-   the Vercel-front fallback, with the reason written into `DECISIONS.md`).
+The owner supplied the web app config on 2026-08-20. Four of its seven fields are read by
+this app; the rest are for products it does not use yet:
 
-Until those exist, a session can write migration code but cannot run or verify it,
-and v2 §3's parity gate says nothing new gets built on an unverified migration.
+| Firebase console field | Env var | Used today |
+|---|---|---|
+| `apiKey` | `NEXT_PUBLIC_FIREBASE_API_KEY` | yes |
+| `authDomain` | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | yes |
+| `projectId` | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | yes |
+| `appId` | `NEXT_PUBLIC_FIREBASE_APP_ID` | yes |
+| `storageBucket` | — | Storage is deny-all and unwired |
+| `messagingSenderId` | — | no FCM; push is still Web Push/VAPID |
+| `measurementId` | — | Firebase Analytics is not in this codebase |
+
+**The values are deliberately not committed, and not because they are secret.** A Firebase
+web config ships in every browser bundle by design; it is not a credential. They stay out
+because `NEXT_PUBLIC_*` is inlined at BUILD time, so production values belong to the
+hosting environment, and because `.env.example` is a template — a real project id in it
+becomes the value somebody copies into a test deployment by accident.
+
+### The order, and why it is an order
+
+Do not point anything at `grow--line` until step 2 has run. This is the whole point of the
+sequence:
+
+1. **`firebase deploy -P prod --only firestore:indexes`** — 26 composite indexes. They
+   build asynchronously and a query against a still-building index fails, so this goes
+   first and gets a few minutes.
+2. **`firebase deploy -P prod --only firestore:rules,storage`** — **the step that must
+   precede any traffic.** A fresh project is either locked (the app looks broken) or in
+   test mode (every prospect name, phone number and health field is world-readable to
+   anyone holding the project id — which is public by design). `storage.rules` is deny-all,
+   which is correct until Pro portfolio needs it.
+3. **`npm run verify:indexes` with `FIRESTORE_EMULATOR_HOST` and
+   `FIREBASE_AUTH_EMULATOR_HOST` UNSET and `FIREBASE_SERVICE_ACCOUNT` set.** This is
+   STATUS launch blocker #1. The emulator invents missing indexes; production throws
+   `FAILED_PRECONDITION` the first time a coach opens the screen. Cheapest possible
+   insurance against a launch-day outage.
+4. **`firebase deploy -P prod --only functions`** — all nine. They are inert without
+   `CRON_SECRET`, so set that in the function environment in the same pass or the boards,
+   qualifications, silence alerts, reminders and the health purge all fail closed.
+5. **`npm run backfill:prospect-activity`** once, before the first purge can run (D69).
+   `--check` exits non-zero while any prospect lacks `lastActivityAt`.
+6. **`npm run backfill:workspaces`** — same shape, `--check` gates it (STATUS bug 15).
+
+### App Check is not optional here
+
+The repository is **public** and Phone auth is enabled. The config being public is fine;
+the consequence is not. Anyone can read the project id and drive OTP sends at it, and SMS
+to Indian numbers is billed per message. Turn on **App Check with reCAPTCHA Enterprise**
+for the Auth provider before the pilot, not after the first bill. Nothing in the code
+prevents this — it is a console setting, and it is the only one on this list that costs
+money to skip.
+
+### Still outstanding for the cutover
+
+- **`FIREBASE_SERVICE_ACCOUNT`** — the server half. The boot guard (D45) requires both
+  emulator hosts unset AND this set; get it wrong in one direction and half the app talks
+  to production while the other half talks to nothing.
+- Confirm **App Hosting supports Next 16.3**. If not, v2 §3 pre-approves the Vercel-front
+  fallback with the reason recorded in `DECISIONS.md`.
+- Blaze plan, and SMS delivery to Indian numbers confirmed with a real handset.
 
 ## Where this repo sits, and what needs a PC
 

@@ -324,8 +324,11 @@ distinguish.
     → **FIXED 2026-08-14**: `e2e:reset` now runs `db:seed` first, and CI's separate
     `db:seed` line is removed rather than duplicated.
 
-17. **BLOCKER (unresolved) — nothing has ever run against real Firebase, and the emulator
-    is more permissive than production in a way no test can see.** A query needing a
+17. **BLOCKER (still open, now actionable) — nothing has ever run against real Firebase,
+    and the emulator is more permissive than production in a way no test can see.**
+    *2026-08-20: the project exists — `grow--line` (double hyphen), carried as the `prod`
+    alias in `.firebaserc`, with an ordered cutover runbook in `HANDOFF.md` § Blocking
+    cutover. What still blocks the run is `FIREBASE_SERVICE_ACCOUNT`.* A query needing a
     composite index that does not exist throws `FAILED_PRECONDITION` the first time a real
     coach opens the screen; the emulator creates missing indexes silently on demand, so
     every suite here passes against an instance that cannot reproduce the failure. CI is

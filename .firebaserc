@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "growline-dev"
+    "default": "growline-dev",
+    "prod": "grow--line"
   }
 }
