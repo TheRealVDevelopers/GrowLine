@@ -57,11 +57,16 @@ env:
   # wrong project — nothing errors, the realtime row simply never arrives. The CI
   # workflow carries the same warning for the same reason.
   #
-  # The web API key and app id are public by design — they identify the project, they
-  # authorise nothing; access is controlled by Security Rules. They are still left blank
-  # here rather than committed, because this file is a public README for the deployment
-  # and a key in it invites someone to reuse it as a template. Fill them in the App
-  # Hosting console under this backend's settings.
+  # The web API key and app id are PUBLIC BY DESIGN. They identify the project; they
+  # authorise nothing. Firebase ships both in the JavaScript bundle of every web app it
+  # serves, so the moment this site is live anyone can read them out of the page source.
+  # Access is controlled by Security Rules, and abuse by App Check — never by hiding these.
+  #
+  # They were left blank here at first, to be filled in the console. That was the wrong
+  # call: it is not clear which wins when a value exists in both this file and the backend
+  # settings, and a NEXT_PUBLIC_* that resolves to empty at BUILD time fails silently —
+  # the browser talks to nothing and no error is raised anywhere. Committing them makes
+  # the build deterministic and costs nothing that being live does not already cost.
   # ---------------------------------------------------------------------------
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
     value: grow--line
@@ -72,11 +77,11 @@ env:
     availability: [BUILD, RUNTIME]
 
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: ""
+    value: AIzaSyBRwCRoOFfwWV4RgEJR5qbxCR0FL4_wwzs
     availability: [BUILD, RUNTIME]
 
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    value: ""
+    value: "1:131471483029:web:34a42285f95fb8da567b9c"
     availability: [BUILD, RUNTIME]
 
   # Required, and link previews are wrong without it — report cards resolve relative
