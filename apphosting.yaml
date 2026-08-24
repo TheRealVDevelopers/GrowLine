@@ -91,21 +91,26 @@ env:
     value: https://growline--grow--line.asia-east1.hosted.app
     availability: [BUILD, RUNTIME]
 
-  # App Check. Blank is safe and is the default: the client does nothing without a key.
-  # Ship the key BEFORE turning enforcement on in the console — enforcement with no
-  # attesting client rejects every request. See src/lib/app-check.ts.
-  - variable: NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY
-    value: ""
-    availability: [BUILD, RUNTIME]
+  # App Check and Web Push are OFF at launch, and their entries are absent rather than
+  # empty. `value: ""` is what failed the first real rollout: the preparer rejected the
+  # whole file as fah/invalid-apphosting-yaml, because to a Go validator an empty string
+  # is indistinguishable from the field not being set, so the entry reads as an env var
+  # with neither a value nor a secret. The app treats absent and empty identically
+  # (app-check.ts skips without a key; isPushConfigured() is false without the pair),
+  # so nothing is lost by leaving these out until the real values exist.
+  #
+  # When App Check is registered (ship the key BEFORE enforcement — see app-check.ts):
+  # - variable: NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY
+  #   value: <the reCAPTCHA key>
+  #   availability: [BUILD, RUNTIME]
   - variable: NEXT_PUBLIC_FIREBASE_APPCHECK_PROVIDER
     value: enterprise
     availability: [BUILD, RUNTIME]
 
-  # Web Push. Without the pair, isPushConfigured() is false and the morning follow-up
-  # notification silently never sends. The private half is a secret, below.
-  - variable: NEXT_PUBLIC_VAPID_PUBLIC_KEY
-    value: ""
-    availability: [BUILD, RUNTIME]
+  # When push goes live (the private half joins the secrets block below):
+  # - variable: NEXT_PUBLIC_VAPID_PUBLIC_KEY
+  #   value: <the VAPID public key>
+  #   availability: [BUILD, RUNTIME]
 
   # The legacy SQLite source, needed only so `prisma generate` can read its config
   # during the build. Nothing at runtime opens this file.
