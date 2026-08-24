@@ -38,6 +38,7 @@ function uniquePhone(): string {
 }
 
 async function enterPhoneAndCode(page: Page, tenDigits: string) {
+  await page.getByRole("button", { name: "Use phone OTP instead" }).click();
   await page.getByPlaceholder("98765 43210").fill(tenDigits);
   await page.getByRole("button", { name: /get otp/i }).click();
 

@@ -19,6 +19,7 @@ const ASHA_PHONE = "9000000002";
 
 async function login(page: import("@playwright/test").Page) {
   await page.goto("/login");
+  await page.getByRole("button", { name: "Use phone OTP instead" }).click();
   await page.getByPlaceholder("98765 43210").fill(ASHA_PHONE);
   await page.getByRole("button", { name: /get otp/i }).click();
   const codeField = page.getByPlaceholder("••••••");

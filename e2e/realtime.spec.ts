@@ -18,6 +18,7 @@ const ASHA_CODE = "ASHA01";
 test("a QR self-fill appears in the pipeline with no refresh", async ({ page, request }) => {
   // Sign in as Asha and sit on the prospects screen.
   await page.goto("/login");
+  await page.getByRole("button", { name: "Use phone OTP instead" }).click();
   await page.getByPlaceholder("98765 43210").fill(ASHA_PHONE);
   await page.getByRole("button", { name: /get otp/i }).click();
   const codeField = page.getByPlaceholder("••••••");

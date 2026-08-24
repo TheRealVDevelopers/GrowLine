@@ -17,6 +17,7 @@ const AUTH_EMULATOR = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? "127.0.0.1:9099
 
 async function loginAsAsha(page: Page) {
   await page.goto("/login");
+  await page.getByRole("button", { name: "Use phone OTP instead" }).click();
   await page.getByPlaceholder("98765 43210").fill("9000000002");
   await page.getByRole("button", { name: /get otp/i }).click();
 

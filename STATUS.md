@@ -54,6 +54,12 @@ authorised.
       is genuinely gone from `src/`, not dead code still shipping. Referral-code uniqueness is
       claimed inside `createUser`'s transaction via a reservation doc (`src/lib/users.ts:135-201`,
       D41). Logout revokes server-side; e2e replays a dead cookie to prove it.
+      **2026-08-24:** email + password sign-in is live as the interim DEFAULT (D82) —
+      production `sendVerificationCode` returns 400 (suspected unprovisioned SMS; being chased
+      separately), so phone OTP is built and working but blocked in production. OTP stays one
+      tap away on the login screen; the revert is one line (`INITIAL_STEP`). The phone number
+      is still collected at signup as required contact data — unverified on the email path
+      until SMS works.
 - [x] **Team tree (3 levels, activity per node)** — real BFS over `users` capped at depth 3;
       per-node activity is genuine `dailyLogs`/`targets` data, not placeholders
       (`src/lib/team.ts:68-146`). Drill-down re-checks the requested root is inside the caller's

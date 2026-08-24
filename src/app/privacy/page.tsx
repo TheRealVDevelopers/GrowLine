@@ -148,7 +148,14 @@ export default function PrivacyPage() {
       <Section title="If you are a coach using Growline">
         <List
           items={[
-            ["Your phone number", "it is how you sign in. Verified by SMS."],
+            [
+              "Your phone number",
+              "it is how prospects and your team reach you — it appears on the reports you send and behind the WhatsApp button on your public page, if you publish one. When you sign in by phone it is verified by SMS. When you sign in with an email address it is saved as you typed it, unverified.",
+            ],
+            [
+              "Your email address, if you sign in with one",
+              "used to sign you in and to send you a password reset, and for nothing else. It does not appear on reports or on your public page, and your team never sees it.",
+            ],
             ["Your name, city and photo, if you add one", "your name and photo appear on reports you send and on your public page, if you publish one."],
             ["Your daily activity, targets and team position", "the business record the app exists to keep."],
             ["Anything you type into notes, messages to your team, or goals", "stored as written."],
@@ -166,7 +173,7 @@ export default function PrivacyPage() {
           items={[
             [
               "Google (Firebase)",
-              "hosting, the database, and the SMS that verifies a phone number at sign-in.",
+              "hosting, the database, and sign-in: the SMS that verifies a phone number, or the email address and password of a coach who signs in that way.",
             ],
             [
               "Google (speech recognition), only if a coach uses voice logging",

@@ -4245,3 +4245,59 @@ package.json's `build`, which the adapter runs anyway), flow-style arrays out, p
 comments out to `docs/app-hosting.md`. The lesson both times: the deploy platform's
 validators and phases are part of the program, and "passes locally" only counts when the
 local run reproduces the platform's environment variable-for-variable.
+
+---
+
+## D82
+
+**Email + password sign-in is the interim default because production SMS does not
+deliver; phone OTP stays intact one tap away, and the coach's phone number stays
+required — as contact data now, not as the credential.**
+
+Production `sendVerificationCode` returns 400 on every attempt. The suspected root
+cause is the billing account not being verified / SMS not being provisioned for the
+project; the exact response body has not been captured yet, and running that down is a
+separate chase. What could not wait for it is that the only door into the app errored
+for every real coach. On 2026-08-24 the owner decided email is enough for now.
+
+### Why email + password and not email-link
+
+Firebase's passwordless email-link flow was the other candidate and was rejected: a
+sign-in link needs authorized-domain configuration plus working email delivery — more
+moving parts, in exactly the layer (provider-side message delivery) that is currently
+broken. A password is the one credential with no delivery dependency at sign-in time.
+
+### Additive, not a replacement
+
+The OTP flow is untouched and reachable from the login screen in one tap. Which step a
+visitor lands on is a single constant — `INITIAL_STEP` in
+`src/app/login/LoginFlow.tsx` — so putting phone back on top when SMS works is a
+one-line revert, not a rebuild.
+
+### The trade, recorded openly
+
+An email signup's phone number comes from the profile form and is **unverified**. That
+is a real regression against v1 §F1's phone-first intent, accepted knowingly because
+the number is load-bearing either way — every report, WhatsApp link and portfolio
+prints it, so it stays REQUIRED at signup. Three bounds on the trade:
+
+- The uniqueness guard still applies: `complete-signup` refuses a number that already
+  has an account, so an unverified number cannot collide with or quietly claim an
+  existing one.
+- When a token carries a Firebase-verified number (phone sign-in), that verified
+  number still wins unconditionally over anything typed in the form.
+- Re-verifying these numbers later needs no schema change: the email address lives
+  only in Firebase Auth, the user document is unchanged, and the Security Rules are
+  unchanged. There is no new field anywhere to migrate.
+
+### Why the privacy notice moved in the same change
+
+`/privacy` said of the coach's phone number: "it is how you sign in. Verified by SMS."
+For an email signup both halves are false — the number is neither the credential nor
+verified — and a legal document making a false statement about an unverified field is
+not debt to schedule, it is a misrepresentation from the moment the first email
+account exists. The item now states what the number is actually for (prospects, the
+team, reports, the public page) and which sign-in path verifies it; a new item covers
+the email address (sign-in and password reset, nothing else); and the third-party
+list says plainly that Google holds the email and password for coaches who sign in
+that way.

@@ -50,6 +50,7 @@ function adminDb() {
 
 async function login(page: Page, who: { phone: string; name: string }) {
   await page.goto("/login");
+  await page.getByRole("button", { name: "Use phone OTP instead" }).click();
   await page.getByPlaceholder("98765 43210").fill(who.phone);
   await page.getByRole("button", { name: /get otp/i }).click();
 
