@@ -4200,3 +4200,48 @@ Three configurations now boot and eight are refused, all of them stated once in
 including for the state that motivated it: `FIREBASE_AUTH_EMULATOR_HOST` set alone, where
 the SDK swaps in the emulator token verifier (`algorithms: ['none']`) so a cookie signed
 with nothing, naming any uid, is accepted against a real project.
+
+---
+
+## D81
+
+**`next build` is a fourth legal configuration for the boot guard: no credential, no
+emulator, no Cloud Run — and no Firebase.**
+
+App Hosting build 022bb1bb, the first to get past the yaml preparer, failed at
+"Collecting page data" with the guard's own message: *FIREBASE_SERVICE_ACCOUNT is not
+set, no emulator host is configured, and this process is not running on Cloud Run
+(K_SERVICE is unset)*. Next evaluates every route module during the build, which runs
+`firebase-admin.ts` at module scope — inside Cloud **Build**, where `K_SERVICE` is a
+Cloud **Run** runtime variable that does not exist. The D80 guard, written to protect a
+server, was refusing a build.
+
+The failure was invisible in every local check for two reasons, both instructive:
+
+- The local production build passes because `next build` loads `.env` itself, and `.env`
+  carries both emulator hosts — the emulator branch boots.
+- The scrubbed "App Hosting simulation" run before shipping D80 passed because it set
+  `K_SERVICE=growline` — the author's own assumption, baked into the author's own test.
+  The one variable that mattered was the one invented. Reproduced honestly (no `.env`, no
+  `K_SERVICE`), the local build fails byte-for-byte like the cloud one.
+
+The fix: `resolveTarget` returns the ADC-shaped target when
+`NEXT_PHASE === "phase-production-build"`. A build must not talk to Firebase at all —
+every page in this app renders dynamically, so nothing queries at build time — which
+means demanding a credential from the build protects nothing. `firebase-admin` resolves
+ADC lazily at first token use, and a build has no first use.
+
+The runtime guarantee D45/D80 exist for is untouched, structurally: the runtime is a
+DIFFERENT process. `next start` never sets `NEXT_PHASE`, so a misconfigured server still
+refuses at boot with the full message. `next dev` sets a different phase value and DOES
+talk to Firebase, so only the exact string `phase-production-build` unlocks the branch —
+pinned by test alongside the decoy list.
+
+Also recorded here so the pattern is legible: this was the second consecutive rollout
+failure caused by a file behaving differently under App Hosting than anywhere else. The
+first (fah/invalid-apphosting-yaml, nine rollouts) fell to stripping `apphosting.yaml`
+to the documented schema surface — `scripts:` block out (the build command moved into
+package.json's `build`, which the adapter runs anyway), flow-style arrays out, prose
+comments out to `docs/app-hosting.md`. The lesson both times: the deploy platform's
+validators and phases are part of the program, and "passes locally" only counts when the
+local run reproduces the platform's environment variable-for-variable.

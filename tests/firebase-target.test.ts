@@ -38,6 +38,18 @@ describe("the three configurations that boot", () => {
     });
   });
 
+  test("nothing set, but inside `next build` — the build phase touches no Firebase (D81)", () => {
+    // Reproduced from App Hosting build 022bb1bb: "Collecting page data" evaluates
+    // every route module inside Cloud Build, where K_SERVICE does not exist, and the
+    // guard failed the BUILD with the message meant for a misconfigured SERVER. The
+    // runtime is a different process (`next start` never sets NEXT_PHASE), so the
+    // refusal below still protects it.
+    assert.deepEqual(resolveTarget({ NEXT_PHASE: "phase-production-build" }), {
+      usingEmulators: false,
+      serviceAccount: null,
+    });
+  });
+
   test("nothing set, but running on Cloud Run — App Hosting via ADC (D80)", () => {
     // `serviceAccount: null` is the discriminant `createApp` switches on to call
     // `applicationDefault()`. This is the branch where no key material exists
@@ -141,6 +153,16 @@ describe("the Cloud Run probe is K_SERVICE and nothing else", () => {
    * NODE_ENV is set by `next start` on a laptop, GCLOUD_PROJECT by the Firebase CLI,
    * and GOOGLE_APPLICATION_CREDENTIALS by this repo's own rules-deploy workflow.
    */
+  test("only the production-build phase unlocks the build branch", () => {
+    // `next dev` sets its own phase value, and a dev server DOES talk to Firebase —
+    // it must keep failing fast when unconfigured, not limp along credential-less.
+    assert.throws(
+      () => resolveTarget({ NEXT_PHASE: "phase-development-server" }),
+      /Refusing to start/
+    );
+    assert.throws(() => resolveTarget({ NEXT_PHASE: "" }), /Refusing to start/);
+  });
+
   for (const decoy of [
     "NODE_ENV",
     "GCLOUD_PROJECT",

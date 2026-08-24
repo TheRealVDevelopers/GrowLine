@@ -77,6 +77,8 @@ export type CredentialEnv = Readonly<Record<string, string | undefined>> & {
   FIREBASE_SERVICE_ACCOUNT?: string;
   /** Set by the Cloud Run runtime contract, and by nothing else. */
   K_SERVICE?: string;
+  /** Set by Next.js itself for the lifetime of `next build`. */
+  NEXT_PHASE?: string;
 };
 
 export function resolveTarget(env: CredentialEnv): FirebaseTarget {
@@ -129,6 +131,23 @@ export function resolveTarget(env: CredentialEnv): FirebaseTarget {
   // worse — a second, longer-lived secret to store, rotate and leak, granting the same
   // access ADC grants for free.
   if (onCloudRun(env)) return { usingEmulators: false, serviceAccount: null };
+
+  // Fourth configuration: `next build`, with no Firebase anywhere in sight (D81).
+  //
+  // Next evaluates every route module during "Collecting page data", which runs this
+  // file at module scope — inside Cloud Build, where K_SERVICE is a runtime variable
+  // that does not exist. The guard as first written failed the App Hosting BUILD with
+  // the very message meant for a misconfigured SERVER. But a build must not talk to
+  // Firebase at all (every page here renders dynamically; nothing queries at build
+  // time), so demanding a credential from one protects nothing. The ADC-shaped return
+  // costs nothing either way: firebase-admin resolves ADC lazily, at first token use,
+  // and there is no first use in a build.
+  //
+  // The runtime guarantee is intact because the runtime is a DIFFERENT process:
+  // `next start` never sets NEXT_PHASE, so a misconfigured server still refuses below.
+  if (env.NEXT_PHASE === "phase-production-build") {
+    return { usingEmulators: false, serviceAccount: null };
+  }
 
   throw new Error(
     "FIREBASE_SERVICE_ACCOUNT is not set, no emulator host is configured, and this " +
