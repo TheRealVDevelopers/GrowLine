@@ -33,6 +33,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+# The functions runtime config for the real project is that opt-in: it holds no
+# secret, only the app's public URL, and the seven HTTP-calling jobs are silent
+# no-ops if it is missing at deploy time (see functions/.env.example).
+!functions/.env.grow--line
 
 # local dev database
 *.db

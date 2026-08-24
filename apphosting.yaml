@@ -84,11 +84,11 @@ env:
     value: "1:131471483029:web:34a42285f95fb8da567b9c"
     availability: [BUILD, RUNTIME]
 
-  # Required, and link previews are wrong without it — report cards resolve relative
-  # og:image URLs against this. Set it to the backend's real URL after the first deploy
-  # tells you what that is; it is a chicken-and-egg only once.
+  # Required: report links, WhatsApp preview cards and og:image URLs are all built
+  # against this. The Host header would be the fallback, and that header is
+  # attacker-controlled — the wrong basis for a bearer-token link (see site-url.ts).
   - variable: NEXT_PUBLIC_SITE_URL
-    value: ""
+    value: https://growline--grow--line.asia-east1.hosted.app
     availability: [BUILD, RUNTIME]
 
   # App Check. Blank is safe and is the default: the client does nothing without a key.
