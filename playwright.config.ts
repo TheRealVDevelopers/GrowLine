@@ -87,6 +87,10 @@ export default defineConfig({
    * to that one rather than race a second process for port 3000 — the usual `!CI` idiom is
    * written for suites where Playwright owns the server, and here it does not.
    */
+  // Refuses to start if .next was built with different NEXT_PUBLIC_* values than this
+  // run has — see the file for the 43-failure cascade that motivated it.
+  globalSetup: "./e2e/global-setup.ts",
+
   webServer: {
     command: "npx next start",
     url: "http://127.0.0.1:3000/login",
