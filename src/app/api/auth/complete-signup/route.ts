@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { setSessionCookie, verifyPhoneToken } from "@/lib/session";
+import { setSessionCookie, verifyAuthToken } from "@/lib/session";
 import { createUser, getUserByPhone, getUserById, getUserByReferralCode } from "@/lib/users";
 
 export async function POST(req: Request) {
@@ -8,14 +8,40 @@ export async function POST(req: Request) {
   // The ID token replaces D2's short-lived signup JWT: same job — carrying a
   // verified phone through profile setup — but minted and signed by Firebase.
   const idToken = typeof body?.idToken === "string" ? body.idToken : "";
-  const verified = idToken ? await verifyPhoneToken(idToken) : null;
+  const verified = idToken ? await verifyAuthToken(idToken) : null;
   if (!verified) {
     return NextResponse.json(
-      { error: "Your session expired. Please verify your number again." },
+      { error: "Your session expired. Please sign in again." },
       { status: 401 }
     );
   }
-  const { uid, phone } = verified;
+  const { uid } = verified;
+
+  /**
+   * The coach's contact number, which every report, portfolio and WhatsApp link
+   * prints — signing in with an email does not remove the product's need for it.
+   *
+   * A phone-auth token carries a number Firebase verified over SMS; that one wins
+   * unconditionally. An email token (D82) carries none, so the number comes from
+   * the form instead — UNVERIFIED, and accepted anyway: the interim trade is
+   * "coach can exist" over "number is proven", and the uniqueness guard below
+   * still stops two accounts claiming the same number. When OTP returns, numbers
+   * entered this way can be verified without any schema change.
+   */
+  let phone = verified.phone;
+  if (!phone) {
+    const digits = String(body?.phone ?? "")
+      .replace(/\D/g, "")
+      .replace(/^91(?=\d{10}$)/, "")
+      .replace(/^0(?=\d{10}$)/, "");
+    if (!/^[6-9]\d{9}$/.test(digits)) {
+      return NextResponse.json(
+        { error: "Please enter your 10-digit mobile number." },
+        { status: 400 }
+      );
+    }
+    phone = `+91${digits}`;
+  }
 
   const name = String(body?.name ?? "").trim();
   const city = String(body?.city ?? "").trim();

@@ -116,20 +116,26 @@ export const getSessionUser = cache(async (): Promise<AppUser | null> => {
 });
 
 /**
- * Verifies a freshly-minted ID token from the phone-auth flow.
+ * Verifies a freshly-minted ID token from the sign-in flow.
  *
- * Returns the uid and the verified phone number. The uid becomes the user
- * document id (D34), and the phone is trusted only because Firebase verified it —
- * never read from the request body.
+ * Returns the uid plus whichever verified identifier the token carries. The uid
+ * becomes the user document id (D34). A phone in the token is trusted because
+ * Firebase verified it over SMS; an email is trusted as the sign-in identity the
+ * password proved (D82). A token carrying NEITHER identifies nobody we can
+ * attach a coach record to — anonymous auth, for instance — and is refused.
+ *
+ * The phone-only shape this replaces meant an email token failed with "could not
+ * be verified", which read as an outage rather than a policy.
  */
-export async function verifyPhoneToken(
+export async function verifyAuthToken(
   idToken: string
-): Promise<{ uid: string; phone: string } | null> {
+): Promise<{ uid: string; phone: string | null; email: string | null } | null> {
   try {
     const decoded = await auth.verifyIdToken(idToken, true);
-    const phone = decoded.phone_number;
-    if (!phone) return null;
-    return { uid: decoded.uid, phone };
+    const phone = decoded.phone_number ?? null;
+    const email = decoded.email ?? null;
+    if (!phone && !email) return null;
+    return { uid: decoded.uid, phone, email };
   } catch {
     return null;
   }

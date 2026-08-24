@@ -9,6 +9,13 @@ type SignupProps = {
   mode: "signup";
   idToken: string;
   initialReferral?: string;
+  /**
+   * Collect the coach's mobile number here (D82). A phone-OTP signup arrives with
+   * the number already verified inside the token, so the server ignores this
+   * field; an email signup has no number at all without it — and reports,
+   * WhatsApp links and the portfolio all print one.
+   */
+  askPhone?: boolean;
 };
 type EditProps = {
   mode: "edit";
@@ -33,6 +40,8 @@ export default function ProfileForm(props: Props) {
   const [referral, setReferral] = useState(
     isSignup ? (props.initialReferral ?? "") : ""
   );
+  const askPhone = isSignup && props.askPhone === true;
+  const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -61,6 +70,7 @@ export default function ProfileForm(props: Props) {
               city,
               photoUrl: photoUrl ?? undefined,
               referralCode: referral,
+              ...(askPhone ? { phone } : {}),
             }),
           })
         : await fetch("/api/me", {
@@ -120,6 +130,29 @@ export default function ProfileForm(props: Props) {
         />
       </label>
 
+      {askPhone && (
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium">Your mobile number</span>
+          <div className="flex items-center gap-2">
+            <span className="flex h-12 items-center rounded-xl bg-surface px-4 font-semibold">
+              +91
+            </span>
+            <input
+              className={inputCls}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+              inputMode="numeric"
+              autoComplete="tel-national"
+              placeholder="98765 43210"
+              required
+            />
+          </div>
+          <span className="text-xs text-text-dim">
+            Shown on the reports you send, so people can reach you.
+          </span>
+        </label>
+      )}
+
       <label className="flex flex-col gap-1.5">
         <span className="text-sm font-medium">City</span>
         <input
@@ -155,7 +188,7 @@ export default function ProfileForm(props: Props) {
 
       <button
         type="submit"
-        disabled={busy}
+        disabled={busy || (askPhone && phone.length !== 10)}
         className="h-12 rounded-xl bg-gold font-semibold text-on-gold disabled:opacity-50"
       >
         {busy ? "Saving…" : isSignup ? "Start my Growline" : "Save changes"}

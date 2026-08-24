@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
-import { setSessionCookie, verifyPhoneToken } from "@/lib/session";
+import { setSessionCookie, verifyAuthToken } from "@/lib/session";
 import { getUserById } from "@/lib/users";
 
 /**
  * Trades a verified Firebase ID token for a session cookie.
  *
  * Replaces POST /api/auth/verify-otp. Firebase has already verified the SMS code
- * by the time this is called, so there is no code to check here — only a token
- * signature, which is what makes the custom OTP table redundant.
+ * (or the email password, D82) by the time this is called, so there is nothing to
+ * check here — only a token signature, which is what makes the custom OTP table
+ * redundant.
  *
  * For a brand-new number the Firebase Auth user now exists but the user document
  * does not. No session cookie is issued in that case: the client keeps the ID
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing token." }, { status: 400 });
   }
 
-  const verified = await verifyPhoneToken(idToken);
+  const verified = await verifyAuthToken(idToken);
   if (!verified) {
     return NextResponse.json(
       { error: "That sign-in could not be verified. Please try again." },
