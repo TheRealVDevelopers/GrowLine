@@ -345,6 +345,22 @@ distinguish.
     production data. **This is not closed until somebody runs it against the real project
     with the emulator host variables unset.** Against the emulator it passes trivially, and
     the script says so rather than reporting a pass.
+    → **The prediction came true, then got fixed — 2026-08-26.** This WAS the launch-day
+    outage, to the letter: the app went live with zero indexes deployed (the first index
+    deploy had gone to the default `growline-dev` alias), and the first real coach's home
+    screen 500'd on `FAILED_PRECONDITION` for two days, opaque behind a digest number.
+    `/status` (D83) turned the digest into a diagnosis in one page-load, and then caught
+    what verify:indexes was built to catch — **two direction bugs the emulator had hidden
+    for the project's whole life**: `dailyLogs [userId, dayKey]` declared ASC where the
+    streak walk reads DESC, and `prospects [coachId, createdAt]` declared only DESC where
+    the weekly-recap count scans ASC. Production established the rule empirically, both
+    ways in one evening: **an index serves a query only when every field direction matches
+    exactly** — the reverse-scan leniency does not exist across an equality prefix. All 15
+    indexes (13 original + 2 direction fixes) deployed via Cloud Shell and confirmed
+    Enabled; `/status` reports 9/9 with the owner watching. Every remaining composite
+    query was swept against the file with exact-direction matching: consistent. Still
+    worth a `verify:indexes` run against prod for belt-and-braces, but the blocker as
+    stated — unknown index posture in production — is closed.
 
 2. ~~**HIGH — four of five Security Rules suites (88 assertions) never run in CI.**~~
    **FIXED 2026-08-14.** All six previously-unwired suites — boards, quals, duplication,
