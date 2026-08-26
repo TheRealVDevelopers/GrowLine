@@ -39,7 +39,7 @@ export const RESERVED_SLUGS = new Set([
   "api", "admin", "login", "logout", "demo", "join", "c", "r", "p",
   "settings", "team", "targets", "threads", "log", "prospects", "goals",
   "more", "workspace", "leaderboards", "qualifications", "duplication",
-  "voice-log", "who-to-call", "portfolio", "plans", "wall",
+  "voice-log", "who-to-call", "portfolio", "plans", "wall", "status",
   // Next.js and web conventions
   "_next", "static", "public", "favicon", "robots", "sitemap", "manifest",
   "assets", "images", "icons", "fonts", "sw", "well-known",

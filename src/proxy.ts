@@ -22,6 +22,11 @@ const PUBLIC_PATHS = [
   // that exists, renders, and cannot be read by the people it was written for (D68).
   // It 404s of its own accord until the grievance details are configured.
   /^\/privacy$/,
+  // The deployment's own health readout (D83). Public for the same D68 reason as
+  // /privacy: "status" is a RESERVED_SLUG, so without this line the proxy would
+  // bounce the one page built to explain production failures to /login — in
+  // exactly the situations where nobody can log in.
+  /^\/status$/,
 ];
 
 /**

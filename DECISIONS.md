@@ -4301,3 +4301,41 @@ team, reports, the public page) and which sign-in path verifies it; a new item c
 the email address (sign-in and password reset, nothing else); and the third-party
 list says plainly that Google holds the email and password for coaches who sign in
 that way.
+
+---
+
+## D83
+
+**The deployment diagnoses itself: `/status` runs the home screen's own queries and
+prints each verdict in the browser, so a production failure no longer needs anyone to
+read Cloud Run logs.**
+
+Two days of a live 500 on `/` produced the motivating shape: the home screen fires seven
+Firestore queries in parallel, any one failing yields a bare digest number, the real
+exception sits in Cloud Run's log viewer, and the person who can reproduce the outage —
+the owner, on a phone — is not the person who can read that viewer. Every diagnostic
+round-trip cost hours. `/status` inverts it: the same query functions the home screen
+calls (imported, not copied, so the page cannot drift), run one probe at a time against
+an id that matches no document, each verdict printed with its full error text — which
+for a Firestore FAILED_PRECONDITION includes the exact create-this-index link.
+
+Three properties are load-bearing, each proven before shipping:
+
+- **Bounded.** Every probe races an 8-second timeout, and the probes run concurrently,
+  so the page answers in at most ~8s no matter what. Against a network that black-holed
+  Firestore entirely, the first version never responded at all — a status page that
+  hangs in sympathy with the outage it exists to explain. Verified after: HTTP 200 in
+  8.3s with nine legible FAILs under total backend failure.
+- **Public, and tested signed out.** It must work precisely when nobody can log in.
+  "status" joined RESERVED_SLUGS (a coach could otherwise claim it and be shadowed) and
+  PUBLIC_PATHS (a reserved slug is refused by isPortfolioPath, so without the proxy line
+  the page would bounce to /login — D68's exact shape). e2e visits it in a signed-out
+  browser and asserts nine PASS verdicts.
+- **Incapable of leaking.** The probe id matches nothing, probes return counts and
+  booleans, the page takes no input. Error text is shown verbatim because it IS the
+  diagnosis; it names collections and the project id, all already public in this repo.
+
+Found while building it, recorded because it cost an hour: **document ids matching
+`__.*__` are reserved by Firestore.** Production rejects them with INVALID_ARGUMENT; the
+emulator hangs forever instead of answering. The first probe id was `___diagnostic-probe___`
+and every doc-get against it timed out. A probe id must be boring.
