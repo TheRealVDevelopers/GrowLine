@@ -43,6 +43,7 @@ test("a new coach creates an account with email, adds their number, and lands on
   await page.getByRole("button", { name: "Create one" }).click();
   await page.getByPlaceholder("you@example.com").fill(EMAIL);
   await page.getByPlaceholder("At least 6 characters").fill(PASSWORD);
+  await page.getByPlaceholder("The same password again").fill(PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();
 
   // No user document exists yet, so no session cookie is issued — the ID token

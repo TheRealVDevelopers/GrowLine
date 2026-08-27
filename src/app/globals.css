@@ -164,6 +164,55 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ── Touch feel (v2 §4, the Dopamine Map's precondition) ────────────────────── */
+/**
+ * Every tap answers. The body sets -webkit-tap-highlight-color: transparent,
+ * which removes the browser's built-in grey flash — correct for a designed app,
+ * but only HALF of a decision: the replacement press state was applied to a
+ * handful of .neopop buttons and nothing else, so most of the app gave no
+ * feedback at all. Field-tested 2026-08-27 and called out in one sentence:
+ * "I'm not even able to feel that I clicked."
+ *
+ * The `scale` property, not `transform`: scale composes with the transform
+ * utilities Tailwind emits (a pressed element that is also translate-centred
+ * must not jump), and it is GPU-composited, so the press costs no layout on a
+ * cheap Android. 120ms in, spec budget is 150–250 for micro-interactions —
+ * a press must feel concurrent with the finger, so it sits just under.
+ *
+ * touch-action: manipulation removes the double-tap-to-zoom wait some Androids
+ * still impose before delivering a click — the other half of "feels slow".
+ */
+button,
+[role="button"],
+a,
+label,
+input,
+select,
+textarea,
+summary {
+  touch-action: manipulation;
+}
+
+button,
+[role="button"],
+a,
+summary {
+  transition: scale 120ms ease;
+}
+
+button:active:not(:disabled),
+[role="button"]:active,
+a:active,
+summary:active {
+  scale: 0.965;
+}
+
+/* The plate-shadow press is the .neopop button's own physics; a second, scaled
+   shrink on top of it would read as the button collapsing. */
+.neopop:active:not(:disabled) {
+  scale: 1;
+}
+
 /* ── Components ─────────────────────────────────────────────────────────────── */
 
 /* Metallic gold: a 3-stop vertical gradient with a hairline top highlight. Flat

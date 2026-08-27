@@ -41,6 +41,7 @@ export default function LoginFlow() {
   const [code, setCode] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   // Sign-in and create-account are separate submit paths, chosen explicitly:
   // email-enumeration protection makes "no such user" indistinguishable from
   // "wrong password", so guessing the visitor's intent from the error is not possible.
@@ -98,6 +99,12 @@ export default function LoginFlow() {
   const submitEmail = async () => {
     setError("");
     setNotice("");
+    // Checked before any network call: a typo'd password on account creation is
+    // otherwise only discovered at the NEXT sign-in, as a mystery lockout.
+    if (creatingAccount && password !== confirm) {
+      setError("The two passwords don't match. Type them again.");
+      return;
+    }
     setBusy(true);
     try {
       const auth = firebaseAuth();
@@ -257,6 +264,19 @@ export default function LoginFlow() {
                 placeholder={creatingAccount ? "At least 6 characters" : "Your password"}
               />
             </label>
+            {creatingAccount && (
+              <label className="flex flex-col gap-1.5">
+                <span className="text-sm font-medium">Confirm password</span>
+                <input
+                  className={inputCls}
+                  type="password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  autoComplete="new-password"
+                  placeholder="The same password again"
+                />
+              </label>
+            )}
             {error && (
               <p className="rounded-xl bg-elevated px-4 py-3 text-sm text-heat">{error}</p>
             )}
@@ -265,7 +285,7 @@ export default function LoginFlow() {
             )}
             <button
               type="submit"
-              disabled={busy || !email.trim() || password.length < 6}
+              disabled={busy || !email.trim() || password.length < 6 || (creatingAccount && confirm.length < 6)}
               className="h-14 rounded-xl bg-gold text-lg font-semibold text-on-gold disabled:opacity-40"
             >
               {busy ? "One moment…" : creatingAccount ? "Create account" : "Sign in"}
