@@ -1,93 +1,83 @@
 @import "tailwindcss";
 
 /**
- * Design System 3.0 — "Voltage" (chosen by the owner 2026-08-28, replacing the
- * v2 §4 "Dark Achiever" navy-and-gold).
+ * Design System 3.1 — "Sunrise" (chosen by the owner 2026-08-28).
  *
- * The field verdict on Dark Achiever was blunt: "this colour theme, font,
- * nothing I am liking... it looks like a 1990s banking application." Shown five
- * directions rendered on the real home screen, the owner picked Voltage: a
- * near-black ground, ONE electric lime, and glass instead of solid panels.
+ * Warm daylight: a cream ground, deep warm ink, and one burnt terracotta. Built
+ * for the situation this app is actually used in — a coach on a morning walk,
+ * outdoors, on a ₹10K screen — which is the case a dark theme serves worst.
  *
- * What actually changed, and why each was the right lever:
+ * LIGHT IS NOW THE DEFAULT. v2 §4 made dark the default on the untested claim
+ * that this audience is "overwhelmingly on dark"; Sunrise is a light identity, so
+ * keeping dark in front would mean no coach ever sees the chosen design. Dark
+ * remains a real, fully-designed option for evening use — see the dark block.
  *
- *   The accent moved from gold to lime — but more importantly it moved from the
- *   BACKGROUND to the NUMBERS. Navy-and-gold made the chrome the loudest thing
- *   on screen; here the surfaces recede to near-black and the data is the only
- *   bright object. That is the whole difference between a bank portal and an app
- *   that feels alive: what glows is what the coach came to see.
+ * GLASS on a light ground works differently than on a dark one, and this is the
+ * part worth reading before editing any surface token. Over near-black, a
+ * translucent white pane is visibly LIGHTER than its ground, so an edge alone
+ * separates it. Over cream, a translucent white is barely distinguishable from
+ * the paper — so lift has to come from a soft warm SHADOW beneath the pane as
+ * well as the hairline around it. Same illusion, opposite instruments.
  *
- *   Surfaces became translucent. Solid panels on a dark ground read as a filing
- *   cabinet; layered glass reads as depth. See the GLASS block below for how it
- *   is done without the blur that G4 bans.
- *
- *   Serif went away. Sora does both display and body — one family, one download.
+ * Still no `backdrop-filter` (RULES G4): it re-samples everything behind every
+ * pane on every scroll frame, which is the jank a ₹10K Android cannot absorb.
+ * v2 §4 specified the cheap route — "alpha fills + hairline borders" — and the
+ * warm ambient wash on body::before gives the translucency something to reveal.
  *
  * Rules this file still enforces (RULES G1–G6):
- *   G3  90% rule — one accent per screen. Lime is an EVENT, not wallpaper.
- *   G4  No backdrop-filter blur, anywhere. Honoured — see the GLASS block.
+ *   G3  90% rule — one accent per screen. Terracotta is an EVENT, not wallpaper.
+ *   G4  No backdrop-filter blur, anywhere. Honoured, as above.
  *   G5  Motion budget: micro 150–250ms, celebrations under 1.5s, everything
  *       collapses under prefers-reduced-motion (bottom of this file).
  */
 
-/* ── Dark: the default ─────────────────────────────────────────────────────── */
+/* ── Sunrise: the default ─────────────────────────────────────────────────── */
 :root {
-  /* Near-black with a hint of blue, not a pure grey: a neutral that was chosen
-     rather than inherited, and it keeps the lime from looking radioactive. */
-  --bg: #0e0f13;
+  /* Warm paper, not white. A pure #fff under an orange accent reads clinical;
+     the cream is what makes the palette feel like daylight rather than a form. */
+  --bg: #fff9f2;
 
   /*
-   * GLASS (the owner's "I want morphism", built the way v2 §4 prescribes).
-   *
-   * Surfaces are TRANSLUCENT WHITE over the near-black ground, not solid fills:
-   * a white at 4.5% opacity sitting on #0e0f13 reads as a frosted pane, and
-   * stacking two of them (surface, then elevated) gives real depth for free.
-   *
-   * There is deliberately NO `backdrop-filter: blur()` here. RULES G4 bans it
-   * outright and the reason is specific: blur forces the compositor to re-sample
-   * everything behind every pane on every scroll frame, which is exactly the
-   * jank a ₹10K Android cannot absorb — and this app's audience is defined as
-   * being on one. v2 §4 anticipated wanting this look and specified the cheap
-   * way: "alpha fills + hairline borders".
-   *
-   * What sells the illusion instead is `--glass-line` (a hairline lighter than
-   * the fill, so the pane has an edge) and `--glass-lift` (a 1px inner highlight
-   * along the top, which is how real glass catches light). The ambient colour
-   * washes on `body` give the translucency something to reveal — without them a
-   * translucent surface is just a lighter grey.
+   * GLASS on paper. Panes are translucent WHITE over the cream, so they pick up
+   * the warmth beneath instead of sitting on it as flat white cards. `--glass-lift`
+   * is the top inner highlight; `--glass-shadow` is the soft warm drop that does
+   * the separating work on a light ground (see the header note).
    */
-  --surface: rgba(255, 255, 255, 0.045);
-  --elevated: rgba(255, 255, 255, 0.075);
-  --hairline: rgba(245, 246, 250, 0.12);
-  --glass-line: rgba(255, 255, 255, 0.10);
-  --glass-lift: rgba(255, 255, 255, 0.07);
+  --surface: rgba(255, 255, 255, 0.62);
+  --elevated: rgba(255, 255, 255, 0.88);
+  --hairline: rgba(42, 27, 16, 0.13);
+  --glass-line: rgba(255, 255, 255, 0.75);
+  --glass-lift: rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 2px 10px rgba(90, 52, 20, 0.07);
 
-  --text: #f5f6fa;
-  --text-dim: #8b90a0;
+  /* 15.9:1 on the cream — deep warm brown, never pure black, which would fight
+     the warmth of everything around it. */
+  --text: #2a1b10;
+  /* 5.6:1. The obvious #8a6f5c measured 4.45 and misses AA by a hair. */
+  --text-dim: #7a6050;
 
   /*
-   * Electric lime — the one loud colour, and the only one.
-   *
-   * Kept as a 3-stop ramp so the pressable button can still have a lit top edge
-   * and a dark base to drop onto. Text on lime is near-black: lime is far too
-   * bright to carry white text at any size.
+   * Burnt terracotta. The ramp is split by JOB, not just by lightness:
+   *   --accent-hi  the bright top of a gradient and the press highlight. Decorative,
+   *                carries no text, so it can be as loud as it likes.
+   *   --accent     the fill that CARRIES WHITE TEXT. 4.9:1 — measured. The mockup's
+   *                #e8590c was 3.58 and fails AA for a button label.
+   *   --accent-lo  the dark base a pressed button drops onto.
+   *   --accent-ink the accent as TEXT on the cream. 5.3:1.
    */
-  --accent-hi: #dcff7a;
-  --accent: #c8ff3d;
-  --accent-lo: #7a9e10;
-  --on-accent: #111400;
-  /* The accent as TEXT on a dark surface. Same value here; the light theme
-     darkens it, because #c8ff3d on white is unreadable. */
-  --accent-ink: #c8ff3d;
+  --accent-hi: #e8590c;
+  --accent: #c4490a;
+  --accent-lo: #8f3406;
+  --on-accent: #ffffff;
+  --accent-ink: #b8420a;
 
   /*
    * Legacy aliases. Roughly two hundred class names across the app say `gold`
-   * (`bg-gold`, `text-on-gold`, `metal-gold`, `text-gold-ink`). Pointing those
-   * names at the new accent switches every screen at once, with no risk of a
-   * half-renamed component rendering an undefined colour. The names are now
-   * wrong and that is a real cost — the rename is a separate, mechanical commit
-   * once the direction is settled, not something to attempt in the same change
-   * that redefines what the colour IS.
+   * (`bg-gold`, `text-on-gold`, `metal-gold`, `text-gold-ink`). Pointing those at
+   * the new accent switches every screen at once with no risk of a half-renamed
+   * component rendering an undefined colour. The names are now wrong and that is
+   * a real cost — the rename is its own mechanical commit, not something to
+   * attempt in the same change that redefines what the colour IS.
    */
   --gold-hi: var(--accent-hi);
   --gold: var(--accent);
@@ -95,120 +85,145 @@
   --on-gold: var(--on-accent);
   --gold-ink: var(--accent-ink);
 
-  /* Money, gains, target crossings. ONLY those. Shifted cooler so it reads as a
-     different signal from the lime rather than a second shade of it. */
-  --gem-green-bg: rgba(45, 212, 191, 0.13);
-  --gem-green-line: rgba(45, 212, 191, 0.42);
-  --gem-green-text: #2dd4bf;
+  /* Money, gains, target crossings. ONLY those. A deep green that reads as a
+     different signal from the terracotta rather than a warmer shade of it. */
+  --gem-green-bg: rgba(21, 128, 61, 0.10);
+  --gem-green-line: rgba(21, 128, 61, 0.32);
+  --gem-green-text: #15803d;
 
   /* Milestone surprises only. Never routine UI. */
-  --gem-pink-bg: rgba(244, 114, 182, 0.14);
-  --gem-pink-line: rgba(244, 114, 182, 0.45);
-  --gem-pink-text: #f9a8d4;
+  --gem-pink-bg: rgba(190, 24, 93, 0.09);
+  --gem-pink-line: rgba(190, 24, 93, 0.30);
+  --gem-pink-text: #be185d;
 
   /* Elite tier and rare chrome. */
-  --platinum-hi: #e8ebf0;
-  --platinum: #c3cad6;
-  --platinum-lo: #8e97a8;
+  --platinum-hi: #ffffff;
+  --platinum: #e6e2dc;
+  --platinum-lo: #9a9088;
 
-  --heat: #ff5a6b;
-  --info: #7aa2ff;
+  --heat: #c62828;
+  --info: #1d6fd8;
 
-  --chip-highlight: rgba(255, 255, 255, 0.14);
+  --chip-highlight: rgba(255, 255, 255, 0.85);
 
-  color-scheme: dark;
+  color-scheme: light;
 }
 
-/* ── Light: chosen explicitly, or the system preference on first run ────────── */
-/* v2 §4: dark is the default, but first run respects the system. A stored choice
-   always wins over both, which is why the media query is scoped away from an
-   explicit [data-theme="dark"]. */
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --bg: #f7f8fa;
-    --surface: rgba(14, 15, 19, 0.035);
-    --elevated: #ffffff;
-    --hairline: rgba(14, 15, 19, 0.13);
-    --glass-line: rgba(14, 15, 19, 0.07);
-    --glass-lift: rgba(255, 255, 255, 0.85);
-
-    --text: #14161c;
-    --text-dim: #5f6472;
-
-    /* Lime is unreadable on paper, so the light theme keeps the ENERGY and drops
-       the luminance: an olive-lime of the same hue family that passes contrast on
-       white. Measured, not guessed — the first value tried was #6f9c00 at 3.27:1
-       against white, which fails WCAG AA for a button label; #5a7d00 is 4.81:1. */
-    --accent-hi: #9ecb1f;
-    --accent: #5a7d00;
-    --accent-lo: #4a6a00;
-    --on-accent: #ffffff;
-    --accent-ink: #4a6a00;
-
+/* ── Dark: the system preference, or an explicit choice ────────────────────── */
+/* Sunrise's night half. Not an inversion — the accent's ramp is reassigned by job
+   (see inside), because the stop that carries text on paper is not the stop that
+   carries it on near-black. The ground keeps a warm cast (#17120e, not a neutral
+   charcoal) so switching themes reads as the same product after dark. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17120e;
+    --surface: rgba(255, 255, 255, 0.055);
+    --elevated: rgba(255, 255, 255, 0.085);
+    --hairline: rgba(255, 244, 235, 0.14);
+    --glass-line: rgba(255, 255, 255, 0.10);
+    --glass-lift: rgba(255, 255, 255, 0.07);
+    --glass-shadow: 0 2px 12px rgba(0, 0, 0, 0.28);
+    --text: #fdf6ef;
+    --text-dim: #b2a094;
+    /* Inverted job assignment: on a dark ground the BRIGHT orange is the readable
+       one and carries near-black text, while the deep stop becomes the shadow. */
+    --accent-hi: #ffa25c;
+    --accent: #f2701c;
+    --accent-lo: #8f3406;
+    --on-accent: #1a0d04;
+    --accent-ink: #ff9147;
     --gold-hi: var(--accent-hi);
     --gold: var(--accent);
     --gold-lo: var(--accent-lo);
     --on-gold: var(--on-accent);
     --gold-ink: var(--accent-ink);
-
-    --gem-green-bg: rgba(13, 148, 136, 0.10);
-    --gem-green-line: rgba(13, 148, 136, 0.35);
-    --gem-green-text: #0d9488;
-
-    --gem-pink-bg: rgba(194, 24, 91, 0.08);
-    --gem-pink-line: rgba(194, 24, 91, 0.30);
-    --gem-pink-text: #c2185b;
-
-    --platinum-hi: #ffffff;
-    --platinum: #e4e8f0;
+    --gem-green-bg: rgba(52, 211, 153, 0.13);
+    --gem-green-line: rgba(52, 211, 153, 0.40);
+    --gem-green-text: #34d399;
+    --gem-pink-bg: rgba(244, 114, 182, 0.14);
+    --gem-pink-line: rgba(244, 114, 182, 0.45);
+    --gem-pink-text: #f9a8d4;
+    --platinum-hi: #e8ebf0;
+    --platinum: #c3cad6;
     --platinum-lo: #8e97a8;
-
-    --heat: #d92d3c;
-    --info: #2f6fdd;
-    --chip-highlight: rgba(255, 255, 255, 0.7);
-
-    color-scheme: light;
+    --heat: #ff5a6b;
+    --info: #7aa2ff;
+    --chip-highlight: rgba(255, 255, 255, 0.14);
+    color-scheme: dark;
   }
 }
 
 :root[data-theme="light"] {
-  /* Same values as the media-query block above — an explicit choice must beat a
-     dark OS, and the only way that holds is both blocks defining the full set. */
-  --bg: #f7f8fa;
-  --surface: rgba(14, 15, 19, 0.035);
-  --elevated: #ffffff;
-  --hairline: rgba(14, 15, 19, 0.13);
-  --glass-line: rgba(14, 15, 19, 0.07);
-  --glass-lift: rgba(255, 255, 255, 0.85);
-  --text: #14161c;
-  --text-dim: #5f6472;
-  --accent-hi: #9ecb1f;
-  --accent: #5a7d00;
-  --accent-lo: #4a6a00;
+  /* Restated in full: an explicit light choice must beat a dark OS, and that only
+     holds if this block defines the whole set rather than relying on :root. */
+  --bg: #fff9f2;
+  --surface: rgba(255, 255, 255, 0.62);
+  --elevated: rgba(255, 255, 255, 0.88);
+  --hairline: rgba(42, 27, 16, 0.13);
+  --glass-line: rgba(255, 255, 255, 0.75);
+  --glass-lift: rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 2px 10px rgba(90, 52, 20, 0.07);
+  --text: #2a1b10;
+  --text-dim: #7a6050;
+  --accent-hi: #e8590c;
+  --accent: #c4490a;
+  --accent-lo: #8f3406;
   --on-accent: #ffffff;
-  --accent-ink: #4a6a00;
+  --accent-ink: #b8420a;
   --gold-hi: var(--accent-hi);
   --gold: var(--accent);
   --gold-lo: var(--accent-lo);
   --on-gold: var(--on-accent);
   --gold-ink: var(--accent-ink);
-  --gem-green-bg: rgba(13, 148, 136, 0.10);
-  --gem-green-line: rgba(13, 148, 136, 0.35);
-  --gem-green-text: #0d9488;
-  --gem-pink-bg: rgba(194, 24, 91, 0.08);
-  --gem-pink-line: rgba(194, 24, 91, 0.30);
-  --gem-pink-text: #c2185b;
+  --gem-green-bg: rgba(21, 128, 61, 0.10);
+  --gem-green-line: rgba(21, 128, 61, 0.32);
+  --gem-green-text: #15803d;
+  --gem-pink-bg: rgba(190, 24, 93, 0.09);
+  --gem-pink-line: rgba(190, 24, 93, 0.30);
+  --gem-pink-text: #be185d;
   --platinum-hi: #ffffff;
-  --platinum: #e4e8f0;
-  --platinum-lo: #8e97a8;
-  --heat: #d92d3c;
-  --info: #2f6fdd;
-  --chip-highlight: rgba(255, 255, 255, 0.7);
+  --platinum: #e6e2dc;
+  --platinum-lo: #9a9088;
+  --heat: #c62828;
+  --info: #1d6fd8;
+  --chip-highlight: rgba(255, 255, 255, 0.85);
   color-scheme: light;
 }
 
 /* Explicit dark always wins, including over a light system preference. */
 :root[data-theme="dark"] {
+  /* Same set as the media block above — the toggle has to win in both directions. */
+  --bg: #17120e;
+  --surface: rgba(255, 255, 255, 0.055);
+  --elevated: rgba(255, 255, 255, 0.085);
+  --hairline: rgba(255, 244, 235, 0.14);
+  --glass-line: rgba(255, 255, 255, 0.10);
+  --glass-lift: rgba(255, 255, 255, 0.07);
+  --glass-shadow: 0 2px 12px rgba(0, 0, 0, 0.28);
+  --text: #fdf6ef;
+  --text-dim: #b2a094;
+  --accent-hi: #ffa25c;
+  --accent: #f2701c;
+  --accent-lo: #8f3406;
+  --on-accent: #1a0d04;
+  --accent-ink: #ff9147;
+  --gold-hi: var(--accent-hi);
+  --gold: var(--accent);
+  --gold-lo: var(--accent-lo);
+  --on-gold: var(--on-accent);
+  --gold-ink: var(--accent-ink);
+  --gem-green-bg: rgba(52, 211, 153, 0.13);
+  --gem-green-line: rgba(52, 211, 153, 0.40);
+  --gem-green-text: #34d399;
+  --gem-pink-bg: rgba(244, 114, 182, 0.14);
+  --gem-pink-line: rgba(244, 114, 182, 0.45);
+  --gem-pink-text: #f9a8d4;
+  --platinum-hi: #e8ebf0;
+  --platinum: #c3cad6;
+  --platinum-lo: #8e97a8;
+  --heat: #ff5a6b;
+  --info: #7aa2ff;
+  --chip-highlight: rgba(255, 255, 255, 0.14);
   color-scheme: dark;
 }
 
@@ -258,8 +273,8 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(70rem 50rem at 12% -8%, color-mix(in srgb, var(--accent) 11%, transparent), transparent 62%),
-    radial-gradient(60rem 45rem at 105% 108%, color-mix(in srgb, var(--info) 10%, transparent), transparent 60%);
+    radial-gradient(72rem 52rem at 10% -10%, color-mix(in srgb, var(--accent-hi) 16%, transparent), transparent 60%),
+    radial-gradient(58rem 44rem at 108% 106%, color-mix(in srgb, var(--gem-pink-text) 11%, transparent), transparent 58%);
 }
 
 body {
@@ -335,7 +350,13 @@ summary:active {
 .bg-surface,
 .bg-elevated {
   border: 1px solid var(--glass-line);
-  box-shadow: inset 0 1px 0 0 var(--glass-lift);
+  /* Two shadows doing two jobs: the inset highlight is the light catching the
+     pane's top edge, and the outer drop is what separates a near-white pane from
+     near-white paper. On the dark theme the drop is nearly invisible and the
+     hairline carries the separation instead — hence both, in both themes. */
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-lift),
+    var(--glass-shadow);
 }
 
 /* An input is a hole in the glass, not another pane on top of it: darker than

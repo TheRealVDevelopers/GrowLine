@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Sora } from "next/font/google";
+import { Space_Grotesk, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { configuredSiteUrl } from "@/lib/site-url";
 import { LOCALE_TAGS } from "@/lib/i18n";
@@ -7,23 +7,24 @@ import { getLocale } from "@/lib/locale-server";
 import ThemeScript from "@/components/ThemeScript";
 
 /**
- * Sora, for everything (the "Voltage" direction, chosen 2026-08-28).
+ * Space Grotesk over DM Sans — Design System 3.1 "Sunrise".
  *
- * The v2 spec paired a serif display (Fraunces) with Inter, on the reasoning that
- * serif-over-sans is "the cheapest single move that separates the app from every
- * template". Shown five directions side by side, the owner picked the one where a
- * single technical sans does both jobs — and one family is also one download
- * rather than two, which matters more than the pairing did on a 3G connection.
- *
- * Both CSS variable names are kept and pointed at Sora so no component has to
- * change: `--font-fraunces` is still what `font-display` resolves to, it simply
- * now carries weight 700 of the same family. Renaming the variables would touch
- * every heading in the app for no visual difference.
+ * The display face carries the personality (Space Grotesk's squared-off bowls and
+ * tight tracking read as modern without being generic), and DM Sans handles body
+ * text, where character matters less than legibility at 14px on a cheap screen in
+ * sunlight. Both variable names are kept and repointed, so `font-display` and
+ * `font-sans` resolve correctly without touching a single component.
  */
-const sora = Sora({
+const displayFont = Space_Grotesk({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  weight: ["500", "700"],
+  display: "swap",
+});
+
+const bodyFont = DM_Sans({
   variable: "--font-inter",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
   display: "swap",
 });
 
@@ -77,8 +78,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang={LOCALE_TAGS[locale]}
       // Set by ThemeScript before paint; this is only the pre-hydration default.
-      data-theme="dark"
-      className={`${sora.variable} h-full antialiased`}
+      data-theme="light"
+      className={`${displayFont.variable} ${bodyFont.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

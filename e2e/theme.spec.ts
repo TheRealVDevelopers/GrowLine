@@ -29,19 +29,34 @@ test("a device that prefers dark gets dark", async ({ browser }) => {
   await ctx.close();
 });
 
-test("the server ships dark, so a dark-mode user never sees a light flash", async ({
+test("the server ships the default theme, so first paint is never the wrong one", async ({
   request,
 }) => {
-  // The pre-hydration default in the HTML is what a user sees for the few
-  // milliseconds before ThemeScript runs. It must be dark: this audience is
-  // overwhelmingly on dark, and a white flash on every load is the single most
-  // visible way a theme system can feel broken.
+  // The pre-hydration attribute in the HTML is what a user sees for the few
+  // milliseconds before ThemeScript runs, so it must equal the app's default —
+  // whichever that is. It was dark under v2 §4 and is light under Sunrise (3.1),
+  // because the chosen identity IS light and the defining use is outdoors in
+  // daylight. What must never drift is server default vs script default: if those
+  // two disagree, every load flashes.
   const res = await request.get("/login");
-  expect(await res.text()).toContain('data-theme="dark"');
+  expect(await res.text()).toContain('data-theme="light"');
 });
 
 test("a light system preference is honoured on first run", async ({ browser }) => {
   const ctx = await browser.newContext({ colorScheme: "light" });
+  const page = await ctx.newPage();
+  await page.goto("/login");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await ctx.close();
+});
+
+test("no stored choice and no system preference falls back to the default", async ({
+  browser,
+}) => {
+  // The `catch` path in ThemeScript — private mode, storage blocked. It has to
+  // agree with what the server shipped, which is the whole flash-prevention
+  // contract; the two were written in different files and can silently diverge.
+  const ctx = await browser.newContext({ colorScheme: "no-preference" });
   const page = await ctx.newPage();
   await page.goto("/login");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
@@ -63,20 +78,23 @@ test("an explicit dark choice beats a light system preference", async ({ browser
 test("the theme is applied before first paint, not after", async ({ page }) => {
   await page.evaluate(() => {}).catch(() => {});
   await page.goto("/login");
-  await page.evaluate(() => localStorage.setItem("growline:theme", "light"));
+  // Store the NON-default choice, so there is a correction to observe at all.
+  // The direction flipped with Sunrise (3.1): the default is light now, so the
+  // stored value that proves the mechanism is dark.
+  await page.evaluate(() => localStorage.setItem("growline:theme", "dark"));
 
-  // Capture the attribute at the earliest possible moment on the next load. If
-  // ThemeScript ran after hydration this would still read "dark" here, which is
-  // exactly the white-flash bug it exists to prevent.
+  // Capture what the SERVER sends, before any script has run. It must be the
+  // default; if ThemeScript ran only after hydration, the corrected value would
+  // never make it into this HTML and every load would flash the wrong theme.
   const early = await page.evaluate(async () => {
     const res = await fetch(location.href);
     const html = await res.text();
-    return html.includes('data-theme="dark"');
+    return html.includes('data-theme="light"');
   });
   expect(early).toBe(true); // server ships the default...
 
   await page.reload();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "light"); // ...script corrects it
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark"); // ...script corrects it
 });
 
 /**
