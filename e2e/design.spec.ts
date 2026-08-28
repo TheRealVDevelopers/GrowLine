@@ -102,16 +102,32 @@ test("the settings theme switch actually flips the surface", async ({ page }) =>
   await loginAsAsha(page);
   await page.goto("/settings");
 
+  /*
+   * Asserted as a RELATIONSHIP, not as two hex values.
+   *
+   * This test twice pinned the palette of the day — first the v2 navy/white, and
+   * a reskin failed it while the switch it tests worked perfectly. What must hold
+   * is that the two themes paint DIFFERENT grounds and that light is the lighter
+   * of the two; which exact colours those are is a design decision, and a design
+   * decision changing should not read as a broken feature.
+   */
+  const bodyBg = () =>
+    page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  const luminance = (rgb: string) => {
+    const [r, g, b] = (rgb.match(/\d+/g) ?? ["0", "0", "0"]).map(Number);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+
   await page.getByTestId("theme-light").click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-  expect(
-    await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
-  ).toBe("rgb(255, 255, 255)");
+  const light = await bodyBg();
 
   await page.getByTestId("theme-dark").click();
-  expect(
-    await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
-  ).toBe("rgb(11, 16, 32)");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  const dark = await bodyBg();
+
+  expect(light).not.toBe(dark);
+  expect(luminance(light)).toBeGreaterThan(luminance(dark));
 
   // The choice must survive a reload, or it is not a setting.
   await page.reload();

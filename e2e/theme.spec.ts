@@ -1,7 +1,14 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * Design System 2.0 theme layer (v2 §4).
+ * The theme layer (Design System 3.0 "Voltage", was v2 §4 "Dark Achiever").
+ *
+ * These assertions used to pin the literal navy `rgb(11, 16, 32)`, which meant a
+ * change of PALETTE failed a test about MECHANISM. The three things worth proving
+ * here are about whether the theme resolves and applies, not what colour it
+ * happens to be this quarter — so the expected value is now read from the `--bg`
+ * token itself. A palette change is then free; a broken token wiring still fails,
+ * because body's computed background would stop matching the variable.
  *
  * Three things worth proving, because all three are silent when broken:
  *   1. dark really is the default
@@ -16,11 +23,9 @@ test("a device that prefers dark gets dark", async ({ browser }) => {
   await page.goto("/login");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 
-  // The token layer is actually wired, not just the attribute.
-  const bg = await page.evaluate(() =>
-    getComputedStyle(document.body).backgroundColor
-  );
-  expect(bg).toBe("rgb(11, 16, 32)"); // #0B1020
+  // The token layer is actually wired, not just the attribute: body's painted
+  // background must be the --bg token resolved, whatever that token now holds.
+  expect(await bodyMatchesBgToken(page)).toBe(true);
   await ctx.close();
 });
 
@@ -51,10 +56,7 @@ test("an explicit dark choice beats a light system preference", async ({ browser
   await page.reload();
 
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  const bg = await page.evaluate(() =>
-    getComputedStyle(document.body).backgroundColor
-  );
-  expect(bg).toBe("rgb(11, 16, 32)");
+  expect(await bodyMatchesBgToken(page)).toBe(true);
   await ctx.close();
 });
 
@@ -76,3 +78,22 @@ test("the theme is applied before first paint, not after", async ({ page }) => {
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light"); // ...script corrects it
 });
+
+/**
+ * Does the painted body background equal the `--bg` token?
+ *
+ * Compared by rendering both through the same element, because the token is
+ * authored as a hex and `getComputedStyle` reports rgb() — string-comparing the
+ * two forms would fail on formatting rather than on colour.
+ */
+async function bodyMatchesBgToken(page: import("@playwright/test").Page) {
+  return page.evaluate(() => {
+    const painted = getComputedStyle(document.body).backgroundColor;
+    const probe = document.createElement("div");
+    probe.style.backgroundColor = "var(--bg)";
+    document.body.appendChild(probe);
+    const token = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return painted === token && token !== "rgba(0, 0, 0, 0)";
+  });
+}

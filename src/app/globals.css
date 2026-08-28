@@ -1,60 +1,120 @@
 @import "tailwindcss";
 
 /**
- * Design System 2.0 — "Dark Achiever" (BUILD_PROMPT_V2 §4).
+ * Design System 3.0 — "Voltage" (chosen by the owner 2026-08-28, replacing the
+ * v2 §4 "Dark Achiever" navy-and-gold).
  *
- * Dark is the default. Light is a real option, not an afterthought — it is the
- * refined v1 navy/gold. Both are defined as semantic tokens so a screen never
- * names a raw colour; that is what lets one reskin change both themes at once.
+ * The field verdict on Dark Achiever was blunt: "this colour theme, font,
+ * nothing I am liking... it looks like a 1990s banking application." Shown five
+ * directions rendered on the real home screen, the owner picked Voltage: a
+ * near-black ground, ONE electric lime, and glass instead of solid panels.
  *
- * Rules this file exists to enforce (RULES G1–G6):
- *   G3  90% rule — one accent per screen. The palette gives you dark surfaces and
- *       ONE loud colour. If a screen needs two, the screen is wrong.
- *   G4  No backdrop-filter blur, anywhere. Too heavy for a ₹10K Android.
- *   G5  Motion budget: micro 150–250ms, celebrations under 1.5s, and everything
+ * What actually changed, and why each was the right lever:
+ *
+ *   The accent moved from gold to lime — but more importantly it moved from the
+ *   BACKGROUND to the NUMBERS. Navy-and-gold made the chrome the loudest thing
+ *   on screen; here the surfaces recede to near-black and the data is the only
+ *   bright object. That is the whole difference between a bank portal and an app
+ *   that feels alive: what glows is what the coach came to see.
+ *
+ *   Surfaces became translucent. Solid panels on a dark ground read as a filing
+ *   cabinet; layered glass reads as depth. See the GLASS block below for how it
+ *   is done without the blur that G4 bans.
+ *
+ *   Serif went away. Sora does both display and body — one family, one download.
+ *
+ * Rules this file still enforces (RULES G1–G6):
+ *   G3  90% rule — one accent per screen. Lime is an EVENT, not wallpaper.
+ *   G4  No backdrop-filter blur, anywhere. Honoured — see the GLASS block.
+ *   G5  Motion budget: micro 150–250ms, celebrations under 1.5s, everything
  *       collapses under prefers-reduced-motion (bottom of this file).
  */
 
 /* ── Dark: the default ─────────────────────────────────────────────────────── */
 :root {
-  --bg: #0b1020;
-  --surface: #131b33;
-  --elevated: #1b2547;
-  --hairline: rgba(244, 246, 255, 0.10);
+  /* Near-black with a hint of blue, not a pure grey: a neutral that was chosen
+     rather than inherited, and it keeps the lime from looking radioactive. */
+  --bg: #0e0f13;
 
-  --text: #f4f6ff;
-  --text-dim: #9aa6c9;
+  /*
+   * GLASS (the owner's "I want morphism", built the way v2 §4 prescribes).
+   *
+   * Surfaces are TRANSLUCENT WHITE over the near-black ground, not solid fills:
+   * a white at 4.5% opacity sitting on #0e0f13 reads as a frosted pane, and
+   * stacking two of them (surface, then elevated) gives real depth for free.
+   *
+   * There is deliberately NO `backdrop-filter: blur()` here. RULES G4 bans it
+   * outright and the reason is specific: blur forces the compositor to re-sample
+   * everything behind every pane on every scroll frame, which is exactly the
+   * jank a ₹10K Android cannot absorb — and this app's audience is defined as
+   * being on one. v2 §4 anticipated wanting this look and specified the cheap
+   * way: "alpha fills + hairline borders".
+   *
+   * What sells the illusion instead is `--glass-line` (a hairline lighter than
+   * the fill, so the pane has an edge) and `--glass-lift` (a 1px inner highlight
+   * along the top, which is how real glass catches light). The ambient colour
+   * washes on `body` give the translucency something to reveal — without them a
+   * translucent surface is just a lighter grey.
+   */
+  --surface: rgba(255, 255, 255, 0.045);
+  --elevated: rgba(255, 255, 255, 0.075);
+  --hairline: rgba(245, 246, 250, 0.12);
+  --glass-line: rgba(255, 255, 255, 0.10);
+  --glass-lift: rgba(255, 255, 255, 0.07);
 
-  /* Champagne gold — metallic, never flat. The 1px top highlight is the shine. */
-  --gold-hi: #ffe08a;
-  --gold: #ffc53d;
-  --gold-lo: #8a5a0a;
-  --on-gold: #412402;
-  /* Gold as TEXT. On a dark surface the bright gold is readable; on a light one it
-     is not — v1 had a separate `gold-600` for exactly this and collapsing the two
-     during the reskin made "Details" unreadable in light theme. */
-  --gold-ink: #ffc53d;
+  --text: #f5f6fa;
+  --text-dim: #8b90a0;
 
-  /* Green diamond — money, gains, target crossings. ONLY those. */
-  --gem-green-bg: rgba(18, 183, 106, 0.14);
-  --gem-green-line: rgba(18, 183, 106, 0.45);
-  --gem-green-text: #3ddc97;
+  /*
+   * Electric lime — the one loud colour, and the only one.
+   *
+   * Kept as a 3-stop ramp so the pressable button can still have a lit top edge
+   * and a dark base to drop onto. Text on lime is near-black: lime is far too
+   * bright to carry white text at any size.
+   */
+  --accent-hi: #dcff7a;
+  --accent: #c8ff3d;
+  --accent-lo: #7a9e10;
+  --on-accent: #111400;
+  /* The accent as TEXT on a dark surface. Same value here; the light theme
+     darkens it, because #c8ff3d on white is unreadable. */
+  --accent-ink: #c8ff3d;
 
-  /* Pink diamond — milestone surprises only. Never routine UI. */
+  /*
+   * Legacy aliases. Roughly two hundred class names across the app say `gold`
+   * (`bg-gold`, `text-on-gold`, `metal-gold`, `text-gold-ink`). Pointing those
+   * names at the new accent switches every screen at once, with no risk of a
+   * half-renamed component rendering an undefined colour. The names are now
+   * wrong and that is a real cost — the rename is a separate, mechanical commit
+   * once the direction is settled, not something to attempt in the same change
+   * that redefines what the colour IS.
+   */
+  --gold-hi: var(--accent-hi);
+  --gold: var(--accent);
+  --gold-lo: var(--accent-lo);
+  --on-gold: var(--on-accent);
+  --gold-ink: var(--accent-ink);
+
+  /* Money, gains, target crossings. ONLY those. Shifted cooler so it reads as a
+     different signal from the lime rather than a second shade of it. */
+  --gem-green-bg: rgba(45, 212, 191, 0.13);
+  --gem-green-line: rgba(45, 212, 191, 0.42);
+  --gem-green-text: #2dd4bf;
+
+  /* Milestone surprises only. Never routine UI. */
   --gem-pink-bg: rgba(244, 114, 182, 0.14);
   --gem-pink-line: rgba(244, 114, 182, 0.45);
   --gem-pink-text: #f9a8d4;
 
-  /* Platinum — Elite tier and rare chrome. */
+  /* Elite tier and rare chrome. */
   --platinum-hi: #e8ebf0;
   --platinum: #c3cad6;
   --platinum-lo: #8e97a8;
 
-  --heat: #ff4d5e;
-  --info: #5b8def;
+  --heat: #ff5a6b;
+  --info: #7aa2ff;
 
-  /* The gem chips use alpha fills + hairline borders. NOT backdrop-filter (G4). */
-  --chip-highlight: rgba(255, 255, 255, 0.15);
+  --chip-highlight: rgba(255, 255, 255, 0.14);
 
   color-scheme: dark;
 }
@@ -65,23 +125,35 @@
    explicit [data-theme="dark"]. */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
-    --bg: #ffffff;
-    --surface: #f5f6fa;
+    --bg: #f7f8fa;
+    --surface: rgba(14, 15, 19, 0.035);
     --elevated: #ffffff;
-    --hairline: rgba(20, 33, 61, 0.12);
+    --hairline: rgba(14, 15, 19, 0.13);
+    --glass-line: rgba(14, 15, 19, 0.07);
+    --glass-lift: rgba(255, 255, 255, 0.85);
 
-    --text: #14213d;
-    --text-dim: rgba(20, 33, 61, 0.62);
+    --text: #14161c;
+    --text-dim: #5f6472;
 
-    --gold-hi: #ffd67a;
-    --gold: #fca311;
-    --gold-lo: #c47c00;
-    --on-gold: #14213d;
-    --gold-ink: #8a5a0a;
+    /* Lime is unreadable on paper, so the light theme keeps the ENERGY and drops
+       the luminance: an olive-lime of the same hue family that passes contrast on
+       white. Measured, not guessed — the first value tried was #6f9c00 at 3.27:1
+       against white, which fails WCAG AA for a button label; #5a7d00 is 4.81:1. */
+    --accent-hi: #9ecb1f;
+    --accent: #5a7d00;
+    --accent-lo: #4a6a00;
+    --on-accent: #ffffff;
+    --accent-ink: #4a6a00;
 
-    --gem-green-bg: rgba(46, 125, 50, 0.10);
-    --gem-green-line: rgba(46, 125, 50, 0.35);
-    --gem-green-text: #2e7d32;
+    --gold-hi: var(--accent-hi);
+    --gold: var(--accent);
+    --gold-lo: var(--accent-lo);
+    --on-gold: var(--on-accent);
+    --gold-ink: var(--accent-ink);
+
+    --gem-green-bg: rgba(13, 148, 136, 0.10);
+    --gem-green-line: rgba(13, 148, 136, 0.35);
+    --gem-green-text: #0d9488;
 
     --gem-pink-bg: rgba(194, 24, 91, 0.08);
     --gem-pink-line: rgba(194, 24, 91, 0.30);
@@ -91,38 +163,47 @@
     --platinum: #e4e8f0;
     --platinum-lo: #8e97a8;
 
-    --heat: #d32f2f;
+    --heat: #d92d3c;
     --info: #2f6fdd;
-    --chip-highlight: rgba(255, 255, 255, 0.6);
+    --chip-highlight: rgba(255, 255, 255, 0.7);
 
     color-scheme: light;
   }
 }
 
 :root[data-theme="light"] {
-  --bg: #ffffff;
-  --surface: #f5f6fa;
+  /* Same values as the media-query block above — an explicit choice must beat a
+     dark OS, and the only way that holds is both blocks defining the full set. */
+  --bg: #f7f8fa;
+  --surface: rgba(14, 15, 19, 0.035);
   --elevated: #ffffff;
-  --hairline: rgba(20, 33, 61, 0.12);
-  --text: #14213d;
-  --text-dim: rgba(20, 33, 61, 0.62);
-  --gold-hi: #ffd67a;
-  --gold: #fca311;
-  --gold-lo: #c47c00;
-  --on-gold: #14213d;
-  --gold-ink: #8a5a0a;
-  --gem-green-bg: rgba(46, 125, 50, 0.10);
-  --gem-green-line: rgba(46, 125, 50, 0.35);
-  --gem-green-text: #2e7d32;
+  --hairline: rgba(14, 15, 19, 0.13);
+  --glass-line: rgba(14, 15, 19, 0.07);
+  --glass-lift: rgba(255, 255, 255, 0.85);
+  --text: #14161c;
+  --text-dim: #5f6472;
+  --accent-hi: #9ecb1f;
+  --accent: #5a7d00;
+  --accent-lo: #4a6a00;
+  --on-accent: #ffffff;
+  --accent-ink: #4a6a00;
+  --gold-hi: var(--accent-hi);
+  --gold: var(--accent);
+  --gold-lo: var(--accent-lo);
+  --on-gold: var(--on-accent);
+  --gold-ink: var(--accent-ink);
+  --gem-green-bg: rgba(13, 148, 136, 0.10);
+  --gem-green-line: rgba(13, 148, 136, 0.35);
+  --gem-green-text: #0d9488;
   --gem-pink-bg: rgba(194, 24, 91, 0.08);
   --gem-pink-line: rgba(194, 24, 91, 0.30);
   --gem-pink-text: #c2185b;
   --platinum-hi: #ffffff;
   --platinum: #e4e8f0;
   --platinum-lo: #8e97a8;
-  --heat: #d32f2f;
+  --heat: #d92d3c;
   --info: #2f6fdd;
-  --chip-highlight: rgba(255, 255, 255, 0.6);
+  --chip-highlight: rgba(255, 255, 255, 0.7);
   color-scheme: light;
 }
 
@@ -154,6 +235,31 @@
   /* Serif display over sans body — v2 §4's "cheapest single move" that separates
      this from every template on the Play Store. */
   --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+}
+
+/**
+ * The ambient wash — what makes the glass read as glass.
+ *
+ * A translucent pane over a flat colour is just a lighter version of that
+ * colour; there has to be something BEHIND it worth revealing. These two very
+ * low-opacity radial pools (lime top-left, cool blue bottom-right) sit fixed
+ * behind every screen, so panes near them pick up a faint tint and panes away
+ * from them stay neutral — the same reason a real glass sheet looks different
+ * over a lamp than over a wall.
+ *
+ * `position: fixed` and `pointer-events: none`: it never scrolls, never
+ * intercepts a tap, and paints once instead of on every scroll frame — which is
+ * the whole reason this is a gradient and not `backdrop-filter` (G4).
+ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(70rem 50rem at 12% -8%, color-mix(in srgb, var(--accent) 11%, transparent), transparent 62%),
+    radial-gradient(60rem 45rem at 105% 108%, color-mix(in srgb, var(--info) 10%, transparent), transparent 60%);
 }
 
 body {
@@ -213,10 +319,38 @@ summary:active {
   scale: 1;
 }
 
+/* ── Glass surfaces ─────────────────────────────────────────────────────────── */
+/**
+ * Tailwind's `bg-surface` / `bg-elevated` now resolve to translucent whites, so
+ * every existing card in the app became a glass pane the moment the tokens
+ * changed — no component edits. These utilities add the two details that turn a
+ * translucent rectangle into something that reads as a physical pane:
+ *
+ *   1. a hairline edge slightly brighter than the fill, so the pane HAS an edge
+ *   2. a 1px inner highlight along the top, which is how glass catches light
+ *
+ * Applied by element rather than by class, so the whole app gets it without
+ * touching two hundred files. Anything that opts out can set `border: none`.
+ */
+.bg-surface,
+.bg-elevated {
+  border: 1px solid var(--glass-line);
+  box-shadow: inset 0 1px 0 0 var(--glass-lift);
+}
+
+/* An input is a hole in the glass, not another pane on top of it: darker than
+   its surroundings, so a tappable field never looks like a raised card. */
+input,
+textarea,
+select {
+  background-color: color-mix(in srgb, var(--bg) 55%, transparent);
+}
+
 /* ── Components ─────────────────────────────────────────────────────────────── */
 
-/* Metallic gold: a 3-stop vertical gradient with a hairline top highlight. Flat
-   gold reads as cheap; this is the whole difference. */
+/* The accent as a 3-stop vertical gradient with a hairline top highlight. A flat
+   fill reads as cheap; the ramp plus the inner highlight is the whole difference.
+   Named `metal-gold` for now — see the legacy-alias note in the token block. */
 .metal-gold {
   background-image: linear-gradient(
     180deg,
@@ -285,9 +419,11 @@ summary:active {
 }
 
 /* Glow is for exactly two things: the live streak flame and the target ring at
-   the moment it is crossed. Never body text, never two glows touching. */
+   the moment it is crossed. Never body text, never two glows touching.
+   Derived from the accent token so it followed the palette to lime instead of
+   staying a hard-coded gold that would now clash. */
 .glow-gold {
-  filter: drop-shadow(0 0 10px rgba(255, 197, 61, 0.45));
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 48%, transparent));
 }
 
 /**

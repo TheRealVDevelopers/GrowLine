@@ -1,23 +1,29 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Inter } from "next/font/google";
+import { Sora } from "next/font/google";
 import "./globals.css";
 import { configuredSiteUrl } from "@/lib/site-url";
 import { LOCALE_TAGS } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale-server";
 import ThemeScript from "@/components/ThemeScript";
 
-const inter = Inter({
+/**
+ * Sora, for everything (the "Voltage" direction, chosen 2026-08-28).
+ *
+ * The v2 spec paired a serif display (Fraunces) with Inter, on the reasoning that
+ * serif-over-sans is "the cheapest single move that separates the app from every
+ * template". Shown five directions side by side, the owner picked the one where a
+ * single technical sans does both jobs — and one family is also one download
+ * rather than two, which matters more than the pairing did on a 3G connection.
+ *
+ * Both CSS variable names are kept and pointed at Sora so no component has to
+ * change: `--font-fraunces` is still what `font-display` resolves to, it simply
+ * now carries weight 700 of the same family. Renaming the variables would touch
+ * every heading in the app for no visual difference.
+ */
+const sora = Sora({
   variable: "--font-inter",
   subsets: ["latin"],
-  display: "swap",
-});
-
-// Serif display for headings and big numbers (v2 §4). Only the weights actually
-// used — a display face is a real download on a 3G connection.
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
-  subsets: ["latin"],
-  weight: ["600", "700"],
+  weight: ["400", "500", "600", "700", "800"],
   display: "swap",
 });
 
@@ -72,7 +78,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       lang={LOCALE_TAGS[locale]}
       // Set by ThemeScript before paint; this is only the pre-hydration default.
       data-theme="dark"
-      className={`${inter.variable} ${fraunces.variable} h-full antialiased`}
+      className={`${sora.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
