@@ -34,7 +34,11 @@ export default async function TargetsPage() {
       </div>
 
       {mine && (
-        <TargetRing progress={mine.progressPoints} target={mine.targetPoints} />
+        <TargetRing
+          progress={mine.progressPoints}
+          target={mine.targetPoints}
+          month={mine.month}
+        />
       )}
 
       <MyTargetCard

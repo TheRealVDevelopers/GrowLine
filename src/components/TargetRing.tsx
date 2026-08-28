@@ -1,5 +1,6 @@
 "use client";
 
+import { celebrate } from "@/lib/celebrate";
 import { useEffect, useRef, useState } from "react";
 
 /**
@@ -30,12 +31,23 @@ const MILESTONES = [25, 50, 75, 100];
 export default function TargetRing({
   progress,
   target,
-  previousPercent,
+  month,
 }: {
   progress: number;
   target: number;
-  /** Last percentage the coach saw, so a celebration fires on the crossing only. */
-  previousPercent?: number;
+  /**
+   * "YYYY-MM", used to remember the last percentage this DEVICE showed.
+   *
+   * This replaces a `previousPercent` prop that no caller ever passed — which
+   * meant the celebration effect below returned on its first line, forever. The
+   * confetti was written, reviewed and shipped, and had never once run.
+   *
+   * Per-device rather than per-account, deliberately: the celebration is a moment,
+   * not a record. Storing it server-side would mean a write on every view of this
+   * screen, and seeing 50% celebrated once on a new phone is a far smaller cost
+   * than that.
+   */
+  month: string;
 }) {
   const pct = target > 0 ? Math.round((progress / target) * 100) : 0;
   const clamped = Math.min(100, Math.max(0, pct));
@@ -67,10 +79,32 @@ export default function TargetRing({
 
   // Fire only when a milestone is newly crossed, never on every render.
   useEffect(() => {
-    if (previousPercent === undefined) return;
-    const crossed = MILESTONES.some((m) => previousPercent < m && pct >= m);
+    const key = `growline:target-pct:${month}`;
+    let seen: number | null = null;
+    try {
+      const raw = window.localStorage.getItem(key);
+      seen = raw === null ? null : Number(raw);
+    } catch {
+      // Private mode or storage disabled. Treated as "first view this month",
+      // which means no celebration rather than a wrong one.
+    }
+
+    // Record where we are BEFORE deciding, so a crash mid-celebration cannot
+    // leave the crossing armed to fire again on the next load.
+    try {
+      window.localStorage.setItem(key, String(pct));
+    } catch {
+      /* nothing to do; the celebration below simply will not repeat-guard */
+    }
+
+    if (seen === null || !Number.isFinite(seen)) return;
+    const crossed = MILESTONES.some((m) => seen < m && pct >= m);
     if (!crossed) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    // The engine draws the confetti and fires the haptic; this state only lights
+    // the ring's own glow, which is the part that belongs to this component.
+    celebrate();
 
     // Started on the next frame, not synchronously in the effect body — a
     // celebration is a frame-level concern, and setting it here would cascade an
@@ -82,7 +116,7 @@ export default function TargetRing({
       cancelAnimationFrame(raf);
       clearTimeout(id);
     };
-  }, [pct, previousPercent]);
+  }, [pct, month]);
 
   const dashRemaining = (CIRCUMFERENCE * (100 - clamped)) / 100;
 
