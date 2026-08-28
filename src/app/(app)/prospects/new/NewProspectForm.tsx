@@ -1,5 +1,6 @@
 "use client";
 
+import SuccessTick, { DRAW_MS } from "@/components/SuccessTick";
 import { haptic, HAPTIC } from "@/lib/haptic";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -24,6 +25,7 @@ export default function NewProspectForm() {
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
   const [queuedCount, setQueuedCount] = useState(0);
+  const [ticked, setTicked] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const canSave =
@@ -57,9 +59,13 @@ export default function NewProspectForm() {
         setConsent(false);
         setQueuedCount((n) => n + 1);
         window.dispatchEvent(new Event(QUEUE_CHANGED));
-        // The roadside save with no signal: the buzz is the only confirmation
-        // that exists, because no server is going to answer.
+        // The roadside save with no signal: the buzz and the tick are the only
+        // confirmation that exists, because no server is going to answer and the
+        // form simply empties — which on its own is indistinguishable from a
+        // failure.
         haptic(HAPTIC.confirm);
+        setTicked(true);
+        window.setTimeout(() => setTicked(false), DRAW_MS + 260);
       } catch {
         setError("Could not save on this phone. Please try again.");
       }
@@ -82,7 +88,12 @@ export default function NewProspectForm() {
       });
       if (res.ok) {
         haptic(HAPTIC.confirm);
-        router.push("/prospects?saved=1");
+        setTicked(true);
+        // Navigation waits for the stroke. Half a second of deliberate latency on
+        // the app's most important action, bought in exchange for a coach never
+        // wondering whether it saved — the 30-second rule has room for it, and a
+        // capture the coach re-enters "just in case" costs far more than 520ms.
+        window.setTimeout(() => router.push("/prospects?saved=1"), DRAW_MS);
         router.refresh();
         return;
       }
@@ -97,6 +108,7 @@ export default function NewProspectForm() {
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
+      <SuccessTick show={ticked} label="Saved" />
       {queuedCount > 0 && (
         <p className="rounded-xl bg-elevated px-4 py-3 text-sm text-gold-ink">
           Saved on this phone{queuedCount > 1 ? ` · ${queuedCount} so far` : ""}. It will

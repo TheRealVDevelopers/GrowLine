@@ -482,6 +482,13 @@ select {
   animation: gl-pulse 2.4s ease-in-out infinite;
 }
 
+/* The single stroke a checkmark draws itself with (SuccessTick). Animating
+   stroke-dashoffset is the only way to reveal a path progressively without
+   running JavaScript on every frame. */
+@keyframes gl-draw {
+  to { stroke-dashoffset: 0; }
+}
+
 @keyframes gl-rise {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
