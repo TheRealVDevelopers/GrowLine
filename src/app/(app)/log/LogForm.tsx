@@ -1,5 +1,6 @@
 "use client";
 
+import { celebrate } from "@/lib/celebrate";
 import CountUp from "@/components/CountUp";
 import { haptic, HAPTIC } from "@/lib/haptic";
 import { useState } from "react";
@@ -97,10 +98,12 @@ export default function LogForm({
         setStreak(data.streak ?? streak);
         setMilestone(data.milestone ?? null);
         setSaved("online");
-        // A landmark gets the three-pulse pattern; an ordinary day gets one tick.
-        // Scarcity is the mechanic — if every save felt like day 30, day 30 would
-        // feel like nothing (G6).
-        haptic(data.milestone ? HAPTIC.milestone : HAPTIC.confirm);
+        // A landmark gets the engine (confetti + the three-pulse haptic it fires
+        // itself); an ordinary day gets one tick and nothing else. Scarcity IS the
+        // mechanic — if every save threw confetti, day 30 would feel like nothing
+        // by week two (G6).
+        if (data.milestone) celebrate();
+        else haptic(HAPTIC.confirm);
         router.refresh();
       } else {
         const data = await res.json().catch(() => ({}));
@@ -230,16 +233,37 @@ function StreakBanner({
   milestone: number | null;
 }) {
   if (milestone) {
+    /*
+     * The milestone banner, in the palette's reserved rare-delight accent.
+     *
+     * `gem gem-pink` is defined in globals.css for exactly this and was used
+     * nowhere: v2 §4 reserves pink for "milestone surprises only, never routine
+     * UI", and a day-30 streak is the clearest such moment in the app. Everyday
+     * saves keep the plain card below — the contrast is the point.
+     *
+     * The share sits HERE, at the emotional peak, rather than waiting for Sunday's
+     * recap. Strava's per-activity sticker outperforms its annual review for
+     * exactly this reason: pride is a perishable good.
+     */
+    const shareText = `${streak} days logged in a row on Growline 🔥`;
     return (
-      <section className="rounded-2xl bg-elevated p-5 text-text">
-        <p className="text-sm font-medium text-gold-ink">
+      <section className="gem gem-pink animate-rise p-5">
+        <p className="text-sm font-semibold uppercase tracking-wide">
           {milestone}-day streak
         </p>
         <p className="mt-1 flex items-baseline gap-2 text-4xl">
           <span aria-hidden className="animate-flicker inline-block">🔥</span>
           <CountUp value={streak} className="numeral text-5xl text-text" />
         </p>
-        <p className="mt-2 text-text-dim">{milestoneMessage(milestone)}</p>
+        <p className="mt-2 text-text">{milestoneMessage(milestone)}</p>
+        <a
+          href={`https://wa.me/?text=${encodeURIComponent(shareText)}`}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="mt-4 flex h-12 items-center justify-center rounded-xl border border-hairline bg-surface font-semibold text-text"
+        >
+          Share this
+        </a>
       </section>
     );
   }

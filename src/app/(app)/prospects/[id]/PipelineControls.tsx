@@ -1,7 +1,8 @@
 "use client";
 
+import { celebrate } from "@/lib/celebrate";
 import { haptic, HAPTIC } from "@/lib/haptic";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   STAGES,
@@ -35,6 +36,19 @@ export default function PipelineControls({
   const [error, setError] = useState("");
   const [noteDraft, setNoteDraft] = useState(notes ?? "");
   const [noteOpen, setNoteOpen] = useState(false);
+  /**
+   * The stage that was just moved to, held for one animation.
+   *
+   * `snapped` drives a 180ms scale on the pill that just became active — the
+   * "satisfying snap" v2 §4 dopamine map #4 assigns to this exact control, which
+   * until now was the one screen in the app with a named mechanic and none of it
+   * built. `converted` is the bigger moment: reaching Member is the conversion the
+   * whole pipeline exists for, so it also washes the card green and fires the
+   * engine.
+   */
+  const [snapped, setSnapped] = useState<string | null>(null);
+  const [converted, setConverted] = useState(false);
+  const dismissed = useRef(false);
 
   const save = async (
     patch: Record<string, unknown>,
@@ -53,10 +67,23 @@ export default function PipelineControls({
         setError(data.error ?? "Could not save. Please try again.");
         return false;
       }
-      // Reaching Member is the conversion the whole pipeline exists for, so it
-      // gets the landmark pattern; every other stage move gets one tick. The
-      // green wash that accompanies it is week 2's celebration engine.
-      haptic(patch.stage === "member" ? HAPTIC.milestone : HAPTIC.confirm);
+      const movedTo = typeof patch.stage === "string" ? patch.stage : null;
+      if (movedTo) {
+        setSnapped(movedTo);
+        window.setTimeout(() => setSnapped(null), 220);
+      }
+      if (movedTo === "member") {
+        // The engine handles the confetti, the haptic and the 1.4s cap; the green
+        // wash below is this card's own part of the moment. Green is the sanctioned
+        // colour here — a Member is the gain the pipeline exists to produce — and
+        // it is the one stage that gets it (G6: scarcity is the mechanic).
+        dismissed.current = false;
+        setConverted(true);
+        celebrate();
+        window.setTimeout(() => setConverted(false), 1400);
+      } else {
+        haptic(HAPTIC.confirm);
+      }
       router.refresh();
       return true;
     } catch {
@@ -71,7 +98,27 @@ export default function PipelineControls({
   const currentIndex = stageIndex(stage);
 
   return (
-    <section className="flex flex-col gap-4 rounded-2xl bg-surface p-5">
+    <section
+      className="relative flex flex-col gap-4 overflow-hidden rounded-2xl bg-surface p-5"
+      onClick={() => {
+        // Skippable (G5), the same gesture the engine's canvas honours.
+        if (converted && !dismissed.current) {
+          dismissed.current = true;
+          setConverted(false);
+        }
+      }}
+    >
+      {converted && (
+        <span
+          aria-hidden
+          data-testid="member-wash"
+          className="animate-rise pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(circle at 50% 0%, var(--gem-green-line), transparent 68%)",
+          }}
+        />
+      )}
       <div>
         <h2 className="font-semibold">Where they are</h2>
         {/* Full stage list so a coach can correct a wrong tap, not just go forward */}
@@ -85,7 +132,9 @@ export default function PipelineControls({
                 onClick={() => !active && void save({ stage: s }, `stage-${s}`)}
                 disabled={busy !== null}
                 aria-pressed={active}
-                className={`h-12 rounded-xl px-4 font-medium disabled:opacity-60 ${
+                className={`relative h-12 rounded-xl px-4 font-medium transition-transform duration-200 disabled:opacity-60 ${
+                  snapped === s ? "scale-105" : ""
+                } ${
                   active
                     ? "bg-elevated text-text"
                     : passed
