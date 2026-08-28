@@ -259,7 +259,7 @@ export default function TargetGate({
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setPane("number")}
-              className="h-12 rounded-xl bg-gold px-5 font-semibold text-on-gold"
+              className="h-12 neopop metal-gold px-5 font-semibold text-on-gold"
             >
               Set the number
             </button>
@@ -347,7 +347,7 @@ export default function TargetGate({
             <button
               onClick={saveTarget}
               disabled={busy || points < 1}
-              className="h-12 rounded-xl bg-gold px-5 font-semibold text-on-gold disabled:opacity-40"
+              className="h-12 neopop metal-gold px-5 font-semibold text-on-gold disabled:opacity-40"
             >
               {busy ? "Saving…" : "Save and continue"}
             </button>
@@ -405,7 +405,7 @@ export default function TargetGate({
             <button
               onClick={sendProposal}
               disabled={busy}
-              className="h-12 rounded-xl bg-gold px-5 font-semibold text-on-gold disabled:opacity-50"
+              className="h-12 neopop metal-gold px-5 font-semibold text-on-gold disabled:opacity-50"
             >
               {busy ? "Sending…" : `Send to ${firstName}`}
             </button>

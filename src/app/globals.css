@@ -290,6 +290,41 @@ summary:active {
   filter: drop-shadow(0 0 10px rgba(255, 197, 61, 0.45));
 }
 
+/**
+ * The streak flame's idle flicker (v2 §4 dopamine map #1: "Animated flame").
+ *
+ * Transform-only so it composites on the GPU and costs no layout on a ₹10K
+ * Android — a fire that reflows the page every 1.8s is worse than a static
+ * emoji. Deliberately slow and small: a flame that thrashes reads as a loading
+ * spinner, and this one is meant to be ambient company on the home screen, not
+ * an alert. The reduced-motion block at the bottom kills it for free.
+ */
+@keyframes gl-flicker {
+  0%   { transform: scale(var(--flame-scale, 1)) rotate(-1.5deg); }
+  50%  { transform: scale(calc(var(--flame-scale, 1) * 1.06)) rotate(1.5deg); }
+  100% { transform: scale(var(--flame-scale, 1)) rotate(-1.5deg); }
+}
+
+.animate-flicker {
+  animation: gl-flicker 1.8s ease-in-out infinite;
+}
+
+/**
+ * Overdue follow-ups: "urgency without alarm" (v2 §4 dopamine map #4).
+ *
+ * Border colour only — no transform, no opacity on text, nothing that could make
+ * a row of names harder to read. A pulse that moves the row would fight the
+ * thumb aiming at it.
+ */
+@keyframes gl-pulse {
+  0%, 100% { border-color: var(--heat); }
+  50%      { border-color: color-mix(in srgb, var(--heat) 35%, transparent); }
+}
+
+.animate-pulse-soft {
+  animation: gl-pulse 2.4s ease-in-out infinite;
+}
+
 @keyframes gl-rise {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }

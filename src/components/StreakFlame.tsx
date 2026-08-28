@@ -44,8 +44,13 @@ export default function StreakFlame({
     <div className="flex items-center gap-3" data-testid="streak" data-days={days}>
       <span
         aria-hidden
-        style={{ transform: `scale(${scale})`, transformOrigin: "bottom center" }}
-        className={`inline-block text-3xl leading-none ${live ? "glow-gold" : "opacity-40 grayscale"}`}
+        // The scale goes in as a CSS variable rather than a transform: the flicker
+        // keyframe needs to multiply it, and an inline `transform` would win the
+        // cascade and freeze the animation at the milestone size.
+        style={{ "--flame-scale": scale, transformOrigin: "bottom center" } as React.CSSProperties}
+        className={`inline-block text-3xl leading-none ${
+          live ? "glow-gold animate-flicker" : "opacity-40 grayscale"
+        }`}
       >
         🔥
       </span>

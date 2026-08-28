@@ -1,5 +1,6 @@
 "use client";
 
+import CountUp from "@/components/CountUp";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -50,7 +51,7 @@ function Row({ p }: { p: ProspectRow }) {
       <Link
         href={`/prospects/${p.id}`}
         className={`flex min-h-16 items-center gap-3 rounded-xl p-3 ${
-          overdue ? "border border-gold bg-elevated/50" : "bg-surface"
+          overdue ? "animate-pulse-soft border border-heat bg-elevated/50" : "bg-surface"
         }`}
       >
         <div className="min-w-0 flex-1">
@@ -190,7 +191,7 @@ export default function ProspectList({
         >
           <Link
             href="/prospects/new"
-            className="mt-2 flex h-12 items-center rounded-xl bg-gold px-5 font-semibold text-on-gold"
+            className="mt-2 flex h-12 items-center neopop metal-gold px-5 font-semibold text-on-gold"
           >
             Add first person
           </Link>
@@ -206,7 +207,7 @@ export default function ProspectList({
               }`}
             >
               <span>
-                <span className="block text-2xl font-bold">{due.length}</span>
+                <CountUp value={due.length} className="numeral block text-3xl text-text" />
                 <span className={`text-sm ${showDueOnly ? "text-text-dim" : "text-text-dim"}`}>
                   to follow up today
                 </span>
@@ -296,7 +297,7 @@ export default function ProspectList({
         <div className="flex flex-wrap gap-2">
           <Link
             href="/prospects/new"
-            className="flex h-14 flex-1 items-center justify-center rounded-xl bg-gold text-lg font-semibold text-on-gold"
+            className="flex h-14 flex-1 items-center justify-center neopop metal-gold text-lg font-semibold text-on-gold"
           >
             + New Person
           </Link>

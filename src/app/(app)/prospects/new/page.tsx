@@ -13,7 +13,7 @@ export default function NewProspectPage() {
         <BackIcon className="h-5 w-5" />
         Back
       </Link>
-      <h1 className="text-2xl font-bold">New Person</h1>
+      <h1 className="font-display text-3xl font-bold">New Person</h1>
       <NewProspectForm />
 
       {/*

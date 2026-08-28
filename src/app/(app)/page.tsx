@@ -13,6 +13,8 @@ import { currentMonth, progressPercent } from "@/lib/targets";
 import InviteButtons from "@/components/InviteButtons";
 import { TeamIcon } from "@/components/icons";
 import TodaysMission, { buildMissions } from "@/components/TodaysMission";
+import StreakFlame from "@/components/StreakFlame";
+import CountUp from "@/components/CountUp";
 import { getWeeklyRecap, recapShareText } from "@/lib/weekly-recap";
 import WeeklyRecap from "@/components/WeeklyRecap";
 import { getUserById } from "@/lib/users";
@@ -75,11 +77,30 @@ export default async function HomePage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div>
-        <h1 className="font-display text-3xl font-bold text-text">
-          Hello, {firstName} 👋
-        </h1>
-        <p className="mt-1 text-text-dim">{today}</p>
+      {/*
+        The greeting and the flame share the header, because v2 §4's dopamine map
+        names both places for it — "the log screen AND home header" — and only the
+        log screen ever had it. The flame is the app's one ambient reminder of the
+        habit everything else rests on, so it belongs on the screen a coach opens
+        first, not the one they open last.
+
+        `live` is the streak being alive at all: a zero streak shows the dim flame
+        and "Log today to start again", which is the honest state and not a scold.
+      */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="font-display text-3xl font-bold text-text">
+            Hello, {firstName} 👋
+          </h1>
+          <p className="mt-1 text-text-dim">{today}</p>
+        </div>
+        {logState.streak > 0 || logState.hasLoggedToday ? (
+          <StreakFlame
+            days={logState.streak}
+            shieldUsed={logState.shieldUsed}
+            live={logState.streak > 0}
+          />
+        ) : null}
       </div>
 
       <TodaysMission missions={missions} />
@@ -126,7 +147,7 @@ export default async function HomePage() {
           className="flex items-center justify-between gap-3 rounded-2xl bg-elevated px-5 py-4"
         >
           <span>
-            <span className="block text-3xl font-bold">{followups.due}</span>
+            <CountUp value={followups.due} className="numeral block text-4xl text-text" />
             <span className="text-sm text-text-dim">
               {followups.due === 1 ? "person to follow up" : "people to follow up"}
               {followups.overdue > 0 && ` · ${followups.overdue} from earlier`}

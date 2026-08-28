@@ -26,7 +26,7 @@ export default async function ProspectsPage() {
     <div className="flex flex-col gap-4">
       <RealtimeProspects />
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Prospects</h1>
+        <h1 className="font-display text-3xl font-bold">Prospects</h1>
         <Link
           href="/prospects/qr"
           className="flex h-12 items-center rounded-xl border border-hairline px-4 font-medium"

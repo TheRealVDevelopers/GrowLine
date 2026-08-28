@@ -296,7 +296,7 @@ export default function GoalSheetForm({ initial }: { initial: Sheet }) {
             type="button"
             onClick={saveAndAdvance}
             disabled={busy}
-            className="h-14 rounded-xl bg-gold text-lg font-semibold text-on-gold disabled:opacity-50"
+            className="h-14 neopop metal-gold text-lg font-semibold text-on-gold disabled:opacity-50"
           >
             {busy ? "Saving…" : isLast ? "Save" : "Save and continue"}
           </button>

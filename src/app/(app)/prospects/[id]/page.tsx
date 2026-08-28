@@ -67,7 +67,7 @@ export default async function ProspectDetailPage({
       </Link>
 
       <header>
-        <h1 className="text-2xl font-bold">{prospect.name}</h1>
+        <h1 className="font-display text-3xl font-bold">{prospect.name}</h1>
         <p className="mt-1 text-text-dim">
           {prospect.phone.replace(/^\+91/, "")}
           {prospect.source === "qr" && " · filled their own details"}

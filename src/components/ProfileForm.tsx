@@ -189,7 +189,7 @@ export default function ProfileForm(props: Props) {
       <button
         type="submit"
         disabled={busy || (askPhone && phone.length !== 10)}
-        className="h-12 rounded-xl bg-gold font-semibold text-on-gold disabled:opacity-50"
+        className="h-12 neopop metal-gold font-semibold text-on-gold disabled:opacity-50"
       >
         {busy ? "Saving…" : isSignup ? "Start my Growline" : "Save changes"}
       </button>

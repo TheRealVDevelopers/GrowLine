@@ -1,5 +1,7 @@
 "use client";
 
+import CountUp from "@/components/CountUp";
+import { haptic, HAPTIC } from "@/lib/haptic";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -66,6 +68,10 @@ export default function LogForm({
         await queueDailyLog({ ...payload, savedAt: Date.now() });
         window.dispatchEvent(new Event(QUEUE_CHANGED));
         setSaved("queued");
+        // The one place a buzz carries real information: on a weak signal there is
+        // no server round-trip to confirm anything, and the coach is looking at the
+        // road, not the screen.
+        haptic(HAPTIC.confirm);
       } catch {
         setError("Could not save on this phone. Please try again.");
       }
@@ -91,6 +97,10 @@ export default function LogForm({
         setStreak(data.streak ?? streak);
         setMilestone(data.milestone ?? null);
         setSaved("online");
+        // A landmark gets the three-pulse pattern; an ordinary day gets one tick.
+        // Scarcity is the mechanic — if every save felt like day 30, day 30 would
+        // feel like nothing (G6).
+        haptic(data.milestone ? HAPTIC.milestone : HAPTIC.confirm);
         router.refresh();
       } else {
         const data = await res.json().catch(() => ({}));
@@ -182,7 +192,7 @@ export default function LogForm({
       <button
         onClick={save}
         disabled={busy}
-        className="h-14 rounded-xl bg-gold text-lg font-semibold text-on-gold disabled:opacity-50"
+        className="h-14 neopop metal-gold text-lg font-semibold text-on-gold disabled:opacity-50"
       >
         {busy
           ? "Saving…"
@@ -225,7 +235,10 @@ function StreakBanner({
         <p className="text-sm font-medium text-gold-ink">
           {milestone}-day streak
         </p>
-        <p className="mt-1 text-4xl font-bold">🔥 {streak}</p>
+        <p className="mt-1 flex items-baseline gap-2 text-4xl">
+          <span aria-hidden className="animate-flicker inline-block">🔥</span>
+          <CountUp value={streak} className="numeral text-5xl text-text" />
+        </p>
         <p className="mt-2 text-text-dim">{milestoneMessage(milestone)}</p>
       </section>
     );
@@ -233,7 +246,7 @@ function StreakBanner({
   return (
     <section className="flex items-center justify-between gap-3 rounded-2xl bg-surface px-5 py-4">
       <span>
-        <span className="block text-3xl font-bold">{streak}</span>
+        <CountUp value={streak} className="numeral block text-4xl text-text" />
         <span className="text-sm text-text-dim">
           {streak === 0
             ? "no streak yet — today can start one"

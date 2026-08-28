@@ -170,7 +170,7 @@ export default function MyTargetCard({
           <button
             onClick={save}
             disabled={busy || !dirty}
-            className="mt-3 h-14 w-full rounded-xl bg-gold text-lg font-semibold text-on-gold disabled:opacity-40"
+            className="mt-3 h-14 w-full neopop metal-gold text-lg font-semibold text-on-gold disabled:opacity-40"
           >
             {busy ? "Saving…" : dirty ? "Save progress" : "Saved"}
           </button>

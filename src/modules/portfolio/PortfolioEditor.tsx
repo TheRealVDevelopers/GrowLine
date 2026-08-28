@@ -195,7 +195,7 @@ export default function PortfolioEditor({
           type="button"
           onClick={() => save()}
           disabled={busy || !slugCheck.ok}
-          className="h-14 rounded-xl bg-gold text-lg font-semibold text-on-gold disabled:opacity-50"
+          className="h-14 neopop metal-gold text-lg font-semibold text-on-gold disabled:opacity-50"
         >
           {busy ? "Saving…" : "Save"}
         </button>

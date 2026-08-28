@@ -1,5 +1,6 @@
 "use client";
 
+import { haptic, HAPTIC } from "@/lib/haptic";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -52,6 +53,10 @@ export default function PipelineControls({
         setError(data.error ?? "Could not save. Please try again.");
         return false;
       }
+      // Reaching Member is the conversion the whole pipeline exists for, so it
+      // gets the landmark pattern; every other stage move gets one tick. The
+      // green wash that accompanies it is week 2's celebration engine.
+      haptic(patch.stage === "member" ? HAPTIC.milestone : HAPTIC.confirm);
       router.refresh();
       return true;
     } catch {
@@ -97,7 +102,7 @@ export default function PipelineControls({
           <button
             onClick={() => void save({ stage: advance }, "advance")}
             disabled={busy !== null}
-            className="mt-3 h-14 w-full rounded-xl bg-gold text-lg font-semibold text-on-gold disabled:opacity-50"
+            className="mt-3 h-14 w-full neopop metal-gold text-lg font-semibold text-on-gold disabled:opacity-50"
           >
             {busy === "advance" ? "Saving…" : `Move to ${STAGE_LABELS[advance]}`}
           </button>
@@ -163,7 +168,7 @@ export default function PipelineControls({
                   if (await save({ notes: noteDraft }, "notes")) setNoteOpen(false);
                 }}
                 disabled={busy !== null}
-                className="h-12 rounded-xl bg-gold px-5 font-semibold text-on-gold disabled:opacity-50"
+                className="h-12 neopop metal-gold px-5 font-semibold text-on-gold disabled:opacity-50"
               >
                 {busy === "notes" ? "Saving…" : "Save note"}
               </button>

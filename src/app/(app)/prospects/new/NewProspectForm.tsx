@@ -1,5 +1,6 @@
 "use client";
 
+import { haptic, HAPTIC } from "@/lib/haptic";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import CaptureFields, { emptyCapture, type CaptureValues } from "@/components/CaptureFields";
@@ -56,6 +57,9 @@ export default function NewProspectForm() {
         setConsent(false);
         setQueuedCount((n) => n + 1);
         window.dispatchEvent(new Event(QUEUE_CHANGED));
+        // The roadside save with no signal: the buzz is the only confirmation
+        // that exists, because no server is going to answer.
+        haptic(HAPTIC.confirm);
       } catch {
         setError("Could not save on this phone. Please try again.");
       }
@@ -77,6 +81,7 @@ export default function NewProspectForm() {
         signal: AbortSignal.timeout(8000),
       });
       if (res.ok) {
+        haptic(HAPTIC.confirm);
         router.push("/prospects?saved=1");
         router.refresh();
         return;
@@ -139,7 +144,7 @@ export default function NewProspectForm() {
       <button
         type="submit"
         disabled={!canSave || busy}
-        className="h-14 rounded-xl bg-gold text-lg font-semibold text-on-gold disabled:opacity-40"
+        className="h-14 neopop metal-gold text-lg font-semibold text-on-gold disabled:opacity-40"
       >
         {busy ? "Saving…" : "Save person"}
       </button>

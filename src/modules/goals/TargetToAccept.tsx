@@ -157,7 +157,7 @@ export default function TargetToAccept({
               <button
                 onClick={() => post({ action: "request-change", note })}
                 disabled={busy}
-                className="h-12 rounded-xl bg-gold px-5 font-semibold text-on-gold disabled:opacity-50"
+                className="h-12 neopop metal-gold px-5 font-semibold text-on-gold disabled:opacity-50"
               >
                 {busy ? "Sending…" : `Send to ${first}`}
               </button>
@@ -174,7 +174,7 @@ export default function TargetToAccept({
             <button
               onClick={() => post({ action: "accept" })}
               disabled={busy}
-              className="h-14 flex-1 rounded-xl bg-gold text-lg font-semibold text-on-gold disabled:opacity-50"
+              className="h-14 flex-1 neopop metal-gold text-lg font-semibold text-on-gold disabled:opacity-50"
             >
               {busy ? "Saving…" : "I accept this target"}
             </button>

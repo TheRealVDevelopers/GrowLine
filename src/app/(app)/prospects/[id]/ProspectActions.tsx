@@ -65,7 +65,7 @@ export default function ProspectActions({
         target="_blank"
         rel="noreferrer noopener"
         onClick={markSent}
-        className="flex h-14 items-center justify-center gap-2 rounded-xl bg-gold text-lg font-semibold text-on-gold"
+        className="flex h-14 items-center justify-center gap-2 neopop metal-gold text-lg font-semibold text-on-gold"
       >
         <WhatsAppIcon className="h-6 w-6" />
         Send on WhatsApp

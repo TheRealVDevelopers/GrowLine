@@ -201,7 +201,7 @@ export default function WorkspaceSettings({ workspace }: { workspace: WorkspaceV
         data-testid="workspace-save"
         onClick={() => void save()}
         disabled={busy}
-        className="h-14 rounded-xl bg-gold px-5 text-lg font-semibold text-on-gold disabled:opacity-50"
+        className="h-14 neopop metal-gold px-5 text-lg font-semibold text-on-gold disabled:opacity-50"
       >
         {busy ? "Saving…" : "Save"}
       </button>

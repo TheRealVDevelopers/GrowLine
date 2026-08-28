@@ -107,13 +107,18 @@ export default function TodaysMission({ missions }: { missions: Mission[] }) {
     >
       <h2 className="font-display text-lg font-semibold text-text">Today&apos;s Mission</h2>
       <ul className="mt-3 flex flex-col gap-2">
-        {missions.map((m) => (
+        {missions.map((m, i) => (
           <li key={m.key}>
             <Link
               href={m.href}
               data-testid={`mission-${m.key}`}
               // 48px minimum tap target (v1 §9), one tap to the action.
-              className="flex min-h-12 items-center gap-3 rounded-xl bg-elevated px-4 py-3 text-text"
+              // Staggered so the three items land one after another rather than
+              // all at once — the card assembles itself, which is what makes a
+              // list read as arriving. 45ms apart: perceptible, still well inside
+              // G5's budget for the whole sequence.
+              style={{ animationDelay: `${i * 45}ms` }}
+              className="animate-rise flex min-h-12 items-center gap-3 rounded-xl bg-elevated px-4 py-3 text-text"
             >
               <span aria-hidden className="text-xl leading-none">
                 {m.icon}
