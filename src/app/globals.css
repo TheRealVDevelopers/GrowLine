@@ -245,11 +245,19 @@
   --color-heat: var(--heat);
   --color-info: var(--info);
 
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", Roboto, sans-serif;
-  /* Serif display over sans body — v2 §4's "cheapest single move" that separates
-     this from every template on the Play Store. */
-  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-inter), ui-rounded, "Segoe UI", Roboto, system-ui,
+    sans-serif;
+  /*
+   * Display and body are the SAME family now (Nunito), separated by weight rather
+   * than by typeface. The v2 spec called serif-over-sans "the cheapest single move
+   * that separates this from every template", and it was right about the effect —
+   * but it costs a second font download on a 3G connection, and Nunito's 800/900
+   * against its 400 carries the hierarchy on its own.
+   *
+   * Both variables resolve to the same family; `font-display` remains a distinct
+   * token so a future direction can split them again without touching components.
+   */
+  --font-display: var(--font-inter), ui-rounded, "Segoe UI", Roboto, sans-serif;
 }
 
 /**

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Space_Grotesk, DM_Sans } from "next/font/google";
+import { Nunito } from "next/font/google";
 import "./globals.css";
 import { configuredSiteUrl } from "@/lib/site-url";
 import { LOCALE_TAGS } from "@/lib/i18n";
@@ -7,24 +7,26 @@ import { getLocale } from "@/lib/locale-server";
 import ThemeScript from "@/components/ThemeScript";
 
 /**
- * Space Grotesk over DM Sans — Design System 3.1 "Sunrise".
+ * Nunito, for everything — Design System 3.2, chosen by the owner 2026-08-28.
  *
- * The display face carries the personality (Space Grotesk's squared-off bowls and
- * tight tracking read as modern without being generic), and DM Sans handles body
- * text, where character matters less than legibility at 14px on a cheap screen in
- * sunlight. Both variable names are kept and repointed, so `font-display` and
- * `font-sans` resolve correctly without touching a single component.
+ * Rounded terminals and a wide, soft bowl: the friendliest widely-available face,
+ * and the one that matches what this app is for. Its users are not accountants —
+ * they are coaches whose day is conversations, and a geometric or technical face
+ * makes a daily-log form feel like data entry. Nunito makes the same form feel
+ * like a notebook.
+ *
+ * One family covering display and body, at 400 through 900. A single download
+ * instead of a pair, which on a 3G connection outweighs the display/body pairing
+ * the v2 spec argued for — and Nunito's 800/900 weights are distinct enough from
+ * its 400 that the hierarchy survives without a second family.
+ *
+ * Both CSS variable names are kept and pointed here, so `font-display` and
+ * `font-sans` resolve without touching a single component.
  */
-const displayFont = Space_Grotesk({
-  variable: "--font-fraunces",
-  subsets: ["latin"],
-  weight: ["500", "700"],
-  display: "swap",
-});
-
-const bodyFont = DM_Sans({
+const nunito = Nunito({
   variable: "--font-inter",
   subsets: ["latin"],
+  weight: ["400", "600", "700", "800", "900"],
   display: "swap",
 });
 
@@ -79,7 +81,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       lang={LOCALE_TAGS[locale]}
       // Set by ThemeScript before paint; this is only the pre-hydration default.
       data-theme="light"
-      className={`${displayFont.variable} ${bodyFont.variable} h-full antialiased`}
+      className={`${nunito.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
