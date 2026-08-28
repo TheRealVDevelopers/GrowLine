@@ -31,7 +31,7 @@ export default function InviteButtons({
     }
   };
 
-  const solid = "bg-gold text-on-gold font-semibold";
+  const solid = "neopop metal-gold font-semibold";
   const outline = dark
     ? "border border-hairline text-text"
     : "border border-hairline text-text";
@@ -40,7 +40,7 @@ export default function InviteButtons({
     <div className="flex flex-wrap gap-2">
       <button
         onClick={shareOnWhatsApp}
-        className={`flex h-12 items-center gap-2 rounded-xl px-4 ${solid}`}
+        className={`flex h-12 items-center gap-2 px-4 ${solid}`}
       >
         <WhatsAppIcon className="h-5 w-5" />
         Invite on WhatsApp

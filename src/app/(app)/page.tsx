@@ -94,13 +94,11 @@ export default async function HomePage() {
           </h1>
           <p className="mt-1 text-text-dim">{today}</p>
         </div>
-        {logState.streak > 0 || logState.hasLoggedToday ? (
-          <StreakFlame
-            days={logState.streak}
-            shieldUsed={logState.shieldUsed}
-            live={logState.streak > 0}
-          />
-        ) : null}
+        <StreakFlame
+          days={logState.streak}
+          shieldUsed={logState.shieldUsed}
+          live={logState.streak > 0}
+        />
       </div>
 
       <TodaysMission missions={missions} />
@@ -245,7 +243,7 @@ export default async function HomePage() {
       <div className="flex flex-wrap gap-2">
         <Link
           href="/prospects/new"
-          className="flex h-14 flex-1 items-center justify-center rounded-xl bg-gold text-lg font-semibold text-on-gold"
+          className="neopop metal-gold flex h-14 flex-1 items-center justify-center text-lg font-semibold"
         >
           + New Person
         </Link>
@@ -307,7 +305,7 @@ export default async function HomePage() {
           <TeamIcon className="h-6 w-6" />
         </span>
         <span className="flex-1">
-          <span className="block text-2xl font-bold">{directCount}</span>
+          <CountUp value={directCount} className="numeral block text-3xl text-text" />
           <span className="text-sm text-text-dim">
             {directCount === 1 ? "coach" : "coaches"} in my direct line
           </span>
