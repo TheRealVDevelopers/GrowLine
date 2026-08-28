@@ -15,6 +15,7 @@ import { TeamIcon } from "@/components/icons";
 import TodaysMission, { buildMissions } from "@/components/TodaysMission";
 import StreakFlame from "@/components/StreakFlame";
 import CountUp from "@/components/CountUp";
+import MiniRing from "@/components/MiniRing";
 import { getWeeklyRecap, recapShareText } from "@/lib/weekly-recap";
 import WeeklyRecap from "@/components/WeeklyRecap";
 import { getUserById } from "@/lib/users";
@@ -270,9 +271,19 @@ export default async function HomePage() {
           at five tabs. */}
       <Link
         href="/targets"
-        className="flex items-center justify-between gap-3 rounded-2xl bg-surface px-5 py-4"
+        className="flex items-center gap-4 rounded-2xl bg-surface px-5 py-4"
       >
-        <span className="min-w-0">
+        {/* The ring, not just the number. v2 §4's mechanic #2 is the tension an
+            unclosed arc creates, and it only does its work on the screen a coach
+            opens without deciding to. The celebration stays on /targets — see
+            MiniRing's own note on why this is a separate component. */}
+        {myTarget ? (
+          <MiniRing
+            progress={myTarget.progressPoints}
+            target={myTarget.targetPoints}
+          />
+        ) : null}
+        <span className="min-w-0 flex-1">
           <span className="block text-sm text-text-dim">My Target</span>
           {myTarget ? (
             <>
