@@ -23,16 +23,39 @@ import sharp from "sharp";
  * Nothing here is or resembles any company's logo (RULES L1) — it is a geometric mark
  * drawn from the app's own tokens.
  *
- * The stroke uses the champagne-gold gradient from `globals.css` rather than a flat
- * fill, because v2 §4 is explicit that gold in this product is metallic: highlight
- * #ffe08a into core #ffc53d into depth #8a5a0a. Flat gold reads as a cheap yellow at
+ * The stroke uses a gradient rather than a flat fill: flat colour reads as cheap at
  * 48px, which is the size that actually matters on a launcher.
+ *
+ * ## The palette moved, and this file did not follow it for two releases
+ *
+ * The mark was drawn for "Dark Achiever" — a champagne-gold line on a near-black
+ * navy ground. That design system was replaced twice and is gone; the app is now
+ * Sunrise (warm cream ground, burnt terracotta accent). The icon kept shipping in
+ * the old palette because nothing about it is wrong on its own — an icon is only
+ * wrong NEXT to the app, and no test compares the two.
+ *
+ * The relationship worth preserving is not the colours, it is the contrast job:
+ * a bright mark on a deep ground, so the shape survives at 48px among thirty other
+ * icons. Sunrise assigns those roles to different hues, so the ground is now the
+ * terracotta core and the mark is the cream. Same drawing, same reason.
  */
 
-const GROUND = "#0B1020"; // --bg, the near-black navy
-const GOLD_HI = "#ffe08a";
-const GOLD = "#ffc53d";
-const GOLD_LO = "#8a5a0a";
+const GROUND = "#c4490a"; // --accent, the terracotta core
+const MARK_HI = "#fff9f2"; // --bg, the cream ground doing duty as the highlight
+const MARK = "#ffddc0";
+/**
+ * The gradient's depth stop, and the ONE value that could not be carried over
+ * literally. Dark Achiever's was #8a5a0a — a brown gold that still read against a
+ * near-black ground. The same move here (--accent-lo #8f3406 on --accent #c4490a)
+ * is 1.3:1: the foot of the stroke would disappear into the ground entirely, and
+ * the foot is where the line starts. This is 2.8:1 against the ground — enough to
+ * hold an edge on a thick stroke while still reading as depth rather than a
+ * second colour.
+ */
+const MARK_LO = "#f0b689";
+/** The three bars sit UNDER the stroke, so they go the other way: darker than the
+ *  ground, a shadow of it rather than a mark on it. */
+const SHADOW = "#8f3406";
 
 /**
  * @param radius  corner rounding in the 512 space. 0 for maskable and Apple, which do
@@ -45,16 +68,16 @@ function svg(radius: number, scale: number): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
     <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="${GOLD_HI}"/>
-      <stop offset="0.55" stop-color="${GOLD}"/>
-      <stop offset="1" stop-color="${GOLD_LO}"/>
+      <stop offset="0" stop-color="${MARK_HI}"/>
+      <stop offset="0.55" stop-color="${MARK}"/>
+      <stop offset="1" stop-color="${MARK_LO}"/>
     </linearGradient>
   </defs>
   <rect x="0" y="0" width="512" height="512" rx="${radius}" ry="${radius}" fill="${GROUND}"/>
   <g transform="translate(256 256) scale(${scale}) translate(-272 -270)">
     <!-- Three rising members: the line a coach builds, and the chart it produces.
          Drawn under the stroke so the stroke reads as the through-line. -->
-    <g fill="${GOLD_LO}" opacity="0.55">
+    <g fill="${SHADOW}" opacity="0.55">
       <rect x="92"  y="330" width="58" height="86"  rx="16"/>
       <rect x="198" y="270" width="58" height="146" rx="16"/>
       <rect x="304" y="208" width="58" height="208" rx="16"/>
@@ -67,7 +90,7 @@ function svg(radius: number, scale: number): string {
     <!-- Ground-coloured ring separates the apex from the stroke, so it stays a
          distinct point of light instead of fusing into a pin head. -->
     <circle cx="410" cy="132" r="40" fill="${GROUND}"/>
-    <circle cx="410" cy="132" r="32" fill="${GOLD_HI}"/>
+    <circle cx="410" cy="132" r="32" fill="${MARK_HI}"/>
   </g>
 </svg>`;
 }

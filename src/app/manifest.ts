@@ -43,8 +43,22 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#0B1020",
-    theme_color: "#0B1020",
+    /**
+     * The splash ground, and the one place a theme-aware app has to pick a side:
+     * the manifest takes a single value and cannot carry a media query the way
+     * `viewport.themeColor` can.
+     *
+     * It is the light Sunrise ground, which is the app's default. Before this it
+     * was `#0B1020` — the near-black navy of "Dark Achiever", a design system
+     * deleted two reskins ago. Every cold start on Android, the whole target
+     * platform, painted a navy splash and then loaded a cream app.
+     *
+     * A coach whose phone is in system dark mode still gets one wrong frame, in
+     * the other direction. That is not fixable here; it is fixed as far as it can
+     * be in `layout.tsx`, where the status bar DOES get a media query.
+     */
+    background_color: "#fff9f2",
+    theme_color: "#fff9f2",
     lang: "en-IN",
     dir: "ltr",
     categories: ["business", "productivity"],

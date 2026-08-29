@@ -63,9 +63,19 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Matches the dark surface so the Android status bar does not sit in a
-  // contrasting strip above a dark app.
-  themeColor: "#0B1020",
+  /**
+   * The Android status bar, and the one theme-aware slot the platform gives us —
+   * unlike the manifest's single `theme_color`, this accepts a media query, so
+   * neither half of the audience gets a contrasting strip above their app.
+   *
+   * The values are the two `--bg` tokens from globals.css, and they have to stay
+   * in step with them by hand: this is metadata, not CSS, so it cannot read a
+   * custom property. If the ground changes, change it here too.
+   */
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fff9f2" },
+    { media: "(prefers-color-scheme: dark)", color: "#17120e" },
+  ],
   width: "device-width",
   initialScale: 1,
 };

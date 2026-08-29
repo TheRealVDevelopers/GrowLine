@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import manifest from "@/app/manifest";
 import { RESERVED_SLUGS } from "@/modules/portfolio/model";
 
@@ -61,11 +61,75 @@ describe("installability — the fields Chrome actually requires", () => {
 });
 
 describe("it looks like the app, not like a default", () => {
-  test("splash and status bar use the dark ground, not white", () => {
-    // A white splash flashing before a dark app is the light flash ThemeScript exists to
-    // prevent, reintroduced one layer up at the launcher.
-    assert.equal(m.background_color, "#0B1020");
-    assert.equal(m.theme_color, "#0B1020");
+  test("the splash is the app's own ground, whatever that currently is", () => {
+    /**
+     * This test used to pin `#0B1020` under the title "splash and status bar use the
+     * dark ground, not white", and it survived two whole design systems doing so.
+     * The app became cream; the splash stayed near-black navy; the test agreed with
+     * the splash. On Android — the entire target platform — every cold start painted
+     * a dark rectangle and then loaded a light app, and the suite called it correct.
+     *
+     * The lesson is the one worth keeping: a test that pins a VALUE becomes an
+     * argument for the bug the moment the value moves. This pins the RELATIONSHIP —
+     * the splash equals `--bg` — which is the thing that was actually true all along
+     * and would have caught the drift on the reskin commit that caused it.
+     */
+    const css = readFileSync("src/app/globals.css", "utf8");
+    const bg = /:root\s*\{[^}]*?--bg:\s*(#[0-9a-fA-F]{3,8})/s.exec(css);
+    assert.ok(bg, "could not find --bg on :root in globals.css");
+    assert.equal(m.background_color, bg[1]);
+    assert.equal(m.theme_color, bg[1]);
+  });
+
+  test("the status bar follows the system theme, which the manifest cannot", () => {
+    // `theme_color` in the manifest is a single value. `viewport.themeColor` takes a
+    // media query, so it is the only slot that can be right for both audiences —
+    // and each colour must be its own theme's real ground.
+    const layout = readFileSync("src/app/layout.tsx", "utf8");
+    const css = readFileSync("src/app/globals.css", "utf8");
+    const light = /:root\s*\{[^}]*?--bg:\s*(#[0-9a-fA-F]{3,8})/s.exec(css)?.[1];
+    const dark = /prefers-color-scheme:\s*dark[\s\S]{0,200}?--bg:\s*(#[0-9a-fA-F]{3,8})/.exec(css)?.[1];
+    assert.ok(light && dark, "could not read both --bg values from globals.css");
+    assert.match(layout, /prefers-color-scheme: light\)", color: "#/);
+    assert.ok(
+      layout.includes(`color: "${light}"`),
+      `layout's light themeColor is not ${light}`
+    );
+    assert.ok(
+      layout.includes(`color: "${dark}"`),
+      `layout's dark themeColor is not ${dark}`
+    );
+  });
+
+  test("no deleted palette survives in the launcher identity", () => {
+    /**
+     * #0B1020 was Dark Achiever's ground. It outlived the design system by two
+     * reskins in three separate files, because nothing compared them to each other.
+     *
+     * Comments are stripped first, and that is not incidental. The first version of
+     * this assertion failed on the sentence in manifest.ts explaining WHY the value
+     * changed — the one artefact most worth keeping. This repo has made that mistake
+     * before: a test that punishes writing the reasoning down teaches the next
+     * person to delete the reasoning rather than the code.
+     */
+    const code = (text: string) =>
+      text
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^\s*\/\/.*$/gm, "")
+        .replace(/<!--[\s\S]*?-->/g, "");
+
+    for (const file of [
+      "src/app/manifest.ts",
+      "src/app/layout.tsx",
+      "public/icons/icon.svg",
+      "scripts/make-icons.ts",
+    ]) {
+      assert.doesNotMatch(
+        code(readFileSync(file, "utf8")),
+        /#0B1020/i,
+        `${file} still carries the deleted Dark Achiever ground`
+      );
+    }
   });
 
   test("the shortcuts are the daily loop, and all point at real routes", () => {
