@@ -4339,3 +4339,200 @@ Found while building it, recorded because it cost an hour: **document ids matchi
 `__.*__` are reserved by Firestore.** Production rejects them with INVALID_ARGUMENT; the
 emulator hangs forever instead of answering. The first probe id was `___diagnostic-probe___`
 and every doc-get against it timed out. A probe id must be boring.
+
+---
+
+## D84
+
+**The design system was rebuilt three times in one week — Dark Achiever → Voltage →
+Sunrise — and the token NAMES were deliberately not renamed with it.**
+
+v2 §4 specified "Dark Achiever": near-black navy `#0B1020`, champagne gold, serif
+display face. It shipped. The owner's verdict on the running app was that it read like
+"some 1990s banking application", and that no part of the colour or type choice was
+liked. A five-way visual comparison was built and shown; **Voltage** (near-black ground,
+one electric lime accent, glass panes instead of solid cards) was chosen, then corrected
+within the same session to **Sunrise with glassmorphism**, and finally to **Nunito** as
+the single type family. That is the whole history: 3.0 Voltage, 3.1 Sunrise, 3.2 Nunito.
+
+What Sunrise 3.2 actually is: warm cream ground `#fff9f2`, burnt terracotta accent
+`#c4490a`, glass built from alpha fills, hairline borders, an inner highlight and a
+drop shadow — never `backdrop-filter`, which RULES G4 forbids outright as too heavy for
+a ₹10K Android. A dark theme still exists (`#17120e`, a warm near-black) and follows the
+system preference; light is now the default, which reverses v2 §4. The reason is the
+audience and the setting: this app is used outdoors, in Indian daylight, on a cheap
+screen at low brightness. A near-black UI in that setting is a mirror.
+
+**Three contrast failures were found by measuring rather than looking**, and all three
+had been shipped: `#6f9c00` at 3.27:1, `#e8590c` at 3.58:1, `#8a6f5c` at 4.45:1 — each
+one plausible to the eye and each below WCAG AA. They are now `#5a7d00`, `#c4490a` and
+`#7a6050`. Eyeballing a palette does not work; the ratios have to be computed.
+
+**The `--gold-*` tokens are a deliberate lie, and this is where it is written down.**
+`--gold`, `--gold-hi`, `--gold-lo`, `--on-gold` and `--gold-ink` all alias the terracotta
+accent, because roughly two hundred class names across the app say "gold". Every
+`bg-gold`, `text-gold-ink` and `metal-gold` in a component renders burnt orange. Renaming
+them is a mechanical commit that touches almost every file and would have buried the
+design work inside a rename diff; it is worth doing, separately, and has not been done.
+Until then: **anyone reading a component in isolation will believe the app is gold.**
+`TargetRing`'s `stroke="var(--gold)"` is the line most likely to be "fixed" by mistake.
+
+The corollary that cost a bug: **`STATUS.md`'s design section still describes Dark
+Achiever as the shipped state**, and `CLAUDE.md`'s START HERE tells the next developer to
+read `STATUS.md` first. Three reskins landed with none of this written here, which is a
+straight RULES E6 miss — the reasoning lived only in commit bodies (`b877e88`, `d8d9788`,
+`c212ceb`, `fbb0350`, `3a8ceb8`, `5ef1fe2`) where no handoff reads it. D84–D88 exist
+because an audit went looking for them and found nothing.
+
+---
+
+## D85
+
+**One imperative `celebrate()` function, hand-rolled, that enforces the motion budget
+centrally — and the discovery that the confetti it replaced had never once executed.**
+
+The moments worth celebrating are scattered across screens that share no ancestor: a
+target ring, a pipeline control, a log form. Threading a React context through all of
+them to draw pixels on top of everything would be architecture in service of confetti.
+`src/lib/celebrate.ts` is therefore a plain function callable from anywhere, and it holds
+every G5 rule so that no call site has to re-argue them: `pointer-events: none` (a
+celebration a coach cannot tap through is a modal, and the 30-second rule does not
+survive a 1.4s modal on the save path), a 1400ms cap the loop applies to itself rather
+than trusting a caller to stop it, one-tap skip, and silence under
+`prefers-reduced-motion`. G1 is the one rule it cannot enforce — a Trust Zone screen
+simply must not call it — so that is stated at every call site instead.
+
+Hand-rolled rather than `canvas-confetti` (~5KB gzipped): the mechanism is one canvas,
+one rAF loop and some gravity, and 5KB of parser work is a real cost on these phones for
+something that runs a handful of times a week. Particle colours are read from the **live
+CSS tokens**, not hard-coded, so the next reskin carries the confetti with it — a
+previous one left a hard-coded gold glow behind that clashed for a full release.
+
+**The finding that justifies the whole exercise:** `TargetRing`'s celebration was gated
+on a `previousPercent` prop that **no caller had ever passed**. The effect returned on its
+first line, every time, forever. The confetti was written, reviewed, shipped and had never
+run once. It now remembers the last percentage per device in `localStorage` keyed by
+month, written **before** the crossing is evaluated so a crash mid-celebration cannot
+leave it armed to fire again. Per-device rather than per-account is deliberate: a
+celebration is a moment, not a record, and storing it server-side would mean a write on
+every view of the screen. The cost is that a coach who crosses 50% on their phone and
+later opens a laptop sees it celebrated twice, and one in a private window sees nothing
+(a storage failure is treated as "first view this month", which suppresses rather than
+duplicates).
+
+This is the **third** instance of the same failure mode in this codebase — a finished
+`StreakFlame` no screen rendered, `.neopop`/`.metal-gold` defined and used on two buttons,
+and this. It is now a named trap in `HANDOFF-NEXT.md` §4: **before building anything,
+grep for it — it may already exist.**
+
+---
+
+## D86
+
+**Delight weeks 1 and 2: what shipped, and the one thing each move is allowed to do.**
+
+RULES G6 governs the whole programme — every mechanic maps to a behaviour we need
+repeated, and decoration without behaviour is banned. The moves, and the behaviour each
+one is buying:
+
+- **Metal buttons + universal press feedback** → the app answers a tap at all. Every
+  button, link, `[role=button]` and `summary` scales to 0.965 over 120ms; `.neopop` opts
+  out of the shrink so the two press metaphors never stack. Trust Zones and the public
+  self-capture form are deliberately excluded (G1).
+- **The streak flame** → daily logging. On the home header and the log screen, dim below
+  a streak of 1 rather than absent, so a day-one coach sees the thing they are being
+  asked to start. Transform-only keyframe, so it composites on the GPU.
+- **Count-up numbers** → the number is the emotional content (v1 §9). Renders AT the true
+  value on the server so there is no hydration mismatch, animates from 0 on first load and
+  from the OLD value on change, 380ms, instant under reduced motion.
+- **Haptics** → confirmation you can feel without looking, which is the whole point on a
+  road. Three named patterns; fails silently on every path.
+- **The Member moment** → the stage move the business exists for. Member is the only
+  stage that celebrates, and it is the one place the reserved green is spent.
+- **Milestone events** → streak retention. A milestone renders in the reserved pink and
+  carries a WhatsApp share at the emotional peak. Habit only — no earnings, no rank name
+  (RULES L4/L8).
+- **The capture tick** → "did that save?". A checkmark drawn in one stroke over the whole
+  screen, 520ms, `pointer-events: none`. It takes **no network state**, deliberately: it
+  means "your phone has this", which is the only honest promise capture can make on a
+  weak signal, and it is why it fires on the offline path too. Reduced motion needs no
+  code — the global override forces the duration to ~0 and the animation is `forwards`,
+  so it lands on a complete still tick. An earlier version read the media query in an
+  effect and drew one frame of motion before the state arrived, shown to exactly the
+  people who asked not to see it.
+
+**Scarcity is itself the mechanic.** `celebrate()` deliberately has no "small" variant for
+routine saves: if an ordinary day fired confetti, day 30 would feel like nothing.
+
+---
+
+## D87
+
+**Today's Mission gets a depleting arc only on the row where a denominator actually
+exists, and the follow-up row's missing arc is a data-layer gap, not an oversight.**
+
+The delight plan asked for "each item a depleting arc". Exactly one row can honestly
+carry one: the target, whose next mark (25/50/75/100%) is a fixed number of points the
+coach is walking towards. It runs to the **mark**, not to the month's target — that is
+the distance the row is actually talking about, and a ring that visibly closes this week
+beats one that barely moves all month.
+
+The follow-up row does not get one. "3 of 6 done today" needs a count of follow-ups
+**completed** today, and nothing records that: completing one simply moves
+`nextFollowupAt` forward and it leaves the due set. The available shortcut was to bank
+the morning's due-count in `localStorage` and treat it as the denominator — the same
+per-device pattern D85 uses for the target crossing. It was rejected. A coach who
+reschedules two people would watch the arc jump backwards for reasons the app could not
+explain, and a number a coach cannot trust is worse than no picture on the one card
+whose entire job is to be believed. The honest version needs a `followupsCompletedAt`
+write on stage and date changes, plus a query; that is a data-layer task and is now
+written down as one in the component and in `HANDOFF-NEXT.md`.
+
+What the row gets instead is the **overdue split**, which IS known and was never shown:
+"6 follow-ups waiting / 2 from earlier days — start there". Silent when nothing is late,
+and silent when the caller does not know, rather than claiming zero.
+
+`MiniRing` is a separate component from `TargetRing` rather than a `size` prop on it,
+because `TargetRing` carries the celebration — a localStorage read, milestone detection,
+the confetti call, a dismiss handler. None of that belongs on a card a coach scrolls
+past, and worse, it would **consume the crossing** so the real ring never fires it. Given
+D85, that failure does not get to happen twice. `MiniRing` takes `size` and `stroke`
+precisely because it is only geometry: resizing it cannot change what it means.
+
+---
+
+## D88
+
+**The launcher identity outlived the design system by two reskins, and the test defended
+it.**
+
+`manifest.ts` painted the splash `#0B1020`, `layout.tsx` set the same status-bar colour,
+and `icon.svg` filled its rounded rect with it. That is Dark Achiever's ground (D84). So
+on Android — the entire target platform — every cold start painted a near-black
+rectangle and then loaded a cream app. It survived because **nothing compared the
+launcher to the app**, and because `tests/manifest.test.ts` pinned those exact hexes
+under the title "splash and status bar use the dark ground, not white". The suite had
+been agreeing with the bug through two design systems.
+
+The fix, and the shape of it:
+
+- `background_color` / `theme_color` are the app's real ground. The manifest takes a
+  single value and cannot carry a media query, so it takes the default and a
+  dark-system coach still gets one wrong frame.
+- `viewport.themeColor` DOES take a media query, so the status bar follows the system
+  theme with each theme's actual `--bg`. It is the only slot the platform gives us where
+  both halves of the audience can be right. It is metadata, not CSS, so it cannot read a
+  custom property — the two values must be kept in step with `globals.css` by hand, and a
+  test now enforces that.
+- The icon is repalette. The relationship worth preserving was never the colours, it was
+  the contrast job: a bright mark on a deep ground, so the shape survives at 48px among
+  thirty other icons. Sunrise assigns those roles to different hues, so the ground is the
+  terracotta core and the mark is the cream. One value could not be carried over
+  literally — the gradient's depth stop was a brown gold that still read against
+  near-black, and the same move here (`--accent-lo` on `--accent`) is 1.3:1, so the foot
+  of the stroke would vanish into the ground. It is now 2.8:1.
+
+**The lesson is about the test, not the colour.** A test that pins a VALUE becomes an
+argument for the bug the moment the value moves. It now pins the RELATIONSHIP — the
+splash equals `--bg`, read from `globals.css` — which was true all along and would have
+caught the drift on the reskin commit that caused it.
