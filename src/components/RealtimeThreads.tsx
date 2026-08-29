@@ -70,11 +70,23 @@ export default function RealtimeThreads({
       stops.length = 0;
       seededMine = false;
       seededUpline = false;
-      if (!user) {
-        setLive(false);
-        return;
-      }
-      setLive(true);
+      setLive(false);
+      if (!user) return;
+
+      /**
+       * Live means every listener we attached has delivered its baseline — not
+       * that Firebase Auth resolved, which is what it used to mean and is one
+       * subscription too early. A thread broadcast landing in that gap arrives
+       * inside a FIRST snapshot, which is discarded as the baseline, so its change
+       * is never seen and the screen never refreshes. See the same fix and the
+       * fuller argument in RealtimeProspects.
+       */
+      const pending = uplineId ? 2 : 1;
+      let seeded = 0;
+      const baselineLanded = () => {
+        seeded += 1;
+        if (seeded >= pending) setLive(true);
+      };
 
       const db = firebaseDb();
       const onError = () => {
@@ -91,6 +103,7 @@ export default function RealtimeThreads({
           (snap) => {
             if (!seededMine) {
               seededMine = true;
+              baselineLanded();
               return;
             }
             // Modifications matter here, not just additions: an ack changes a count
@@ -110,6 +123,7 @@ export default function RealtimeThreads({
             (snap) => {
               if (!seededUpline) {
                 seededUpline = true;
+                baselineLanded();
                 return;
               }
               if (snap.docChanges().some((c) => c.type === "added")) router.refresh();

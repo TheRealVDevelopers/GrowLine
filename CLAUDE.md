@@ -60,11 +60,11 @@ container cannot run them, unit tests, typecheck, lint and any pure-model work s
 fine, and the e2e/rules suites wait for the PC leg. Say so in the commit rather than
 skipping silently.
 
-Current green line: **738 unit · 189 rules checks (8 suites) · 71/72 e2e (1 skipped) ·
-0 lint errors.** `e2e/realtime.spec.ts` is intermittent in cloud containers independent
-of any change — measured, not assumed (see `HANDOFF-NEXT.md` §4). Pull the trace before
-calling anything else flaky; the last spec filed that way twice was a real bug that lost
-captures on a weak signal (D73).
+Current green line: **738 unit · 189 rules checks (8 suites) · 71 e2e passing + 1
+skipped · 0 lint errors** — measured on a cloud container, three consecutive full runs.
+`e2e/realtime.spec.ts` used to be intermittent here; it was a real bug and is fixed
+(D89). Pull the trace before calling anything flaky — that is now twice in this
+codebase that "flaky" was a capture the product actually lost (D73, D89).
 
 ---
 

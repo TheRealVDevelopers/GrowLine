@@ -30,6 +30,26 @@ import { firebaseAuth, firebaseDb } from "@/lib/firebase";
  * the cookie outlives it, or storage was cleared — this quietly does nothing and
  * the coach still sees their prospects on the next load. Failing silent is right
  * here: a realtime nicety must never be able to break the screen it decorates.
+ *
+ * ## The window that dropped captures
+ *
+ * `ready` used to be set the moment Firebase Auth resolved — one line above the
+ * subscription, and independent of whether it ever attached. A prospect submitted
+ * in the gap between those two moments arrives inside the listener's FIRST
+ * snapshot, which is deliberately discarded as the baseline, so its `added` change
+ * was never seen and the screen never refreshed. The capture was in the database
+ * and invisible until something else caused a reload.
+ *
+ * Small window, real one, and biased towards the worst case: it is widest on a
+ * slow phone on a weak signal, which is where Mode B lives. `e2e/realtime.spec.ts`
+ * hit it whenever the machine was busy — it passed alone in 3.6s and failed inside
+ * the full suite — and was on its way to being filed as flaky for a third time.
+ * D73 is the standing warning about exactly that, and this is the same shape: an
+ * intermittent test describing a capture the product actually loses.
+ *
+ * `ready` is now set from inside the snapshot callback, so `data-live="1"` means
+ * what the test always assumed it meant — the listener has delivered its baseline
+ * — and everything after it is genuinely new.
  */
 export default function RealtimeProspects() {
   const router = useRouter();
@@ -43,14 +63,18 @@ export default function RealtimeProspects() {
     const stopAuth = onAuthStateChanged(firebaseAuth(), (user) => {
       stopSnapshot?.();
       seeded.current = false;
+      setReady(false);
       if (!user) return;
-      setReady(true);
 
       stopSnapshot = onSnapshot(
         query(collection(firebaseDb(), "prospects"), where("coachId", "==", user.uid)),
         (snap) => {
           if (!seeded.current) {
             seeded.current = true;
+            // The baseline has landed, so the listener is genuinely serving from
+            // here on. Anything that arrived before this point is already in the
+            // server-rendered list below.
+            setReady(true);
             return;
           }
           // Only additions matter here — edits are made on this device and are

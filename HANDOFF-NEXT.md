@@ -297,11 +297,20 @@ remove it.
 dying server. If you kill a suite, verify ports 3000/9099/8080 are free before
 re-running, or you will debug 50 cascade failures that mean nothing.
 
-**A known e2e intermittency exists.** `realtime.spec.ts` and
-`offline-capture.spec.ts` each fail roughly 1-in-3 *on unmodified code* in this
-container (measured: baseline 2/3 pass, six runs). Both wait 20s for a Firestore
-listener to deliver a row. **Before blaming your change, run the baseline three
-times.** It is worth chasing properly; it is not yet chased.
+**~~A known e2e intermittency exists.~~ It was a real bug. Fixed 2026-08-29 (D89).**
+`realtime.spec.ts` failed roughly 1-in-3 on unmodified code and was written off
+here as an environment problem. It was not. `RealtimeProspects` flipped its
+"listening" flag when Firebase *Auth* resolved, one line above the subscription —
+so a QR capture landing in that gap arrived inside the listener's first snapshot,
+which is deliberately discarded as the baseline, and the coach's screen never
+refreshed. The row sat in Firestore, invisible. `RealtimeThreads` had it too.
+Three consecutive full suites now pass.
+
+That is **twice** in this project that "flaky" was hiding a capture the product
+actually lost (D73, D89). The rule stands and has teeth: **pull the trace before
+calling anything flaky.** The trace is what settled this one — it showed the flag
+set, the write accepted, and delivery never happening, which ruled out the whole
+setup half of the spec.
 
 **Tests that pin design values break on every reskin.** Three did. They now assert
 *relationships* (light is lighter than dark; body background equals the `--bg`

@@ -4536,3 +4536,49 @@ The fix, and the shape of it:
 argument for the bug the moment the value moves. It now pins the RELATIONSHIP — the
 splash equals `--bg`, read from `globals.css` — which was true all along and would have
 caught the drift on the reskin commit that caused it.
+
+---
+
+## D89
+
+**The "flaky" realtime spec was a real window in which a QR capture was silently
+dropped — the second time in this codebase that an intermittent test was describing a
+bug the product actually had.**
+
+`RealtimeProspects` set `ready` — the `data-live="1"` flag the e2e asserts on — the
+moment Firebase Auth resolved, one line *above* the `onSnapshot` subscription and
+independent of whether it ever attached. The listener deliberately discards its first
+snapshot, because that snapshot carries the rows the server already rendered. Put those
+two together:
+
+1. Auth resolves. `data-live="1"`. The screen claims to be listening.
+2. A prospect submits the public QR form. The document is written.
+3. `onSnapshot` attaches, or its first payload is still in flight.
+4. The baseline snapshot arrives **containing that prospect**, is discarded as the
+   baseline, and its `added` change is never seen.
+5. Nothing further ever arrives. The row sits in Firestore, invisible on screen until
+   something unrelated causes a reload.
+
+The window is small and biased towards the worst case: it is widest on a slow phone on a
+weak signal, which is exactly where Mode B lives. `e2e/realtime.spec.ts` hit it whenever
+the machine was busy — **it passed alone in 3.6s and failed inside the full suite** — and
+had been filed as an environment problem twice. `HANDOFF-NEXT.md` and `CLAUDE.md` both
+described it as a container intermittency; both were wrong.
+
+The trace is what settled it, per the standing D73 rule. It showed the listener flag set,
+the POST accepted, and delivery simply never happening — which ruled out the setup half
+of the spec and left only the discard.
+
+Fix: `ready` is set from **inside** the snapshot callback when the baseline lands. So
+`data-live="1"` now means what the test always assumed — the listener has delivered its
+baseline, and everything after it is genuinely new. `RealtimeThreads` had the identical
+defect (a broadcast landing in the gap was discarded the same way) and needed a small
+extra step, since it attaches two listeners: `live` waits for every baseline it actually
+subscribed, which is two when the coach has an upline and one when they do not.
+
+Verified: three consecutive full e2e suites, 71 passed / 1 skipped / 0 failed, on the
+container where the spec had been failing.
+
+**The rule this reinforces, now with two instances behind it:** "passes alone, fails in
+the suite" is not a diagnosis. Pull the trace. Both times that phrase was used in this
+project it was hiding a capture the product lost for real.
