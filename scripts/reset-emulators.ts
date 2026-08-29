@@ -22,6 +22,12 @@
  * signup either collides or silently signs in as the previous run's user.
  */
 
+// This file imports nothing. Without an export TypeScript treats it as a global
+// script, so `PROJECT` and `main` land in the same scope as every other global file
+// in the program — and it duly started colliding the moment a second script in this
+// folder used those names. One empty export makes it a module and closes the class.
+export {};
+
 const FIRESTORE_HOST = process.env.FIRESTORE_EMULATOR_HOST ?? "127.0.0.1:8080";
 const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? "127.0.0.1:9099";
 const PROJECT = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "growline-dev";

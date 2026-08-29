@@ -75,14 +75,37 @@ are possible, and they fail in opposite directions:
   bundle. The entire P1/P2 privacy commitment rests on rules being live, and this
   state looks *identical* to a correct one from inside the app.
 
-Settle it, then deploy them regardless:
+**Partly settled, 2026-08-29.** `npm run verify:rules` asks production from
+outside, with no credentials at all, and it passes 6/6: an anonymous client
+holding the public project id is refused on `prospects`, `users`, `reports`,
+`dailyLogs`, `goalSheets` and the Storage bucket. **The catastrophic branch is
+closed** — production is not in test mode.
+
+What that cannot tell you is whether the denial comes from *our* ruleset or from
+the default lock, because they look identical from outside. To settle it, pass a
+Firebase ID token for any signed-in coach (yours; it lasts an hour and carries no
+more privilege than that account):
 
 ```
-firebase deploy -P prod --only firestore:rules,storage:rules
+npm run verify:rules -- --id-token="$TOKEN"
+```
+
+Our rules allow a coach to read their own prospects; the default lock allows
+nothing. If that probe is REFUSED, the default lock is live and every client
+listener in the app is failing right now.
+
+Then deploy them regardless — it costs nothing and ends the question:
+
+```
+npx firebase login
+npx firebase deploy -P prod --only firestore:rules,storage:rules
+npm run verify:rules            # 6/6 must still pass afterwards
 ```
 
 Never run `firebase deploy` without `--only`: it would ship the nine Cloud
-Functions as a side effect of a rules change.
+Functions as a side effect of a rules change. And re-run `verify:rules` **after**
+every rules deploy — a permissive ruleset deploys just as cleanly as a correct
+one, and this is the only check that would notice.
 
 **D1. Deploy the nine Cloud Functions. Nothing else on this list matters more.**
 They have **never been deployed**. Eight are scheduled jobs; the ninth,
