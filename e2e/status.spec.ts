@@ -27,3 +27,34 @@ test("the health readout is reachable signed out, and every probe reports", asyn
   // It never asks anyone to sign in.
   await expect(page).toHaveURL(/\/status$/);
 });
+
+/**
+ * The build stamp, which is the only thing on the page that can tell a successful
+ * rollout from one that silently rolled back.
+ *
+ * A failed App Hosting rollout does not take the site down — the previous good
+ * build keeps serving — so every other check here passes just as happily against a
+ * deploy that never landed. This is the line that distinguishes them, and it is
+ * resolved at BUILD time through a fallback chain that is deliberately allowed to
+ * give up. "unknown" is the giving-up value, and it must never be what production
+ * shows, so the test that guards it has to reject exactly that.
+ */
+test("the page names the build it is serving", async ({ page }) => {
+  await page.goto("/status");
+
+  const stamp = page.getByTestId("build-stamp");
+  await expect(stamp).toBeVisible();
+
+  const sha = await page.getByTestId("build-sha").innerText();
+  expect(sha).not.toBe("unknown");
+  // Seven hex characters — a short git SHA, not a placeholder and not a truncated
+  // branch name.
+  expect(sha).toMatch(/^[0-9a-f]{7}$/);
+
+  // And a timestamp that parses, so "how old is what is serving?" is answerable
+  // even on a build where the SHA had to fall through.
+  const text = await stamp.innerText();
+  const iso = /(\d{4}-\d{2}-\d{2}T[\d:.]+Z)/.exec(text);
+  expect(iso, `no ISO timestamp in "${text}"`).not.toBeNull();
+  expect(Number.isNaN(Date.parse(iso![1]))).toBe(false);
+});

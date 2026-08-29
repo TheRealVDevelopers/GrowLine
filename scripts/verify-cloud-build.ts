@@ -115,7 +115,13 @@ function main() {
     console.log(`  ${bad} variable(s) would be undefined in the browser.\n`);
     process.exit(1);
   }
-  console.log("  Safe to roll out.\n");
+  console.log("  Safe to roll out.");
+  // It leaves .next built with PRODUCTION values, and e2e's global setup refuses
+  // to run against a bundle built with different env values than the test run —
+  // correctly, since that is the "e2e runs whatever is in .next" trap. Say so here
+  // rather than letting the next person read it as a broken test suite.
+  console.log("  Note: .next now holds a production build. Run `npm run build`");
+  console.log("  before `npm run e2e`, or its env guard will refuse to start.\n");
 }
 
 main();

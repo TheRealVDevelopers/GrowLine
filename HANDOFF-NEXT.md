@@ -379,6 +379,14 @@ body, not the header; and check `DECISIONS.md` D84+ for what actually shipped.
 `firestore.indexes.json` contains 15. The file is authoritative; `HANDOFF.md` is
 stale and will make someone hunt for ten indexes that never existed.
 
+**A failed rollout looks exactly like a working site.** App Hosting keeps serving
+the previous good build when a rollout fails, so "the site loads" is not evidence
+that your commit is live — and for most of this project's life there was no way
+to tell from outside. `/status` now prints the commit and build time it is
+serving (`data-testid="build-stamp"`). **That line, not the page loading, is how
+you confirm a deploy.** If the SHA is not the one you pushed, the rollout failed
+and rolled back silently.
+
 **Deploying the app is a `git push`, and there is a way to check it first.**
 App Hosting watches the connected branch (`master`) and rolls out on every push
 to it. There is no deploy command for the app itself and no `hosting` block in

@@ -143,6 +143,17 @@ export default async function StatusPage() {
             ? "Every check the home screen depends on passed."
             : `${failures} of ${results.length} checks failed — the failure text below is the diagnosis.`}
         </p>
+        {/* Which build is actually serving. A failed rollout does not take the site
+            down — the previous good build keeps answering — so this line is the
+            only thing on the page that can tell a successful deploy from one that
+            silently rolled back. Inlined at build time; see next.config.ts. */}
+        <p className="mt-3 font-mono text-xs text-text-dim" data-testid="build-stamp">
+          build{" "}
+          <span className="font-semibold text-text" data-testid="build-sha">
+            {process.env.BUILD_SHA ?? "unknown"}
+          </span>{" "}
+          · {process.env.BUILT_AT ?? "unknown"}
+        </p>
       </header>
 
       <ul className="flex flex-col gap-3">
