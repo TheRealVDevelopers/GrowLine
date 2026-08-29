@@ -72,6 +72,7 @@ export default async function HomePage() {
     streak: logState.streak,
     loggedToday: logState.hasLoggedToday,
     followupsDue: followups.due,
+    followupsOverdue: followups.overdue,
     targetPoints: myTarget?.targetPoints ?? null,
     progressPoints: myTarget?.progressPoints ?? null,
   });

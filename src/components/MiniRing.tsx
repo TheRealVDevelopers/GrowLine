@@ -25,18 +25,37 @@
  * part of the circle is the story would be worse than having no ring on home.
  */
 
-const SIZE = 44;
-const STROKE = 5;
-const R = (SIZE - STROKE) / 2;
-const CIRCUMFERENCE = 2 * Math.PI * R;
+/**
+ * ## Size is a prop here, and was not on TargetRing
+ *
+ * Because this component is only geometry, resizing it cannot change what it
+ * means. TargetRing carries behaviour, so a `size` prop there would have been a
+ * quiet invitation to reuse the celebration in places it does not belong — which
+ * is the exact mistake this file exists to avoid.
+ */
+const DEFAULT_SIZE = 44;
+const DEFAULT_STROKE = 5;
 
 export default function MiniRing({
   progress,
   target,
+  size = DEFAULT_SIZE,
+  stroke = DEFAULT_STROKE,
+  testId = "mini-ring",
 }: {
   progress: number;
   target: number;
+  size?: number;
+  stroke?: number;
+  /** Named per placement: home shows two of these, and a test must be able to
+   *  say which one it means. */
+  testId?: string;
 }) {
+  const SIZE = size;
+  const STROKE = stroke;
+  const R = (SIZE - STROKE) / 2;
+  const CIRCUMFERENCE = 2 * Math.PI * R;
+
   const pct = target > 0 ? Math.round((progress / target) * 100) : 0;
   const clamped = Math.min(100, Math.max(0, pct));
   const dashRemaining = (CIRCUMFERENCE * (100 - clamped)) / 100;
@@ -48,7 +67,7 @@ export default function MiniRing({
       viewBox={`0 0 ${SIZE} ${SIZE}`}
       aria-hidden
       className="shrink-0"
-      data-testid="mini-ring"
+      data-testid={testId}
       data-percent={pct}
     >
       <circle
