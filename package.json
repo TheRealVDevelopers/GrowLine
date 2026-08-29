@@ -28,6 +28,7 @@
     "test:rules:wall": "tsx e2e/wall-rules.test.ts",
     "verify:indexes": "tsx scripts/verify-indexes.ts",
     "verify:rules": "tsx scripts/verify-production-rules.ts",
+    "verify:build": "tsx scripts/verify-cloud-build.ts",
     "backfill:prospect-activity": "tsx scripts/backfill-prospect-activity.ts"
   },
   "dependencies": {
