@@ -75,7 +75,7 @@ describe("it looks like the app, not like a default", () => {
      * and would have caught the drift on the reskin commit that caused it.
      */
     const css = readFileSync("src/app/globals.css", "utf8");
-    const bg = /:root\s*\{[^}]*?--bg:\s*(#[0-9a-fA-F]{3,8})/s.exec(css);
+    const bg = /:root\s*\{[^}]*?--bg:\s*(#[0-9a-fA-F]{3,8})/.exec(css);
     assert.ok(bg, "could not find --bg on :root in globals.css");
     assert.equal(m.background_color, bg[1]);
     assert.equal(m.theme_color, bg[1]);
@@ -87,7 +87,7 @@ describe("it looks like the app, not like a default", () => {
     // and each colour must be its own theme's real ground.
     const layout = readFileSync("src/app/layout.tsx", "utf8");
     const css = readFileSync("src/app/globals.css", "utf8");
-    const light = /:root\s*\{[^}]*?--bg:\s*(#[0-9a-fA-F]{3,8})/s.exec(css)?.[1];
+    const light = /:root\s*\{[^}]*?--bg:\s*(#[0-9a-fA-F]{3,8})/.exec(css)?.[1];
     const dark = /prefers-color-scheme:\s*dark[\s\S]{0,200}?--bg:\s*(#[0-9a-fA-F]{3,8})/.exec(css)?.[1];
     assert.ok(light && dark, "could not read both --bg values from globals.css");
     assert.match(layout, /prefers-color-scheme: light\)", color: "#/);
