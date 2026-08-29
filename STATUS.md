@@ -1,4 +1,4 @@
-# GROWLINE STATUS — last updated: 2026-08-14 · updated from: PC · branch: `feature/new-modules`
+# GROWLINE STATUS — last updated: 2026-08-29 · updated from: cloud · branch: all three at parity
 
 > Single source of truth between mobile and PC. Produced by a read-only audit that read
 > code paths end to end — not commit messages, not filenames, not docs.
@@ -143,9 +143,18 @@ different reasons and described it identically — `users` deny-all, the `prospe
 - [ ] **Firebase migration** — done: Auth, Firestore, Security Rules, Cloud Functions.
       **missing:** Storage is deny-all and unused (photos and proof media are still base64 data
       URLs, D49); **FCM was never built — push still runs Web Push/VAPID.** · branch: both
-- [ ] **Design System 2.0** — done: dark-default token layer, gold/jewel palette, serif+sans,
-      screens reskinned. **missing:** the 8-item Jewel Asset Pack (`assets/jewels/`) does not
-      exist; tier plaques/medals have nowhere to render until Tiers ships. · branch: both
+- [ ] **Design System — 3.2 "Sunrise", NOT the 2.0 "Dark Achiever" this file used to
+      describe.** The v2 §4 dark-navy/champagne-gold system shipped, was rejected by the
+      owner on the running app, and was replaced twice: 3.0 Voltage → 3.1 Sunrise → 3.2
+      Nunito. Current identity is a **warm cream ground `#fff9f2`, burnt terracotta accent
+      `#c4490a`, glassmorphism without `backdrop-filter` (G4), Nunito throughout, light
+      theme by default** with a warm-black dark theme following the system preference.
+      Read **D84** before touching any of it — in particular, the `--gold-*` tokens now
+      alias terracotta, so a component that says `bg-gold` renders burnt orange.
+      **missing:** the 8-item Jewel Asset Pack (`assets/jewels/`) does not exist — and it
+      was specified for the DELETED metals ladder (silver/champagne-gold/platinum), so
+      whether that survives the move to Sunrise is an open design decision, not just a
+      production task. · branch: all three
 - [ ] **Mode A consent** — done: the tick, strict server enforcement, survives the offline
       queue. **missing:** the itemized privacy-notice link the same spec item requires (D61).
 - [ ] **Bundled fonts (Kannada/Devanagari + bold)** — done: real TTFs committed, no Google fetch

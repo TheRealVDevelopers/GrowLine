@@ -24,14 +24,21 @@
 
 ---
 
-## ▶ START HERE — what to do next (updated 2026-08-14, PC · both branches at `357fe67`)
+## ▶ START HERE — what to do next (updated 2026-08-29, cloud · all three branches at parity)
 
-**Read `STATUS.md` first** — it is the audited state of every feature; this section is the
-short version. Then `RULES.md`. Then come back here and pick up at **"The next session"**.
+**Read [`HANDOFF-NEXT.md`](./HANDOFF-NEXT.md) first.** It is the current plan: what is
+live, what blocks a real pilot, in what order, and — in its §7 — where it was itself
+found to be wrong. Then `RULES.md`. `STATUS.md` is still the per-feature audit and worth
+reading, but **its design-system section describes a system that was deleted**; D84
+supersedes it.
 
-`master` and `feature/new-modules` are the SAME commit. Work on `feature/new-modules`,
-merge forward to `master` when a stretch is green. Every merge so far has been a clean
-fast-forward.
+Everything below this heading down to "the remaining build queue" is the 2026-08-14
+Razorpay plan and is **finished** — kept for its reasoning, not as instructions. The
+live work is in `HANDOFF-NEXT.md` §2.
+
+Three branches — `master`, `feature/new-modules`, `claude/pull-everything-2hzx4h` — and
+they are kept at the same commit. Work on one, fast-forward the other two. Every merge so
+far has been clean.
 
 ### How to start a session on any device
 
@@ -53,11 +60,15 @@ container cannot run them, unit tests, typecheck, lint and any pure-model work s
 fine, and the e2e/rules suites wait for the PC leg. Say so in the commit rather than
 skipping silently.
 
-Current green line: **615 unit · 189 rules checks (8 suites) · 49/49 e2e · 0 lint errors.**
+Current green line: **738 unit · 189 rules checks (8 suites) · 71/72 e2e (1 skipped) ·
+0 lint errors.** `e2e/realtime.spec.ts` is intermittent in cloud containers independent
+of any change — measured, not assumed (see `HANDOFF-NEXT.md` §4). Pull the trace before
+calling anything else flaky; the last spec filed that way twice was a real bug that lost
+captures on a weak signal (D73).
 
 ---
 
-### THE NEXT SESSION — finish Razorpay (Phase 9b), in this order
+### ~~THE NEXT SESSION — finish Razorpay (Phase 9b)~~ — DONE 2026-08-14/24. See D75, D76.
 
 The foundation is on both branches (D75 pending — see step 6). What is left is wiring,
 proof and paperwork. Do it in this order; each step is one commit.
