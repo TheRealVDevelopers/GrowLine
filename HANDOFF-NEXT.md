@@ -379,6 +379,35 @@ body, not the header; and check `DECISIONS.md` D84+ for what actually shipped.
 `firestore.indexes.json` contains 15. The file is authoritative; `HANDOFF.md` is
 stale and will make someone hunt for ten indexes that never existed.
 
+**Deploying the app is a `git push`, and there is a way to check it first.**
+App Hosting watches the connected branch (`master`) and rolls out on every push
+to it. There is no deploy command for the app itself and no `hosting` block in
+`firebase.json` — `firebase deploy --only hosting` will never work here, because
+firebase-tools 15's Next adapter declares support for `12 - 16.0` against
+next@16.3.0 (D79). To force a rollout of a specific commit, or if the backend's
+rollout policy is manual rather than automatic:
+
+```
+npx firebase apphosting:rollouts:create growline -P prod -g <commit>
+```
+
+Before pushing anything that touches configuration:
+
+```
+npm run verify:build
+```
+
+It builds with `.env` hidden, `K_SERVICE` unset, and only the variables
+`apphosting.yaml` marks BUILD — read out of that file, so the two cannot drift —
+then greps the emitted chunks to prove every `NEXT_PUBLIC_*` a client file reads
+was actually inlined. A local `npm run build` passing proves close to nothing:
+`.env` is gitignored and never uploaded, so the cloud has none of it, and a
+variable that resolves empty is compiled in as `undefined` rather than erroring.
+The browser then talks to nothing, in production only.
+
+Also never run `firebase deploy` with no `--only`: it would ship the nine Cloud
+Functions as a side effect of whatever you meant to deploy.
+
 **`value: ""` is invalid in `apphosting.yaml`.** To a Go validator an empty string
 is indistinguishable from unset, so the entry reads as an env var with neither
 value nor secret and **the whole file is rejected** — nine rollouts failed on this.
