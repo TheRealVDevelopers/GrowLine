@@ -58,3 +58,22 @@ env:
     value: "file:./dev.db"
     availability:
       - BUILD
+
+  # RUNTIME only, never BUILD. A secret given BUILD availability is a secret in the
+  # build logs, and the build has no use for it: nothing renders at build time.
+  #
+  # The same Secret Manager secret the nine Cloud Functions declare, deliberately —
+  # seven of them work by calling this app's own HTTP routes, and checkCronSecret
+  # compares what arrives against this value. Two secrets would be two things to
+  # rotate and one silent 401.
+  #
+  # This entry is a HARD reference: if the App Hosting backend's service account
+  # cannot read the secret, the whole rollout fails. Creating it with
+  # `functions:secrets:set` grants the FUNCTIONS runtime account, not this one, so
+  # the grant is a separate step and it must already have happened:
+  #
+  #     firebase apphosting:secrets:grantaccess CRON_SECRET -b growline
+  - variable: CRON_SECRET
+    secret: CRON_SECRET
+    availability:
+      - RUNTIME
