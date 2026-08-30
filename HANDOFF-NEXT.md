@@ -151,6 +151,26 @@ firebase functions:secrets:set CRON_SECRET --project grow--line
 firebase deploy -P prod --only functions
 ```
 
+**From a phone**, the same one paste into Cloud Shell:
+
+```
+rm -rf ~/growline-deploy && git clone -q --depth 1 \
+  https://github.com/TheRealVDevelopers/GrowLine.git ~/growline-deploy \
+  && bash ~/growline-deploy/scripts/deploy-functions.sh
+```
+
+It creates `CRON_SECRET` only if it does not already exist — overwriting a live
+one would leave the app runtime holding a value the functions no longer send —
+builds, and deploys `--only functions`.
+
+**It deliberately does not run the backfill, and that ordering is the point.** The
+purge ignores any prospect with no `lastActivityAt`, so deploying without it means
+the job quietly does nothing: under-deletion, the safe failure. The backfill seeds
+the field from `createdAt`, and its own header spells out the cost — a prospect
+captured 200 days ago but worked yesterday gets a value already past the window
+and goes on the next run. The backfill is what **arms** the purge. Give it its own
+session, with `--check` first.
+
 **Four independent switches sit behind "background jobs work", and each fails
 silently on its own.** Getting three of four right produces a system that reports
 healthy in Cloud Logging and does nothing a coach can see:
