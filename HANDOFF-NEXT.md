@@ -102,6 +102,31 @@ npx firebase deploy -P prod --only firestore:rules,storage:rules
 npm run verify:rules            # 6/6 must still pass afterwards
 ```
 
+**From a phone, none of that works.** There is no laptop for `firebase login`,
+the GitHub mobile app cannot dispatch the Actions button, and pasting seven
+hundred lines of `firestore.rules` into the Firebase console by hand is not a
+plan. Use Google Cloud Shell — a real terminal in a mobile browser, already
+signed in as the project owner, no key to create. The indexes were deployed that
+way once already. One paste:
+
+```
+rm -rf ~/growline-deploy && git clone -q --depth 1 \
+  https://github.com/TheRealVDevelopers/GrowLine.git ~/growline-deploy \
+  && bash ~/growline-deploy/scripts/deploy-rules.sh
+```
+
+It deploys `firestore:rules,storage` only, then re-runs the anonymous probes with
+plain `curl` so the check needs no `npm ci`. If it says you are not signed in it
+prints the one `login --no-localhost` command that works without a redirect to
+localhost.
+
+**The better fix is still the Actions button.** `deploy-rules.yml` exists and is
+correct; it needs a `FIREBASE_SERVICE_ACCOUNT` repo secret that has never been
+created (Firebase Rules Admin + Cloud Datastore Index Admin, nothing more). Once
+it exists the deploy is one tap from a browser, every run is attributable, and no
+credential is ever retyped. **Note the workflow has never run once** — there are
+no `workflow_dispatch` runs in this repo's history at all.
+
 Never run `firebase deploy` without `--only`: it would ship the nine Cloud
 Functions as a side effect of a rules change. And re-run `verify:rules` **after**
 every rules deploy — a permissive ruleset deploys just as cleanly as a correct
