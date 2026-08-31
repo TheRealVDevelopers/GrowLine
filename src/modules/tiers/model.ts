@@ -229,7 +229,18 @@ export const TIER_INFO: Record<
       "Set targets with your line",
       "Send messages to your line",
       "Check and approve proof",
-      "Pro page, no watermark",
+      // "Pro page, no watermark" was here and was false in all three of its parts.
+      // There is no Pro page — the Portfolio type has no transformations,
+      // testimonials, achievements or theme fields. The portfolio watermark cannot
+      // be turned off, because `isPro` is declared, defaulted to false and read, and
+      // written by nothing in the entire repo. And the report card prints "Growline"
+      // unconditionally (report-card.tsx:251 and :501), which is the artefact that
+      // actually travels.
+      //
+      // This is a price screen, so RULES G1 applies: a Trust Zone states what is
+      // true. Selling a coach a feature that does not exist is the one thing a
+      // money screen may never do. The line comes back when the feature does —
+      // tests/tiers.test.ts refuses it until then.
     ],
     available: true,
   },

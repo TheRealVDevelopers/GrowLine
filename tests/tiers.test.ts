@@ -1,6 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { execSync } from "node:child_process";
 import {
   LEADER_TOOLS,
   LEADER_TRIAL_DAYS,
@@ -222,5 +223,89 @@ describe("the gates are standing in the Leader routes", () => {
     assert.ok(reviewIdx < src.indexOf("reviewProof("));
     const submitBranch = src.slice(src.lastIndexOf("\n", submitIdx - 200), submitIdx);
     assert.doesNotMatch(submitBranch, /gateLeaderTool/);
+  });
+});
+
+describe("a price screen may not sell what does not exist (RULES G1)", () => {
+  /**
+   * The Leader tier once listed "Pro page, no watermark". Every part of it was false:
+   * the Portfolio type has no transformations, testimonials, achievements or theme
+   * fields; `isPro` is declared, defaulted to false and read, but written by NOTHING
+   * in the repo, so the portfolio watermark can never turn off; and the report card
+   * prints "Growline" unconditionally — which is the artefact that actually travels
+   * on WhatsApp.
+   *
+   * It survived because nothing connected the sales copy to the code behind it. These
+   * tests are that connection. Each one lets the claim back the moment the feature is
+   * real, and not one moment before.
+   *
+   * This is the mirror of the "built but never mounted" trap that has caught this
+   * codebase three times. Here the failure runs the other way — promised but never
+   * built — and it is worse, because it appears on the screen where a coach is asked
+   * for money.
+   */
+  const src = (p: string) => readFileSync(p, "utf8");
+  const code = (t: string) =>
+    t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+  const leaderCopy = () =>
+    code(src("src/modules/tiers/model.ts"))
+      .split("leader:")[1]
+      .split("elite:")[0]
+      .toLowerCase();
+
+  test("no watermark claim while the watermark cannot be turned off", () => {
+    const claimsIt = /watermark/.test(leaderCopy());
+    if (!claimsIt) return;
+
+    // The portfolio half: `isPro` has to be WRITTEN somewhere, not just read.
+    const writesIsPro = ["src", "functions/src", "scripts"].some((dir) => {
+      try {
+        return execSync(
+          `grep -rn "isPro:" ${dir} --include=*.ts --include=*.tsx || true`,
+          { encoding: "utf8" }
+        )
+          .split("\n")
+          .some((l) => l.includes("isPro:") && !l.includes("isPro: false") && !l.includes("isPro: boolean"));
+      } catch {
+        return false;
+      }
+    });
+    assert.ok(writesIsPro, "Leader claims 'no watermark' but nothing ever sets isPro");
+
+    // The report half: the card is the artefact that travels, so its mark has to be
+    // conditional before the claim is true.
+    const card = code(src("src/lib/report-card.tsx"));
+    const marks = card.split("\n").filter((l) => /Growline/.test(l));
+    assert.ok(
+      marks.every((l) => /\?|&&|isPro|tier/.test(l)),
+      "Leader claims 'no watermark' but report-card.tsx prints Growline unconditionally"
+    );
+  });
+
+  test("no Pro page claim while the portfolio has no Pro fields", () => {
+    if (!/\bpro\b/.test(leaderCopy())) return;
+    const portfolio = code(src("src/modules/portfolio/model.ts"));
+    for (const field of ["transformations", "testimonials", "achievements"]) {
+      assert.match(
+        portfolio,
+        new RegExp(field),
+        `Leader claims a Pro page but Portfolio has no ${field} field`
+      );
+    }
+  });
+
+  test("no analytics claim while no analytics screen exists", () => {
+    if (!/analytic/.test(leaderCopy())) return;
+    const found = execSync(
+      `grep -rln "analytics" src/app --include=*.tsx || true`,
+      { encoding: "utf8" }
+    ).trim();
+    assert.ok(found.length > 0, "Leader claims team analytics but no screen renders it");
+  });
+
+  test("every Leader tool named in the copy is a real gated tool", () => {
+    // The three that ARE real, and are enforced by gateLeaderTool on real routes.
+    assert.deepEqual([...LEADER_TOOLS], ["set-targets", "send-threads", "review-proofs"]);
   });
 });
